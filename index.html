@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WoodWork Smart Calculator</title>
+    
+    <!-- 1. STYLE ENGINE (Tailwind CSS) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. THE BRAIN (React & Babel) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Prevent pull-to-refresh on mobile for better app feel */
+        body { overscroll-behavior-y: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans pb-20 select-none">
+
+    <div id="root"></div>
+
+    <!-- 3. THE APP LOGIC -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- ICONS (Inline SVG to remove dependencies) ---
+        const Icon = ({ path, size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+
+        const Icons = {
+            Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
+            Ruler: (p) => <Icon {...p} path={<><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0l12.6 12.6z"/><line x1="14.5" y1="9.4" x2="16.5" y2="11.4"/><line x1="11.7" y1="12.3" x2="13.7" y2="14.3"/><line x1="8.8" y1="15.1" x2="10.8" y2="17.1"/></>} />,
+            ChevronDown: (p) => <Icon {...p} path={<polyline points="6 9 12 15 18 9"/>} />,
+            ChevronUp: (p) => <Icon {...p} path={<polyline points="18 15 12 9 6 15"/>} />,
+            Info: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
+            Rotate3d: (p) => <Icon {...p} path={<><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2"/><path d="m15.194 13.707 3.814 1.86-1.86 3.814"/><path d="M19 15.57c-1.804.885-4.274 1.43-7 1.43-5.523 0-10-2.239-10-5s4.477-5 10-5c4.838 0 8.873 1.718 9.8 4"/></>} />,
+            Layers: (p) => <Icon {...p} path={<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>} />,
+            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>} />,
+            EyeOff: (p) => <Icon {...p} path={<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>} />
+        };
+
+        // --- HELPER FUNCTIONS ---
+        const getPurchasedFeet = (inches) => Math.ceil(inches / 12);
+
+        const calculateCFT = (lengthInches, widthInches, thicknessInches, count = 1) => {
+            const purchasedFeet = getPurchasedFeet(lengthInches);
+            return ((purchasedFeet * widthInches * thicknessInches) / 144) * count;
+        };
+
+        const getRunnerDims = (type) => {
+            if(type === '3x1.5') return { w: 3, t: 1.5 };
+            if(type === '4x2') return { w: 4, t: 2 };
+            if(type === '4x3') return { w: 4, t: 3 };
+            if(type === '3x1') return { w: 3, t: 1 };
+            if(type === '4x1') return { w: 4, t: 1 };
+            return { w: 3, t: 1 };
+        };
+
+        // --- REACT COMPONENTS ---
+
+        const SectionHeader = ({ title, isOpen, toggle, calculatedCft }) => (
+            <button onClick={toggle} className={`w-full flex items-center justify-between p-4 ${isOpen ? 'bg-amber-100 text-amber-900' : 'bg-white text-gray-700'} border-b border-gray-200 transition-colors duration-200`}>
+                <div className="flex items-center gap-2 font-bold text-lg">
+                    {isOpen ? <Icons.ChevronUp size={20} /> : <Icons.ChevronDown size={20} />}
+                    {title}
+                </div>
+                <div className="text-sm font-mono font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200 text-amber-800">
+                    {calculatedCft.toFixed(3)} CFT
+                </div>
+            </button>
+        );
+
+        const NumberInput = ({ label, value, onChange, step = 0.125 }) => (
+            <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
+                <input type="number" value={value} onChange={(e) => { const val = e.target.value; onChange(val === '' ? '' : parseFloat(val)); }} step={step} className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 font-mono focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+            </div>
+        );
+
+        const SelectInput = ({ label, value, onChange, options }) => (
+            <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
+                <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+                    {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+            </div>
+        );
+
+        // --- MAIN APP ---
+        function App() {
+            const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
+            const [unit, setUnit] = useState('inch'); 
+
+            const [settings, setSettings] = useState({
+                karaMaalThickness: 0.75, karaRunnerType: '3x1', 
+                bottomMaalThickness: 1, bottomRunnerCount: 3, bottomRunnerDir: 'length', bottomRunnerType: '4x2', 
+                sideMaalThickness: 1, sideRunnerCount: 2, sideRunnerDir: 'height', sideRunnerType: '3x1',
+                topMaalThickness: 1, topRunnerCount: 2, topRunnerDir: 'width', topRunnerType: '3x1',
+            });
+
+            const [openSection, setOpenSection] = useState('bottom'); 
+            const [globalRunner, setGlobalRunner] = useState('3x1');
+            const [showRunners, setShowRunners] = useState(true);
+
+            const applyGlobalRunner = (type) => {
+                setGlobalRunner(type);
+                setSettings(prev => ({
+                    ...prev,
+                    karaRunnerType: type, bottomRunnerType: type, sideRunnerType: type, topRunnerType: type
+                }));
+            };
+
+            // Calculations
+            const rawL = dims.l === '' ? 0 : parseFloat(dims.l);
+            const rawW = dims.w === '' ? 0 : parseFloat(dims.w);
+            const rawH = dims.h === '' ? 0 : parseFloat(dims.h);
+
+            const l_in = unit === 'mm' ? rawL / 25.4 : rawL;
+            const w_in = unit === 'mm' ? rawW / 25.4 : rawW;
+            const h_in = unit === 'mm' ? rawH / 25.4 : rawH;
+
+            // Kara
+            const karaRunDims = getRunnerDims(settings.karaRunnerType);
+            const karaTotalThickness = settings.karaMaalThickness + karaRunDims.t;
+            const karaWidth = w_in;
+            const karaHeight = h_in;
+            const karaRunnerVertLen = Math.max(0, karaHeight - (2 * karaRunDims.w));
+            const totalCftKara = calculateCFT(karaHeight, karaWidth, settings.karaMaalThickness, 2) + 
+                                 calculateCFT(karaWidth, karaRunDims.w, karaRunDims.t, 4) + 
+                                 calculateCFT(karaRunnerVertLen, karaRunDims.w, karaRunDims.t, 4);
+
+            // Bottom
+            const bottomLen = l_in + (2 * karaTotalThickness);
+            const bottomWid = w_in + (2 * settings.sideMaalThickness);
+            const botRunDims = getRunnerDims(settings.bottomRunnerType);
+            const botRunLen = settings.bottomRunnerDir === 'length' ? bottomLen : bottomWid;
+            const totalCftBottom = calculateCFT(bottomLen, bottomWid, settings.bottomMaalThickness, 1) + 
+                                   calculateCFT(botRunLen, botRunDims.w, botRunDims.t, settings.bottomRunnerCount);
+
+            // Sides
+            const sideLen = bottomLen;
+            const sideHeight = h_in;
+            const sideRunDims = getRunnerDims(settings.sideRunnerType);
+            const sideRunLen = settings.sideRunnerDir === 'height' ? sideHeight : sideLen;
+            const totalCftSide = calculateCFT(sideLen, sideHeight, settings.sideMaalThickness, 2) + 
+                                 calculateCFT(sideRunLen, sideRunDims.w, sideRunDims.t, settings.sideRunnerCount * 2);
+
+            // Top
+            const topLen = bottomLen;
+            const topWid = bottomWid;
+            const topRunDims = getRunnerDims(settings.topRunnerType);
+            const topRunLen = settings.topRunnerDir === 'width' ? topWid : topLen;
+            const totalCftTop = calculateCFT(topLen, topWid, settings.topMaalThickness, 1) + 
+                                calculateCFT(topRunLen, topRunDims.w, topRunDims.t, settings.topRunnerCount);
+
+            const grandTotalCFT = totalCftKara + totalCftBottom + totalCftSide + totalCftTop;
+            const externalHeight = h_in + settings.bottomMaalThickness + settings.topMaalThickness;
+
+            // Canvas & 3D Logic
+            const canvasRef = useRef(null);
+            const [rotation, setRotation] = useState({ x: -20, y: 45 });
+            const isDragging = useRef(false);
+            const lastMouse = useRef({ x: 0, y: 0 });
+
+            const handleMouseDown = (e) => {
+                isDragging.current = true;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                lastMouse.current = { x: clientX, y: clientY };
+            };
+            const handleMouseMove = (e) => {
+                if (!isDragging.current) return;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const deltaX = clientX - lastMouse.current.x;
+                const deltaY = clientY - lastMouse.current.y;
+                setRotation(prev => ({ x: Math.max(-90, Math.min(90, prev.x + deltaY * 0.5)), y: prev.y + deltaX * 0.5 }));
+                lastMouse.current = { x: clientX, y: clientY };
+            };
+            const handleMouseUp = () => { isDragging.current = false; };
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width;
+                const h = canvas.height;
+                ctx.clearRect(0, 0, w, h);
+                
+                const maxDim = Math.max(bottomLen, bottomWid, h_in);
+                const scale = (Math.min(w, h) * 0.5) / maxDim;
+                const centerX = w / 2;
+                const centerY = h / 2;
+                const radX = (rotation.x * Math.PI) / 180;
+                const radY = (rotation.y * Math.PI) / 180;
+
+                const project = (x, y, z) => {
+                    let x1 = x * Math.cos(radY) - z * Math.sin(radY);
+                    let z1 = x * Math.sin(radY) + z * Math.cos(radY);
+                    let y1 = y;
+                    let y2 = y1 * Math.cos(radX) - z1 * Math.sin(radX);
+                    let z2 = y1 * Math.sin(radX) + z1 * Math.cos(radX);
+                    return { x: centerX + x1 * scale, y: centerY - y2 * scale };
+                };
+
+                const drawCube = (x, y, z, L, H, W, color) => {
+                    const vertices = [
+                        project(x - L/2, y - H/2, z - W/2), project(x + L/2, y - H/2, z - W/2),
+                        project(x + L/2, y - H/2, z + W/2), project(x - L/2, y - H/2, z + W/2),
+                        project(x - L/2, y + H/2, z - W/2), project(x + L/2, y + H/2, z - W/2),
+                        project(x + L/2, y + H/2, z + W/2), project(x - L/2, y + H/2, z + W/2)
+                    ];
+                    ctx.fillStyle = color;
+                    ctx.strokeStyle = 'rgba(60, 40, 10, 0.3)';
+                    ctx.lineWidth = 0.5;
+                    const face = (v1, v2, v3, v4) => {
+                        ctx.beginPath(); ctx.moveTo(v1.x, v1.y); ctx.lineTo(v2.x, v2.y); ctx.lineTo(v3.x, v3.y); ctx.lineTo(v4.x, v4.y); ctx.closePath();
+                        ctx.fill(); ctx.stroke();
+                    };
+                    face(vertices[0], vertices[1], vertices[5], vertices[4]); // Back
+                    face(vertices[0], vertices[3], vertices[7], vertices[4]); // Left
+                    face(vertices[1], vertices[2], vertices[6], vertices[5]); // Right
+                    face(vertices[3], vertices[2], vertices[6], vertices[7]); // Front
+                    face(vertices[4], vertices[5], vertices[6], vertices[7]); // Top
+                    face(vertices[0], vertices[1], vertices[2], vertices[3]); // Bottom
+                };
+
+                const L = bottomLen;
+                const W = bottomWid;
+                const H = externalHeight;
+
+                const getDistributedPositions = (totalLength, count, runnerWidth) => {
+                    if (count <= 0) return [];
+                    if (count === 1) return [0]; 
+                    const totalGap = totalLength - (count * runnerWidth);
+                    const gapSize = totalGap / (count + 1);
+                    const positions = [];
+                    let currentPos = -totalLength/2 + gapSize + runnerWidth/2;
+                    for(let i=0; i<count; i++) { positions.push(currentPos); currentPos += runnerWidth + gapSize; }
+                    return positions;
+                };
+
+                // DRAW SCENE
+                // 1. Main Box (Light Pine)
+                const drawMainBox = () => {
+                    const color = 'rgba(240, 220, 180, 0.4)';
+                    const vertices = [
+                        project(-L/2, -H/2, -W/2), project(L/2, -H/2, -W/2), project(L/2, -H/2, W/2), project(-L/2, -H/2, W/2),
+                        project(-L/2, H/2, -W/2), project(L/2, H/2, -W/2), project(L/2, H/2, W/2), project(-L/2, H/2, W/2)
+                    ];
+                    ctx.fillStyle = color; ctx.strokeStyle = 'rgba(180, 140, 100, 0.5)'; ctx.lineWidth = 1;
+                    const face = (v1, v2, v3, v4) => { ctx.beginPath(); ctx.moveTo(v1.x, v1.y); ctx.lineTo(v2.x, v2.y); ctx.lineTo(v3.x, v3.y); ctx.lineTo(v4.x, v4.y); ctx.closePath(); ctx.fill(); ctx.stroke(); };
+                    face(vertices[0], vertices[1], vertices[5], vertices[4]); face(vertices[0], vertices[3], vertices[7], vertices[4]);
+                    face(vertices[1], vertices[2], vertices[6], vertices[5]); face(vertices[0], vertices[1], vertices[2], vertices[3]);
+                    face(vertices[4], vertices[5], vertices[6], vertices[7]); face(vertices[3], vertices[2], vertices[6], vertices[7]);
+                };
+                drawMainBox();
+
+                // 2. Runners
+                if (showRunners) {
+                    const runnerColor = 'rgba(101, 67, 33, 0.9)';
+                    
+                    // Bottom
+                    const bCount = Math.max(1, parseInt(settings.bottomRunnerCount) || 0);
+                    const bY = -H/2 - botRunDims.t/2;
+                    if (settings.bottomRunnerDir === 'length') getDistributedPositions(W, bCount, botRunDims.w).forEach(z => drawCube(0, bY, z, L, botRunDims.t, botRunDims.w, runnerColor));
+                    else getDistributedPositions(L, bCount, botRunDims.w).forEach(x => drawCube(x, bY, 0, botRunDims.w, botRunDims.t, W, runnerColor));
+
+                    // Top
+                    const tCount = Math.max(1, parseInt(settings.topRunnerCount) || 0);
+                    const tDims = getRunnerDims(settings.topRunnerType);
+                    const tY = H/2 + tDims.t/2;
+                    if (settings.topRunnerDir === 'width') getDistributedPositions(L, tCount, tDims.w).forEach(x => drawCube(x, tY, 0, tDims.w, tDims.t, W, runnerColor));
+                    else getDistributedPositions(W, tCount, tDims.w).forEach(z => drawCube(0, tY, z, L, tDims.t, tDims.w, runnerColor));
+
+                    // Side
+                    const sCount = Math.max(1, parseInt(settings.sideRunnerCount) || 0);
+                    const sDims = getRunnerDims(settings.sideRunnerType);
+                    const sZ = W/2 + sDims.t/2;
+                    if (settings.sideRunnerDir === 'height') {
+                        getDistributedPositions(L, sCount, sDims.w).forEach(x => { drawCube(x, 0, sZ, sDims.w, H, sDims.t, runnerColor); drawCube(x, 0, -sZ, sDims.w, H, sDims.t, runnerColor); });
+                    } else {
+                        getDistributedPositions(H, sCount, sDims.w).forEach(y => { drawCube(0, y, sZ, L, sDims.w, sDims.t, runnerColor); drawCube(0, y, -sZ, L, sDims.w, sDims.t, runnerColor); });
+                    }
+
+                    // Kara
+                    const kDims = getRunnerDims(settings.karaRunnerType);
+                    const kX = L/2 + kDims.t/2;
+                    // Horizontal
+                    drawCube(kX, H/2 - kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor); drawCube(-kX, H/2 - kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor);
+                    drawCube(kX, -H/2 + kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor); drawCube(-kX, -H/2 + kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor);
+                    // Vertical
+                    const vH = Math.max(0, H - 2*kDims.w);
+                    if(vH > 0) {
+                        drawCube(kX, 0, -W/2 + kDims.w/2, kDims.t, vH, kDims.w, runnerColor); drawCube(-kX, 0, -W/2 + kDims.w/2, kDims.t, vH, kDims.w, runnerColor);
+                        drawCube(kX, 0, W/2 - kDims.w/2, kDims.t, vH, kDims.w, runnerColor); drawCube(-kX, 0, W/2 - kDims.w/2, kDims.t, vH, kDims.w, runnerColor);
+                    }
+                }
+            }, [dims, settings, bottomLen, bottomWid, h_in, externalHeight, rotation, showRunners]);
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <div className="bg-amber-700 text-white p-4 shadow-lg sticky top-0 z-50">
+                        <div className="flex justify-between items-center max-w-2xl mx-auto">
+                            <div className="flex items-center gap-2"><Icons.Box size={24} /><h1 className="text-xl font-bold tracking-wide">WoodWork Calc</h1></div>
+                            <div className="text-xs bg-amber-800 px-2 py-1 rounded">Simple Box</div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-2xl mx-auto p-4 space-y-6">
+                        {/* MAIN INPUTS */}
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-bold flex items-center gap-2 text-gray-700"><Icons.Ruler size={18} /> Internal Dimensions</h2>
+                                <div className="flex bg-gray-100 p-1 rounded-lg">
+                                    <button onClick={() => setUnit('inch')} className={`px-3 py-1 text-sm font-bold rounded-md transition-all ${unit === 'inch' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500'}`}>IN</button>
+                                    <button onClick={() => setUnit('mm')} className={`px-3 py-1 text-sm font-bold rounded-md transition-all ${unit === 'mm' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500'}`}>MM</button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <NumberInput label={`Length (${unit})`} value={dims.l} onChange={(v) => setDims({...dims, l: v})} />
+                                <NumberInput label={`Width (${unit})`} value={dims.w} onChange={(v) => setDims({...dims, w: v})} />
+                                <NumberInput label={`Height (${unit})`} value={dims.h} onChange={(v) => setDims({...dims, h: v})} />
+                            </div>
+                            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm"><Icons.Layers size={16} /> Quick Set All Runners</div>
+                                <div className="w-32">
+                                    <select value={globalRunner} onChange={(e) => applyGlobalRunner(e.target.value)} className="w-full bg-white border border-amber-300 rounded px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                                        <option value="3x1">3 x 1</option><option value="4x1">4 x 1</option><option value="3x1.5">3 x 1.5</option><option value="4x2">4 x 2</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* VISUALIZER */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none">
+                            <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-mono text-gray-600 border border-gray-200 shadow-sm z-10 pointer-events-none">
+                                <span className="block font-bold mb-1 border-b border-gray-300 pb-1">External Size</span>
+                                L: {bottomLen.toFixed(1)}" | W: {bottomWid.toFixed(1)}" | H: {externalHeight.toFixed(1)}"
+                            </div>
+                            <button onClick={() => setShowRunners(!showRunners)} className="absolute top-2 right-2 bg-white/90 backdrop-blur p-2 rounded-full border border-gray-200 shadow-sm z-20 hover:bg-gray-50 text-amber-700">
+                                {showRunners ? <Icons.Eye size={18} /> : <Icons.EyeOff size={18} />}
+                            </button>
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[10px] text-amber-700 bg-amber-100/80 px-2 py-1 rounded-full pointer-events-none">
+                                <Icons.Rotate3d size={12} /><span>Drag to Rotate</span>
+                            </div>
+                            <canvas ref={canvasRef} width={600} height={300} className="w-full h-64 bg-amber-50/30 cursor-move touch-none" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp} />
+                        </div>
+
+                        {/* DETAILS ACCORDION */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            {/* Kara */}
+                            <SectionHeader title="Kara (Ends)" isOpen={openSection === 'kara'} toggle={() => setOpenSection(openSection === 'kara' ? '' : 'kara')} calculatedCft={totalCftKara} />
+                            {openSection === 'kara' && <div className="p-4 bg-gray-50 space-y-4">
+                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {karaWidth.toFixed(2)}" x {karaHeight.toFixed(2)}" (Qty: 2)</p><p className="text-xs opacity-80 mt-1">Total Thickness: {(settings.karaMaalThickness + getRunnerDims(settings.karaRunnerType).t).toFixed(2)}"</p></div></div>
+                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.karaMaalThickness} onChange={(v) => setSettings({...settings, karaMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /><SelectInput label="Runner Size" value={settings.karaRunnerType} onChange={(v) => setSettings({...settings, karaRunnerType: v})} options={[{label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div>
+                            </div>}
+                            {/* Bottom */}
+                            <SectionHeader title="Bottom Panel" isOpen={openSection === 'bottom'} toggle={() => setOpenSection(openSection === 'bottom' ? '' : 'bottom')} calculatedCft={totalCftBottom} />
+                            {openSection === 'bottom' && <div className="p-4 bg-gray-50 space-y-4">
+                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {bottomLen.toFixed(2)}" x {bottomWid.toFixed(2)}"</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(bottomLen)} ft</p></div></div>
+                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.bottomMaalThickness} onChange={(v) => setSettings({...settings, bottomMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /></div>
+                                <div className="border-t pt-4 mt-2"><h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Runners</h3><div className="grid grid-cols-2 gap-4"><NumberInput label="Count" value={settings.bottomRunnerCount} onChange={(v) => setSettings({...settings, bottomRunnerCount: v})} step={1} /><SelectInput label="Type" value={settings.bottomRunnerType} onChange={(v) => setSettings({...settings, bottomRunnerType: v})} options={[{label: '3 x 1.5', value: '3x1.5'}, {label: '4 x 2', value: '4x2'}, {label: '4 x 3', value: '4x3'}, {label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div></div>
+                            </div>}
+                            {/* Sides */}
+                            <SectionHeader title="Side Walls" isOpen={openSection === 'side'} toggle={() => setOpenSection(openSection === 'side' ? '' : 'side')} calculatedCft={totalCftSide} />
+                            {openSection === 'side' && <div className="p-4 bg-gray-50 space-y-4">
+                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {sideLen.toFixed(2)}" x {sideHeight.toFixed(2)}" (Qty: 2)</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(settings.sideRunnerDir === 'height' ? sideHeight : sideLen)} ft</p></div></div>
+                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.sideMaalThickness} onChange={(v) => setSettings({...settings, sideMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /><NumberInput label="Runners (Qty)" value={settings.sideRunnerCount} onChange={(v) => setSettings({...settings, sideRunnerCount: v})} step={1} /></div>
+                                <div className="grid grid-cols-2 gap-4 mt-2"><SelectInput label="Runner Direction" value={settings.sideRunnerDir} onChange={(v) => setSettings({...settings, sideRunnerDir: v})} options={[{label: 'Vertical', value: 'height'}, {label: 'Horizontal', value: 'length'}]} /><SelectInput label="Runner Size" value={settings.sideRunnerType} onChange={(v) => setSettings({...settings, sideRunnerType: v})} options={[{label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div>
+                            </div>}
+                            {/* Top */}
+                            <SectionHeader title="Top Lid" isOpen={openSection === 'top'} toggle={() => setOpenSection(openSection === 'top' ? '' : 'top')} calculatedCft={totalCftTop} />
+                            {openSection === 'top' && <div className="p-4 bg-gray-50 space-y-4">
+                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {topLen.toFixed(2)}" x {topWid.toFixed(2)}"</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(settings.topRunnerDir === 'width' ? topWid : topLen)} ft</p></div></div>
+                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.topMaalThickness} onChange={(v) => setSettings({...settings, topMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /><NumberInput label="Runners (Qty)" value={settings.topRunnerCount} onChange={(v) => setSettings({...settings, topRunnerCount: v})} step={1} /></div>
+                                <div className="grid grid-cols-2 gap-4 mt-2"><SelectInput label="Runner Direction" value={settings.topRunnerDir} onChange={(v) => setSettings({...settings, topRunnerDir: v})} options={[{label: 'Width-wise', value: 'width'}, {label: 'Length-wise', value: 'length'}]} /><SelectInput label="Runner Size" value={settings.topRunnerType} onChange={(v) => setSettings({...settings, topRunnerType: v})} options={[{label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div>
+                            </div>}
+                        </div>
+
+                        {/* TOTAL */}
+                        <div className="bg-amber-900 text-white p-6 rounded-xl shadow-lg mt-8 mb-8">
+                            <h2 className="text-amber-200 text-sm font-bold uppercase tracking-wider mb-2">Total Estimated Volume</h2>
+                            <div className="flex items-baseline gap-2"><span className="text-5xl font-bold">{grandTotalCFT.toFixed(3)}</span><span className="text-xl font-medium opacity-80">CFT</span></div>
+                            <div className="mt-4 pt-4 border-t border-amber-800/50 text-xs text-amber-300 flex justify-between"><span>* Includes purchased waste</span><span>Simple Box Type</span></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
