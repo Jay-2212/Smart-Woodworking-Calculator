@@ -41,6 +41,7 @@
             Info: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
             Rotate3d: (p) => <Icon {...p} path={<><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2"/><path d="m15.194 13.707 3.814 1.86-1.86 3.814"/><path d="M19 15.57c-1.804.885-4.274 1.43-7 1.43-5.523 0-10-2.239-10-5s4.477-5 10-5c4.838 0 8.873 1.718 9.8 4"/></>} />,
             Layers: (p) => <Icon {...p} path={<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>} />,
+            Hash: (p) => <Icon {...p} path={<><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>} />,
             Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>} />,
             EyeOff: (p) => <Icon {...p} path={<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>} />
         };
@@ -97,8 +98,9 @@
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
             const [unit, setUnit] = useState('inch'); 
 
+            // Changed default Kara Maal to 1
             const [settings, setSettings] = useState({
-                karaMaalThickness: 0.75, karaRunnerType: '3x1', 
+                karaMaalThickness: 1, karaRunnerType: '3x1', 
                 bottomMaalThickness: 1, bottomRunnerCount: 3, bottomRunnerDir: 'length', bottomRunnerType: '4x2', 
                 sideMaalThickness: 1, sideRunnerCount: 2, sideRunnerDir: 'height', sideRunnerType: '3x1',
                 topMaalThickness: 1, topRunnerCount: 2, topRunnerDir: 'width', topRunnerType: '3x1',
@@ -106,6 +108,7 @@
 
             const [openSection, setOpenSection] = useState('bottom'); 
             const [globalRunner, setGlobalRunner] = useState('3x1');
+            const [globalCount, setGlobalCount] = useState(3);
             const [showRunners, setShowRunners] = useState(true);
 
             const applyGlobalRunner = (type) => {
@@ -113,6 +116,17 @@
                 setSettings(prev => ({
                     ...prev,
                     karaRunnerType: type, bottomRunnerType: type, sideRunnerType: type, topRunnerType: type
+                }));
+            };
+
+            const applyGlobalCount = (val) => {
+                const count = parseInt(val) || 0;
+                setGlobalCount(count);
+                setSettings(prev => ({
+                    ...prev,
+                    bottomRunnerCount: count,
+                    sideRunnerCount: count,
+                    topRunnerCount: count
                 }));
             };
 
@@ -329,12 +343,27 @@
                                 <NumberInput label={`Width (${unit})`} value={dims.w} onChange={(v) => setDims({...dims, w: v})} />
                                 <NumberInput label={`Height (${unit})`} value={dims.h} onChange={(v) => setDims({...dims, h: v})} />
                             </div>
-                            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
-                                <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm"><Icons.Layers size={16} /> Quick Set All Runners</div>
-                                <div className="w-32">
-                                    <select value={globalRunner} onChange={(e) => applyGlobalRunner(e.target.value)} className="w-full bg-white border border-amber-300 rounded px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-500">
-                                        <option value="3x1">3 x 1</option><option value="4x1">4 x 1</option><option value="3x1.5">3 x 1.5</option><option value="4x2">4 x 2</option>
-                                    </select>
+
+                            {/* GLOBAL SETTINGS */}
+                            <div className="mt-6 pt-4 border-t border-gray-100 space-y-3">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Quick Settings</h3>
+                                
+                                <div className="flex items-center justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                    <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm"><Icons.Layers size={16} /> All Runners Size</div>
+                                    <div className="w-32">
+                                        <select value={globalRunner} onChange={(e) => applyGlobalRunner(e.target.value)} className="w-full bg-white border border-amber-300 rounded px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                                            <option value="3x1">3 x 1</option><option value="4x1">4 x 1</option><option value="3x1.5">3 x 1.5</option><option value="4x2">4 x 2</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                    <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm"><Icons.Hash size={16} /> All Runners Count</div>
+                                    <div className="w-32">
+                                        <select value={globalCount} onChange={(e) => applyGlobalCount(e.target.value)} className="w-full bg-white border border-amber-300 rounded px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                                            <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -367,7 +396,7 @@
                             {openSection === 'bottom' && <div className="p-4 bg-gray-50 space-y-4">
                                 <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {bottomLen.toFixed(2)}" x {bottomWid.toFixed(2)}"</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(bottomLen)} ft</p></div></div>
                                 <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.bottomMaalThickness} onChange={(v) => setSettings({...settings, bottomMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /></div>
-                                <div className="border-t pt-4 mt-2"><h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Runners</h3><div className="grid grid-cols-2 gap-4"><NumberInput label="Count" value={settings.bottomRunnerCount} onChange={(v) => setSettings({...settings, bottomRunnerCount: v})} step={1} /><SelectInput label="Type" value={settings.bottomRunnerType} onChange={(v) => setSettings({...settings, bottomRunnerType: v})} options={[{label: '3 x 1.5', value: '3x1.5'}, {label: '4 x 2', value: '4x2'}, {label: '4 x 3', value: '4x3'}, {label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div></div>
+                                <div className="border-t pt-4 mt-2"><h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Runners</h3><div className="grid grid-cols-2 gap-4"><NumberInput label="Count" value={settings.bottomRunnerCount} onChange={(v) => setSettings({...settings, bottomRunnerCount: v})} step={1} /><SelectInput label="Type" value={settings.bottomRunnerType} onChange={(v) => setSettings({...settings, bottomRunnerType: v})} options={[{label: '3 x 1.5', value: '3x1.5'}, {label: '4 x 2', value: '4x2'}, {label: '4 x 3', value: '4x3'}, {label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div><div className="grid grid-cols-2 gap-4 mt-2"><SelectInput label="Direction" value={settings.bottomRunnerDir} onChange={(v) => setSettings({...settings, bottomRunnerDir: v})} options={[{label: 'Length-wise', value: 'length'}, {label: 'Width-wise', value: 'width'}]} /></div></div>
                             </div>}
                             {/* Sides */}
                             <SectionHeader title="Side Walls" isOpen={openSection === 'side'} toggle={() => setOpenSection(openSection === 'side' ? '' : 'side')} calculatedCft={totalCftSide} />
