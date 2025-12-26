@@ -14,11 +14,14 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* Prevent pull-to-refresh on mobile for better app feel */
         body { overscroll-behavior-y: none; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; margin: 0; 
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans pb-20 select-none">
+<body class="bg-gray-100 text-gray-800 font-sans pb-40 select-none">
 
     <div id="root"></div>
 
@@ -26,400 +29,459 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- ICONS (Inline SVG to remove dependencies) ---
-        const Icon = ({ path, size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                {path}
-            </svg>
+        // --- ICONS ---
+        const Icon = ({ path, size = 16, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
         );
 
         const Icons = {
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
-            Ruler: (p) => <Icon {...p} path={<><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0l12.6 12.6z"/><line x1="14.5" y1="9.4" x2="16.5" y2="11.4"/><line x1="11.7" y1="12.3" x2="13.7" y2="14.3"/><line x1="8.8" y1="15.1" x2="10.8" y2="17.1"/></>} />,
-            ChevronDown: (p) => <Icon {...p} path={<polyline points="6 9 12 15 18 9"/>} />,
-            ChevronUp: (p) => <Icon {...p} path={<polyline points="18 15 12 9 6 15"/>} />,
-            Info: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
-            Rotate3d: (p) => <Icon {...p} path={<><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2"/><path d="m15.194 13.707 3.814 1.86-1.86 3.814"/><path d="M19 15.57c-1.804.885-4.274 1.43-7 1.43-5.523 0-10-2.239-10-5s4.477-5 10-5c4.838 0 8.873 1.718 9.8 4"/></>} />,
-            Layers: (p) => <Icon {...p} path={<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>} />,
-            Hash: (p) => <Icon {...p} path={<><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>} />,
+            Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
+            Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />,
             Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>} />,
             EyeOff: (p) => <Icon {...p} path={<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>} />
         };
 
         // --- HELPER FUNCTIONS ---
-        const getPurchasedFeet = (inches) => Math.ceil(inches / 12);
-
-        const calculateCFT = (lengthInches, widthInches, thicknessInches, count = 1) => {
-            const purchasedFeet = getPurchasedFeet(lengthInches);
-            return ((purchasedFeet * widthInches * thicknessInches) / 144) * count;
+        
+        const getPurchasedFeet = (inches) => {
+            const feet = inches / 12;
+            const whole = Math.floor(feet);
+            const fraction = feet - whole;
+            if (fraction === 0) return whole;
+            if (fraction <= 0.5001) return whole + 0.5;
+            return whole + 1.0;
         };
 
-        const getRunnerDims = (type) => {
-            if(type === '3x1.5') return { w: 3, t: 1.5 };
-            if(type === '4x2') return { w: 4, t: 2 };
-            if(type === '4x3') return { w: 4, t: 3 };
-            if(type === '3x1') return { w: 3, t: 1 };
-            if(type === '4x1') return { w: 4, t: 1 };
-            return { w: 3, t: 1 };
+        const calculateLineCFT = (l, w, t, qty) => {
+            const feet = getPurchasedFeet(l);
+            return ((feet * w * t) / 144) * qty;
         };
 
-        // --- REACT COMPONENTS ---
+        const getSizeDims = (sizeStr) => {
+            const map = {
+                '3x1': {w:3, t:1}, '4x1': {w:4, t:1}, 
+                '3x1.5': {w:3, t:1.5}, '4x1.5': {w:4, t:1.5},
+                '3x2': {w:3, t:2}, '4x2': {w:4, t:2}, 
+                '4x3': {w:4, t:3}
+            };
+            return map[sizeStr] || {w:3, t:1};
+        };
 
-        const SectionHeader = ({ title, isOpen, toggle, calculatedCft }) => (
-            <button onClick={toggle} className={`w-full flex items-center justify-between p-4 ${isOpen ? 'bg-amber-100 text-amber-900' : 'bg-white text-gray-700'} border-b border-gray-200 transition-colors duration-200`}>
-                <div className="flex items-center gap-2 font-bold text-lg">
-                    {isOpen ? <Icons.ChevronUp size={20} /> : <Icons.ChevronDown size={20} />}
-                    {title}
+        // --- COMPONENTS ---
+
+        const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
+            <input 
+                type="number" 
+                value={value} 
+                onChange={(e) => { const val = e.target.value; onChange(val === '' ? '' : parseFloat(val)); }} 
+                step={step}
+                className={`w-full bg-white border border-gray-300 rounded px-1 py-1 text-center font-mono text-sm focus:ring-2 focus:ring-amber-500 outline-none ${className}`}
+            />
+        );
+
+        const CalculationRow = ({ label, data, onChange }) => {
+            const cft = calculateLineCFT(data.l || 0, data.w || 0, data.t || 0, data.qty || 0);
+            return (
+                <div className="grid grid-cols-12 gap-1 items-center border-b border-gray-100 py-2 last:border-0">
+                    <div className="col-span-3 text-xs font-bold text-gray-700 uppercase tracking-tight">{label}</div>
+                    <div className="col-span-2"><NumberInput value={data.l} onChange={(v) => onChange('l', v)} /></div>
+                    <div className="col-span-2"><NumberInput value={data.w} onChange={(v) => onChange('w', v)} /></div>
+                    <div className="col-span-2"><NumberInput value={data.t} onChange={(v) => onChange('t', v)} step={0.25} /></div>
+                    <div className="col-span-1"><NumberInput value={data.qty} onChange={(v) => onChange('qty', v)} className="px-0" step={1} /></div>
+                    <div className="col-span-2 text-right font-mono font-bold text-amber-700 text-sm">{cft.toFixed(2)}</div>
                 </div>
-                <div className="text-sm font-mono font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200 text-amber-800">
-                    {calculatedCft.toFixed(3)} CFT
+            );
+        };
+
+        // NEW BIG CARD DESIGN (User Request)
+        const SupportCard = ({ label, sizeOptions, dimOptions, settings, onUpdate, colorClass="bg-white" }) => {
+            const sDims = getSizeDims(settings.size);
+            const feet = getPurchasedFeet(settings.dim);
+            const cft = ((feet * sDims.w * sDims.t) / 144) * settings.count;
+
+            return (
+                <div className={`rounded-lg shadow-sm border border-gray-200 overflow-hidden ${colorClass}`}>
+                    <div className="p-2 border-b border-gray-200/50 flex justify-between items-center bg-gray-50/50">
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{label}</span>
+                        <span className="font-mono font-bold text-lg text-amber-700">{cft.toFixed(2)} <span className="text-xs text-gray-400">CFT</span></span>
+                    </div>
+                    <div className="p-3 space-y-3">
+                        {/* Row 1: Size Selector */}
+                        <div>
+                            <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Size (Width x Thick)</label>
+                            <select 
+                                value={settings.size} 
+                                onChange={(e) => onUpdate('size', e.target.value)}
+                                className="w-full bg-white border border-gray-300 rounded py-2 px-2 text-lg font-bold text-gray-800"
+                            >
+                                {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Row 2: Length & Feet */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex-grow">
+                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Length (Inches)</label>
+                                <select 
+                                    value={settings.dim} 
+                                    onChange={(e) => onUpdate('dim', parseFloat(e.target.value))}
+                                    className="w-full bg-white border border-gray-300 rounded py-2 px-2 text-lg font-bold text-gray-800"
+                                >
+                                    {dimOptions.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
+                                </select>
+                            </div>
+                            <div className="w-24">
+                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block text-right">Purchase</label>
+                                <div className="bg-amber-50 border border-amber-100 rounded py-2 px-2 text-right">
+                                    <span className="text-lg font-bold text-amber-800">{feet.toFixed(1)}</span>
+                                    <span className="text-xs text-gray-500 ml-1">ft</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 3: Quantity */}
+                        <div>
+                            <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Quantity</label>
+                            <NumberInput value={settings.count} onChange={(v) => onUpdate('count', v)} step={1} className="py-2 text-xl font-bold bg-gray-50" />
+                        </div>
+                    </div>
                 </div>
-            </button>
-        );
+            );
+        };
 
-        const NumberInput = ({ label, value, onChange, step = 0.125 }) => (
-            <div className="flex flex-col">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
-                <input type="number" value={value} onChange={(e) => { const val = e.target.value; onChange(val === '' ? '' : parseFloat(val)); }} step={step} className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 font-mono focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
-            </div>
-        );
+        const BigExtraCard = ({ data, onChange, onDelete }) => {
+            const cft = calculateLineCFT(data.l, data.w, data.t, data.qty);
+            const feet = getPurchasedFeet(data.l);
 
-        const SelectInput = ({ label, value, onChange, options }) => (
-            <div className="flex flex-col">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
-                <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
-                    {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
-            </div>
-        );
+            return (
+                <div className="rounded-lg shadow-sm border border-blue-200 bg-white overflow-hidden mb-3">
+                    <div className="p-2 border-b border-blue-100 flex justify-between items-center bg-blue-50/30">
+                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">EXTRA SUPPORT</span>
+                        <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-lg text-amber-700">{cft.toFixed(2)}</span>
+                            <button onClick={onDelete} className="text-red-400 bg-white p-1 rounded border border-red-100"><Icons.Trash size={16}/></button>
+                        </div>
+                    </div>
+                    <div className="p-3 space-y-3">
+                        {/* Size Row with Manual Overrides */}
+                        <div>
+                            <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Size (Select or Edit)</label>
+                            <div className="grid grid-cols-5 gap-2">
+                                <div className="col-span-3">
+                                    <select 
+                                        className="w-full h-full border border-gray-300 rounded px-2 font-bold text-gray-700 bg-white"
+                                        value={data.size}
+                                        onChange={(e) => {
+                                            const s = getSizeDims(e.target.value);
+                                            onChange('size', e.target.value);
+                                            onChange('w', s.w); onChange('t', s.t);
+                                        }}
+                                    >
+                                        <option value="Custom">Select...</option>
+                                        <option value="3x1">3 x 1</option>
+                                        <option value="4x1">4 x 1</option>
+                                        <option value="3x1.5">3 x 1.5</option>
+                                        <option value="4x2">4 x 2</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-1 relative">
+                                    <NumberInput value={data.w} onChange={(v)=>onChange('w',v)} className="h-full font-bold" />
+                                    <span className="absolute bottom-0 right-1 text-[8px] text-gray-400 pointer-events-none">W</span>
+                                </div>
+                                <div className="col-span-1 relative">
+                                    <NumberInput value={data.t} onChange={(v)=>onChange('t',v)} step={0.25} className="h-full font-bold" />
+                                    <span className="absolute bottom-0 right-1 text-[8px] text-gray-400 pointer-events-none">T</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Length & Qty Row */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Length (In)</label>
+                                <div className="flex items-center gap-1">
+                                    <NumberInput value={data.l} onChange={(v)=>onChange('l',v)} className="py-2 text-lg font-bold" />
+                                    <span className="text-xs text-gray-400 font-mono">({feet.toFixed(1)}ft)</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Quantity</label>
+                                <NumberInput value={data.qty} onChange={(v)=>onChange('qty',v)} step={1} className="py-2 text-lg font-bold bg-blue-50/50" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
 
         // --- MAIN APP ---
         function App() {
+            // Internal Dims
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
-            const [unit, setUnit] = useState('inch'); 
-
-            // Changed default Kara Maal to 1
-            const [settings, setSettings] = useState({
-                karaMaalThickness: 1, karaRunnerType: '3x1', 
-                bottomMaalThickness: 1, bottomRunnerCount: 3, bottomRunnerDir: 'length', bottomRunnerType: '4x2', 
-                sideMaalThickness: 1, sideRunnerCount: 2, sideRunnerDir: 'height', sideRunnerType: '3x1',
-                topMaalThickness: 1, topRunnerCount: 2, topRunnerDir: 'width', topRunnerType: '3x1',
+            
+            // --- MAIN BOX STATE ---
+            const [mainRows, setMainRows] = useState({
+                topBottom: { l: 44, w: 22, t: 1, qty: 2 },
+                sides: { l: 44, w: 20, t: 1, qty: 2 },
+                kara: { l: 20, w: 20, t: 1, qty: 2 }
             });
 
-            const [openSection, setOpenSection] = useState('bottom'); 
-            const [globalRunner, setGlobalRunner] = useState('3x1');
-            const [globalCount, setGlobalCount] = useState(3);
-            const [showRunners, setShowRunners] = useState(true);
+            // --- SUPPORT STATE ---
+            const [supps, setSupps] = useState({
+                bottom: { size: '4x2', dim: 44, count: 3 },
+                sides: { size: '3x1', dim: 20, count: 4 }, // 2 per side * 2 sides
+                top: { size: '3x1', dim: 22, count: 2 },
+                karaHorz: { size: '3x1', dim: 20, count: 4 }, 
+                karaVert: { size: '3x1', dim: 14, count: 4 } 
+            });
 
-            const applyGlobalRunner = (type) => {
-                setGlobalRunner(type);
-                setSettings(prev => ({
-                    ...prev,
-                    karaRunnerType: type, bottomRunnerType: type, sideRunnerType: type, topRunnerType: type
-                }));
-            };
+            const [extras, setExtras] = useState([]);
 
-            const applyGlobalCount = (val) => {
-                const count = parseInt(val) || 0;
-                setGlobalCount(count);
-                setSettings(prev => ({
-                    ...prev,
-                    bottomRunnerCount: count,
-                    sideRunnerCount: count,
-                    topRunnerCount: count
-                }));
-            };
-
-            // Calculations
-            const rawL = dims.l === '' ? 0 : parseFloat(dims.l);
-            const rawW = dims.w === '' ? 0 : parseFloat(dims.w);
-            const rawH = dims.h === '' ? 0 : parseFloat(dims.h);
-
-            const l_in = unit === 'mm' ? rawL / 25.4 : rawL;
-            const w_in = unit === 'mm' ? rawW / 25.4 : rawW;
-            const h_in = unit === 'mm' ? rawH / 25.4 : rawH;
-
-            // Kara
-            const karaRunDims = getRunnerDims(settings.karaRunnerType);
-            const karaTotalThickness = settings.karaMaalThickness + karaRunDims.t;
-            const karaWidth = w_in;
-            const karaHeight = h_in;
-            const karaRunnerVertLen = Math.max(0, karaHeight - (2 * karaRunDims.w));
-            const totalCftKara = calculateCFT(karaHeight, karaWidth, settings.karaMaalThickness, 2) + 
-                                 calculateCFT(karaWidth, karaRunDims.w, karaRunDims.t, 4) + 
-                                 calculateCFT(karaRunnerVertLen, karaRunDims.w, karaRunDims.t, 4);
-
-            // Bottom
-            const bottomLen = l_in + (2 * karaTotalThickness);
-            const bottomWid = w_in + (2 * settings.sideMaalThickness);
-            const botRunDims = getRunnerDims(settings.bottomRunnerType);
-            const botRunLen = settings.bottomRunnerDir === 'length' ? bottomLen : bottomWid;
-            const totalCftBottom = calculateCFT(bottomLen, bottomWid, settings.bottomMaalThickness, 1) + 
-                                   calculateCFT(botRunLen, botRunDims.w, botRunDims.t, settings.bottomRunnerCount);
-
-            // Sides
-            const sideLen = bottomLen;
-            const sideHeight = h_in;
-            const sideRunDims = getRunnerDims(settings.sideRunnerType);
-            const sideRunLen = settings.sideRunnerDir === 'height' ? sideHeight : sideLen;
-            const totalCftSide = calculateCFT(sideLen, sideHeight, settings.sideMaalThickness, 2) + 
-                                 calculateCFT(sideRunLen, sideRunDims.w, sideRunDims.t, settings.sideRunnerCount * 2);
-
-            // Top
-            const topLen = bottomLen;
-            const topWid = bottomWid;
-            const topRunDims = getRunnerDims(settings.topRunnerType);
-            const topRunLen = settings.topRunnerDir === 'width' ? topWid : topLen;
-            const totalCftTop = calculateCFT(topLen, topWid, settings.topMaalThickness, 1) + 
-                                calculateCFT(topRunLen, topRunDims.w, topRunDims.t, settings.topRunnerCount);
-
-            const grandTotalCFT = totalCftKara + totalCftBottom + totalCftSide + totalCftTop;
-            const externalHeight = h_in + settings.bottomMaalThickness + settings.topMaalThickness;
-
-            // Canvas & 3D Logic
-            const canvasRef = useRef(null);
-            const [rotation, setRotation] = useState({ x: -20, y: 45 });
-            const isDragging = useRef(false);
-            const lastMouse = useRef({ x: 0, y: 0 });
-
-            const handleMouseDown = (e) => {
-                isDragging.current = true;
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                lastMouse.current = { x: clientX, y: clientY };
-            };
-            const handleMouseMove = (e) => {
-                if (!isDragging.current) return;
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                const deltaX = clientX - lastMouse.current.x;
-                const deltaY = clientY - lastMouse.current.y;
-                setRotation(prev => ({ x: Math.max(-90, Math.min(90, prev.x + deltaY * 0.5)), y: prev.y + deltaX * 0.5 }));
-                lastMouse.current = { x: clientX, y: clientY };
-            };
-            const handleMouseUp = () => { isDragging.current = false; };
-
+            // EFFECT: Auto-calculate Main Box & Update Support Defaults
             useEffect(() => {
+                const l = parseFloat(dims.l) || 0;
+                const w = parseFloat(dims.w) || 0;
+                const h = parseFloat(dims.h) || 0;
+
+                const extL = l + 4; 
+                const extW = w + 2;
+                
+                // Update Main Box Rows
+                setMainRows(prev => ({
+                    ...prev,
+                    topBottom: { ...prev.topBottom, l: extL, w: extW },
+                    sides: { ...prev.sides, l: extL, w: h },
+                    kara: { ...prev.kara, l: w, w: h }
+                }));
+
+                // Update Support Dims (Defaults)
+                setSupps(prev => ({
+                    ...prev,
+                    bottom: { ...prev.bottom, dim: (prev.bottom.dim === w+2 || prev.bottom.dim === l+4) ? (prev.bottom.dim === w+2 ? extW : extL) : extL }, 
+                    sides: { ...prev.sides, dim: h },
+                    top: { ...prev.top, dim: extW },
+                    karaHorz: { ...prev.karaHorz, dim: w },
+                    karaVert: { ...prev.karaVert, dim: Math.max(0, h - 6) } 
+                }));
+
+            }, [dims.l, dims.w, dims.h]);
+
+            const updateMainRow = (key, field, val) => {
+                setMainRows(p => ({ ...p, [key]: { ...p[key], [field]: val } }));
+            };
+
+            const updateSupp = (key, field, val) => {
+                setSupps(p => ({ ...p, [key]: { ...p[key], [field]: val } }));
+            };
+
+            // Extra Handlers
+            const addExtra = () => setExtras(p => [...p, { id: Date.now(), l: 12, w: 3, t: 1, qty: 1, size: '3x1' }]);
+            const removeExtra = (id) => setExtras(p => p.filter(x => x.id !== id));
+            const updateExtra = (id, field, val) => {
+                setExtras(p => p.map(x => x.id === id ? { ...x, [field]: val } : x));
+            };
+
+            // --- TOTALS ---
+            const sumRow = (r) => calculateLineCFT(r.l, r.w, r.t, r.qty);
+            const sumSupp = (s) => {
+                const d = getSizeDims(s.size);
+                const feet = getPurchasedFeet(s.dim);
+                return ((feet * d.w * d.t) / 144) * s.count;
+            };
+
+            const totalBoard = sumRow(mainRows.topBottom) + sumRow(mainRows.sides) + sumRow(mainRows.kara);
+            const totalSupp = sumSupp(supps.bottom) + sumSupp(supps.sides) + sumSupp(supps.top) + 
+                              sumSupp(supps.karaHorz) + sumSupp(supps.karaVert) + 
+                              extras.reduce((acc,e) => acc + calculateLineCFT(e.l, e.w, e.t, e.qty), 0);
+            
+            const grandTotal = totalBoard + totalSupp;
+
+            // --- VISUALIZATION (Simple Box) ---
+            const [showVis, setShowVis] = useState(true);
+            const canvasRef = useRef(null);
+            
+            useEffect(() => {
+                if(!showVis) return;
                 const canvas = canvasRef.current;
                 if (!canvas) return;
                 const ctx = canvas.getContext('2d');
-                const w = canvas.width;
-                const h = canvas.height;
-                ctx.clearRect(0, 0, w, h);
+                ctx.clearRect(0,0, canvas.width, canvas.height);
                 
-                const maxDim = Math.max(bottomLen, bottomWid, h_in);
-                const scale = (Math.min(w, h) * 0.5) / maxDim;
-                const centerX = w / 2;
-                const centerY = h / 2;
-                const radX = (rotation.x * Math.PI) / 180;
-                const radY = (rotation.y * Math.PI) / 180;
+                const L = mainRows.topBottom.l;
+                const W = mainRows.topBottom.w;
+                const H = mainRows.sides.w;
 
-                const project = (x, y, z) => {
-                    let x1 = x * Math.cos(radY) - z * Math.sin(radY);
-                    let z1 = x * Math.sin(radY) + z * Math.cos(radY);
-                    let y1 = y;
-                    let y2 = y1 * Math.cos(radX) - z1 * Math.sin(radX);
-                    let z2 = y1 * Math.sin(radX) + z1 * Math.cos(radX);
-                    return { x: centerX + x1 * scale, y: centerY - y2 * scale };
+                const max = Math.max(L, W, H);
+                const scale = 100 / max;
+                const cx = 300; const cy = 70;
+
+                const proj = (x,y,z) => ({ x: cx + (x - z) * scale * 0.866, y: cy + (x + z) * scale * 0.5 - y * scale });
+                const drawPoly = (pts, col) => {
+                    ctx.fillStyle = col; ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+                    pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+                    ctx.closePath(); ctx.fill(); ctx.stroke();
                 };
 
-                const drawCube = (x, y, z, L, H, W, color) => {
-                    const vertices = [
-                        project(x - L/2, y - H/2, z - W/2), project(x + L/2, y - H/2, z - W/2),
-                        project(x + L/2, y - H/2, z + W/2), project(x - L/2, y - H/2, z + W/2),
-                        project(x - L/2, y + H/2, z - W/2), project(x + L/2, y + H/2, z - W/2),
-                        project(x + L/2, y + H/2, z + W/2), project(x - L/2, y + H/2, z + W/2)
-                    ];
-                    ctx.fillStyle = color;
-                    ctx.strokeStyle = 'rgba(60, 40, 10, 0.3)';
-                    ctx.lineWidth = 0.5;
-                    const face = (v1, v2, v3, v4) => {
-                        ctx.beginPath(); ctx.moveTo(v1.x, v1.y); ctx.lineTo(v2.x, v2.y); ctx.lineTo(v3.x, v3.y); ctx.lineTo(v4.x, v4.y); ctx.closePath();
-                        ctx.fill(); ctx.stroke();
-                    };
-                    face(vertices[0], vertices[1], vertices[5], vertices[4]); // Back
-                    face(vertices[0], vertices[3], vertices[7], vertices[4]); // Left
-                    face(vertices[1], vertices[2], vertices[6], vertices[5]); // Right
-                    face(vertices[3], vertices[2], vertices[6], vertices[7]); // Front
-                    face(vertices[4], vertices[5], vertices[6], vertices[7]); // Top
-                    face(vertices[0], vertices[1], vertices[2], vertices[3]); // Bottom
-                };
+                const p0 = proj(-L/2, -H/2, W/2);
+                const p1 = proj(L/2, -H/2, W/2);
+                const p2 = proj(L/2, -H/2, -W/2); // Fixed missing reference
+                const p4 = proj(-L/2, H/2, W/2);
+                const p5 = proj(L/2, H/2, W/2);
+                const p6 = proj(L/2, H/2, -W/2);
+                const p7 = proj(-L/2, H/2, -W/2);
 
-                const L = bottomLen;
-                const W = bottomWid;
-                const H = externalHeight;
+                drawPoly([p4, p5, p6, p7], '#fcd34d'); // Top
+                drawPoly([p1, p2, p6, p5], '#d97706'); // Right
+                drawPoly([p0, p1, p5, p4], '#fbbf24'); // Front
 
-                const getDistributedPositions = (totalLength, count, runnerWidth) => {
-                    if (count <= 0) return [];
-                    if (count === 1) return [0]; 
-                    const totalGap = totalLength - (count * runnerWidth);
-                    const gapSize = totalGap / (count + 1);
-                    const positions = [];
-                    let currentPos = -totalLength/2 + gapSize + runnerWidth/2;
-                    for(let i=0; i<count; i++) { positions.push(currentPos); currentPos += runnerWidth + gapSize; }
-                    return positions;
-                };
-
-                // DRAW SCENE
-                // 1. Main Box (Light Pine)
-                const drawMainBox = () => {
-                    const color = 'rgba(240, 220, 180, 0.4)';
-                    const vertices = [
-                        project(-L/2, -H/2, -W/2), project(L/2, -H/2, -W/2), project(L/2, -H/2, W/2), project(-L/2, -H/2, W/2),
-                        project(-L/2, H/2, -W/2), project(L/2, H/2, -W/2), project(L/2, H/2, W/2), project(-L/2, H/2, W/2)
-                    ];
-                    ctx.fillStyle = color; ctx.strokeStyle = 'rgba(180, 140, 100, 0.5)'; ctx.lineWidth = 1;
-                    const face = (v1, v2, v3, v4) => { ctx.beginPath(); ctx.moveTo(v1.x, v1.y); ctx.lineTo(v2.x, v2.y); ctx.lineTo(v3.x, v3.y); ctx.lineTo(v4.x, v4.y); ctx.closePath(); ctx.fill(); ctx.stroke(); };
-                    face(vertices[0], vertices[1], vertices[5], vertices[4]); face(vertices[0], vertices[3], vertices[7], vertices[4]);
-                    face(vertices[1], vertices[2], vertices[6], vertices[5]); face(vertices[0], vertices[1], vertices[2], vertices[3]);
-                    face(vertices[4], vertices[5], vertices[6], vertices[7]); face(vertices[3], vertices[2], vertices[6], vertices[7]);
-                };
-                drawMainBox();
-
-                // 2. Runners
-                if (showRunners) {
-                    const runnerColor = 'rgba(101, 67, 33, 0.9)';
-                    
-                    // Bottom
-                    const bCount = Math.max(1, parseInt(settings.bottomRunnerCount) || 0);
-                    const bY = -H/2 - botRunDims.t/2;
-                    if (settings.bottomRunnerDir === 'length') getDistributedPositions(W, bCount, botRunDims.w).forEach(z => drawCube(0, bY, z, L, botRunDims.t, botRunDims.w, runnerColor));
-                    else getDistributedPositions(L, bCount, botRunDims.w).forEach(x => drawCube(x, bY, 0, botRunDims.w, botRunDims.t, W, runnerColor));
-
-                    // Top
-                    const tCount = Math.max(1, parseInt(settings.topRunnerCount) || 0);
-                    const tDims = getRunnerDims(settings.topRunnerType);
-                    const tY = H/2 + tDims.t/2;
-                    if (settings.topRunnerDir === 'width') getDistributedPositions(L, tCount, tDims.w).forEach(x => drawCube(x, tY, 0, tDims.w, tDims.t, W, runnerColor));
-                    else getDistributedPositions(W, tCount, tDims.w).forEach(z => drawCube(0, tY, z, L, tDims.t, tDims.w, runnerColor));
-
-                    // Side
-                    const sCount = Math.max(1, parseInt(settings.sideRunnerCount) || 0);
-                    const sDims = getRunnerDims(settings.sideRunnerType);
-                    const sZ = W/2 + sDims.t/2;
-                    if (settings.sideRunnerDir === 'height') {
-                        getDistributedPositions(L, sCount, sDims.w).forEach(x => { drawCube(x, 0, sZ, sDims.w, H, sDims.t, runnerColor); drawCube(x, 0, -sZ, sDims.w, H, sDims.t, runnerColor); });
-                    } else {
-                        getDistributedPositions(H, sCount, sDims.w).forEach(y => { drawCube(0, y, sZ, L, sDims.w, sDims.t, runnerColor); drawCube(0, y, -sZ, L, sDims.w, sDims.t, runnerColor); });
-                    }
-
-                    // Kara
-                    const kDims = getRunnerDims(settings.karaRunnerType);
-                    const kX = L/2 + kDims.t/2;
-                    // Horizontal
-                    drawCube(kX, H/2 - kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor); drawCube(-kX, H/2 - kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor);
-                    drawCube(kX, -H/2 + kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor); drawCube(-kX, -H/2 + kDims.w/2, 0, kDims.t, kDims.w, W, runnerColor);
-                    // Vertical
-                    const vH = Math.max(0, H - 2*kDims.w);
-                    if(vH > 0) {
-                        drawCube(kX, 0, -W/2 + kDims.w/2, kDims.t, vH, kDims.w, runnerColor); drawCube(-kX, 0, -W/2 + kDims.w/2, kDims.t, vH, kDims.w, runnerColor);
-                        drawCube(kX, 0, W/2 - kDims.w/2, kDims.t, vH, kDims.w, runnerColor); drawCube(-kX, 0, W/2 - kDims.w/2, kDims.t, vH, kDims.w, runnerColor);
-                    }
-                }
-            }, [dims, settings, bottomLen, bottomWid, h_in, externalHeight, rotation, showRunners]);
+            }, [showVis, mainRows]);
 
             return (
                 <div className="min-h-screen">
-                    {/* Header */}
-                    <div className="bg-amber-700 text-white p-4 shadow-lg sticky top-0 z-50">
-                        <div className="flex justify-between items-center max-w-2xl mx-auto">
-                            <div className="flex items-center gap-2"><Icons.Box size={24} /><h1 className="text-xl font-bold tracking-wide">WoodWork Calc</h1></div>
-                            <div className="text-xs bg-amber-800 px-2 py-1 rounded">Simple Box</div>
+                    {/* Sticky Header with Dimensions */}
+                    <div className="bg-amber-800 text-white p-3 shadow-md sticky top-0 z-50">
+                        <div className="flex justify-between items-center max-w-xl mx-auto">
+                            <div className="flex items-center gap-2">
+                                <Icons.Box size={20}/>
+                                <div className="leading-tight">
+                                    <h1 className="font-bold text-sm tracking-wide">WoodWork Calc</h1>
+                                    <div className="text-[10px] font-mono text-amber-200 opacity-90">
+                                        L:{dims.l} × W:{dims.w} × H:{dims.h}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold leading-none">{grandTotal.toFixed(2)}</div>
+                                <div className="text-[9px] opacity-75">CFT</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="max-w-2xl mx-auto p-4 space-y-6">
-                        {/* MAIN INPUTS */}
-                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-bold flex items-center gap-2 text-gray-700"><Icons.Ruler size={18} /> Internal Dimensions</h2>
-                                <div className="flex bg-gray-100 p-1 rounded-lg">
-                                    <button onClick={() => setUnit('inch')} className={`px-3 py-1 text-sm font-bold rounded-md transition-all ${unit === 'inch' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500'}`}>IN</button>
-                                    <button onClick={() => setUnit('mm')} className={`px-3 py-1 text-sm font-bold rounded-md transition-all ${unit === 'mm' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500'}`}>MM</button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-4">
-                                <NumberInput label={`Length (${unit})`} value={dims.l} onChange={(v) => setDims({...dims, l: v})} />
-                                <NumberInput label={`Width (${unit})`} value={dims.w} onChange={(v) => setDims({...dims, w: v})} />
-                                <NumberInput label={`Height (${unit})`} value={dims.h} onChange={(v) => setDims({...dims, h: v})} />
-                            </div>
-
-                            {/* GLOBAL SETTINGS */}
-                            <div className="mt-6 pt-4 border-t border-gray-100 space-y-3">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Quick Settings</h3>
-                                
-                                <div className="flex items-center justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
-                                    <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm"><Icons.Layers size={16} /> All Runners Size</div>
-                                    <div className="w-32">
-                                        <select value={globalRunner} onChange={(e) => applyGlobalRunner(e.target.value)} className="w-full bg-white border border-amber-300 rounded px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-500">
-                                            <option value="3x1">3 x 1</option><option value="4x1">4 x 1</option><option value="3x1.5">3 x 1.5</option><option value="4x2">4 x 2</option>
-                                        </select>
+                    <div className="max-w-xl mx-auto p-2 space-y-4">
+                        
+                        {/* 1. INPUTS */}
+                        <div className="bg-white p-3 rounded shadow-sm border border-gray-200">
+                            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Internal Size (Inches)</h2>
+                            <div className="grid grid-cols-3 gap-2">
+                                {['l','w','h'].map(k => (
+                                    <div key={k} className="flex flex-col">
+                                        <label className="text-[9px] text-gray-500 font-bold mb-1 uppercase">{k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'}</label>
+                                        <input type="number" value={dims[k]} onChange={(e) => setDims({...dims, [k]:e.target.value})} className="bg-gray-50 border border-gray-300 rounded p-1 text-lg font-bold text-gray-900 text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                                     </div>
-                                </div>
-
-                                <div className="flex items-center justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
-                                    <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm"><Icons.Hash size={16} /> All Runners Count</div>
-                                    <div className="w-32">
-                                        <select value={globalCount} onChange={(e) => applyGlobalCount(e.target.value)} className="w-full bg-white border border-amber-300 rounded px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-500">
-                                            <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
-                                        </select>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
+                            <button onClick={() => setShowVis(!showVis)} className="w-full text-center text-xs text-blue-500 mt-2">{showVis ? 'Hide' : 'Show'} 3D Preview</button>
                         </div>
 
                         {/* VISUALIZER */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none">
-                            <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-mono text-gray-600 border border-gray-200 shadow-sm z-10 pointer-events-none">
-                                <span className="block font-bold mb-1 border-b border-gray-300 pb-1">External Size</span>
-                                L: {bottomLen.toFixed(1)}" | W: {bottomWid.toFixed(1)}" | H: {externalHeight.toFixed(1)}"
+                        {showVis && (
+                            <div className="bg-white rounded shadow-sm border border-gray-200 h-28 flex items-center justify-center overflow-hidden">
+                                <canvas ref={canvasRef} width={600} height={150} className="w-full h-full" />
                             </div>
-                            <button onClick={() => setShowRunners(!showRunners)} className="absolute top-2 right-2 bg-white/90 backdrop-blur p-2 rounded-full border border-gray-200 shadow-sm z-20 hover:bg-gray-50 text-amber-700">
-                                {showRunners ? <Icons.Eye size={18} /> : <Icons.EyeOff size={18} />}
+                        )}
+
+                        {/* 2. MAIN BOX TABLE */}
+                        <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="bg-gray-50 border-b border-gray-200 p-2 grid grid-cols-12 gap-1 text-[9px] font-bold text-gray-500 uppercase text-center">
+                                <div className="col-span-3 text-left pl-1">Item</div>
+                                <div className="col-span-2">L</div>
+                                <div className="col-span-2">W</div>
+                                <div className="col-span-2">Thk</div>
+                                <div className="col-span-1">Qty</div>
+                                <div className="col-span-2 text-right">CFT</div>
+                            </div>
+                            <div className="p-1">
+                                <CalculationRow label="Top & Bottom" data={mainRows.topBottom} onChange={(f,v) => updateMainRow('topBottom', f, v)} />
+                                <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} />
+                                <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} />
+                            </div>
+                            <div className="bg-amber-50 p-2 flex justify-between items-center text-xs border-t border-amber-100">
+                                <span className="font-bold text-amber-800">BOARD TOTAL</span>
+                                <span className="font-bold text-amber-900">{totalBoard.toFixed(3)}</span>
+                            </div>
+                        </div>
+
+                        {/* 3. SUPPORTS (BIG CARDS) */}
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase pl-1 pt-2">Runners (Supports)</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Bottom Card */}
+                                <SupportCard 
+                                    label="Bottom Supports"
+                                    sizeOptions={['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1']}
+                                    dimOptions={[
+                                        {val: mainRows.topBottom.l, label: `${mainRows.topBottom.l}" (Length)`},
+                                        {val: mainRows.topBottom.w, label: `${mainRows.topBottom.w}" (Width)`}
+                                    ]}
+                                    settings={supps.bottom}
+                                    onUpdate={(f,v) => updateSupp('bottom', f, v)}
+                                />
+
+                                {/* Side Card */}
+                                <SupportCard 
+                                    label="Side Supports"
+                                    sizeOptions={['3x1', '4x1', '3x1.5', '4x1.5']}
+                                    dimOptions={[
+                                        {val: mainRows.sides.w, label: `${mainRows.sides.w}" (Vert)`},
+                                        {val: mainRows.sides.l, label: `${mainRows.sides.l}" (Horz)`}
+                                    ]}
+                                    settings={supps.sides}
+                                    onUpdate={(f,v) => updateSupp('sides', f, v)}
+                                />
+
+                                {/* Top Card */}
+                                <SupportCard 
+                                    label="Top Lid Supports"
+                                    sizeOptions={['3x1', '4x1', '3x1.5']}
+                                    dimOptions={[
+                                        {val: mainRows.topBottom.w, label: `${mainRows.topBottom.w}" (Width)`},
+                                        {val: mainRows.topBottom.l, label: `${mainRows.topBottom.l}" (Length)`}
+                                    ]}
+                                    settings={supps.top}
+                                    onUpdate={(f,v) => updateSupp('top', f, v)}
+                                />
+
+                                {/* Kara Cards (Split for Clarity) */}
+                                <SupportCard 
+                                    label="Kara Horizontal"
+                                    sizeOptions={['3x1', '4x1']}
+                                    dimOptions={[
+                                        {val: mainRows.kara.l, label: `${mainRows.kara.l}" (Width)`}
+                                    ]}
+                                    settings={supps.karaHorz}
+                                    onUpdate={(f,v) => updateSupp('karaHorz', f, v)}
+                                />
+                                <SupportCard 
+                                    label="Kara Vertical (Gap)"
+                                    sizeOptions={['3x1', '4x1']}
+                                    dimOptions={[
+                                        {val: Math.max(0, mainRows.kara.w - 6), label: `~${mainRows.kara.w - 6}" (Height - 6)`},
+                                        {val: mainRows.kara.w, label: `${mainRows.kara.w}" (Full Height)`}
+                                    ]}
+                                    settings={supps.karaVert}
+                                    onUpdate={(f,v) => updateSupp('karaVert', f, v)}
+                                />
+                            </div>
+
+                            {/* EXTRAS */}
+                            {extras.map((ex) => (
+                                <BigExtraCard 
+                                    key={ex.id} 
+                                    data={ex} 
+                                    onChange={(f,v) => updateExtra(ex.id, f, v)}
+                                    onDelete={() => removeExtra(ex.id)}
+                                />
+                            ))}
+
+                            <button onClick={addExtra} className="w-full py-3 bg-white border border-dashed border-blue-300 text-blue-500 rounded font-bold hover:bg-blue-50 mt-2 flex justify-center items-center gap-2 shadow-sm">
+                                <Icons.Plus size={18}/> ADD EXTRA SUPPORT
                             </button>
-                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[10px] text-amber-700 bg-amber-100/80 px-2 py-1 rounded-full pointer-events-none">
-                                <Icons.Rotate3d size={12} /><span>Drag to Rotate</span>
-                            </div>
-                            <canvas ref={canvasRef} width={600} height={300} className="w-full h-64 bg-amber-50/30 cursor-move touch-none" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp} />
                         </div>
 
-                        {/* DETAILS ACCORDION */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            {/* Kara */}
-                            <SectionHeader title="Kara (Ends)" isOpen={openSection === 'kara'} toggle={() => setOpenSection(openSection === 'kara' ? '' : 'kara')} calculatedCft={totalCftKara} />
-                            {openSection === 'kara' && <div className="p-4 bg-gray-50 space-y-4">
-                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {karaWidth.toFixed(2)}" x {karaHeight.toFixed(2)}" (Qty: 2)</p><p className="text-xs opacity-80 mt-1">Total Thickness: {(settings.karaMaalThickness + getRunnerDims(settings.karaRunnerType).t).toFixed(2)}"</p></div></div>
-                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.karaMaalThickness} onChange={(v) => setSettings({...settings, karaMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /><SelectInput label="Runner Size" value={settings.karaRunnerType} onChange={(v) => setSettings({...settings, karaRunnerType: v})} options={[{label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div>
-                            </div>}
-                            {/* Bottom */}
-                            <SectionHeader title="Bottom Panel" isOpen={openSection === 'bottom'} toggle={() => setOpenSection(openSection === 'bottom' ? '' : 'bottom')} calculatedCft={totalCftBottom} />
-                            {openSection === 'bottom' && <div className="p-4 bg-gray-50 space-y-4">
-                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {bottomLen.toFixed(2)}" x {bottomWid.toFixed(2)}"</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(bottomLen)} ft</p></div></div>
-                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.bottomMaalThickness} onChange={(v) => setSettings({...settings, bottomMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /></div>
-                                <div className="border-t pt-4 mt-2"><h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Runners</h3><div className="grid grid-cols-2 gap-4"><NumberInput label="Count" value={settings.bottomRunnerCount} onChange={(v) => setSettings({...settings, bottomRunnerCount: v})} step={1} /><SelectInput label="Type" value={settings.bottomRunnerType} onChange={(v) => setSettings({...settings, bottomRunnerType: v})} options={[{label: '3 x 1.5', value: '3x1.5'}, {label: '4 x 2', value: '4x2'}, {label: '4 x 3', value: '4x3'}, {label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div><div className="grid grid-cols-2 gap-4 mt-2"><SelectInput label="Direction" value={settings.bottomRunnerDir} onChange={(v) => setSettings({...settings, bottomRunnerDir: v})} options={[{label: 'Length-wise', value: 'length'}, {label: 'Width-wise', value: 'width'}]} /></div></div>
-                            </div>}
-                            {/* Sides */}
-                            <SectionHeader title="Side Walls" isOpen={openSection === 'side'} toggle={() => setOpenSection(openSection === 'side' ? '' : 'side')} calculatedCft={totalCftSide} />
-                            {openSection === 'side' && <div className="p-4 bg-gray-50 space-y-4">
-                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {sideLen.toFixed(2)}" x {sideHeight.toFixed(2)}" (Qty: 2)</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(settings.sideRunnerDir === 'height' ? sideHeight : sideLen)} ft</p></div></div>
-                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.sideMaalThickness} onChange={(v) => setSettings({...settings, sideMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /><NumberInput label="Runners (Qty)" value={settings.sideRunnerCount} onChange={(v) => setSettings({...settings, sideRunnerCount: v})} step={1} /></div>
-                                <div className="grid grid-cols-2 gap-4 mt-2"><SelectInput label="Runner Direction" value={settings.sideRunnerDir} onChange={(v) => setSettings({...settings, sideRunnerDir: v})} options={[{label: 'Vertical', value: 'height'}, {label: 'Horizontal', value: 'length'}]} /><SelectInput label="Runner Size" value={settings.sideRunnerType} onChange={(v) => setSettings({...settings, sideRunnerType: v})} options={[{label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div>
-                            </div>}
-                            {/* Top */}
-                            <SectionHeader title="Top Lid" isOpen={openSection === 'top'} toggle={() => setOpenSection(openSection === 'top' ? '' : 'top')} calculatedCft={totalCftTop} />
-                            {openSection === 'top' && <div className="p-4 bg-gray-50 space-y-4">
-                                <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm mb-2"><Icons.Info size={16} className="mt-1 flex-shrink-0" /><div><p className="font-bold">Cut Size: {topLen.toFixed(2)}" x {topWid.toFixed(2)}"</p><p className="text-xs opacity-80 mt-1">Purchase: {getPurchasedFeet(settings.topRunnerDir === 'width' ? topWid : topLen)} ft</p></div></div>
-                                <div className="grid grid-cols-2 gap-4"><SelectInput label="Maal Thickness" value={settings.topMaalThickness} onChange={(v) => setSettings({...settings, topMaalThickness: parseFloat(v)})} options={[{label: '0.75 Inch', value: 0.75}, {label: '1 Inch', value: 1}]} /><NumberInput label="Runners (Qty)" value={settings.topRunnerCount} onChange={(v) => setSettings({...settings, topRunnerCount: v})} step={1} /></div>
-                                <div className="grid grid-cols-2 gap-4 mt-2"><SelectInput label="Runner Direction" value={settings.topRunnerDir} onChange={(v) => setSettings({...settings, topRunnerDir: v})} options={[{label: 'Width-wise', value: 'width'}, {label: 'Length-wise', value: 'length'}]} /><SelectInput label="Runner Size" value={settings.topRunnerType} onChange={(v) => setSettings({...settings, topRunnerType: v})} options={[{label: '3 x 1', value: '3x1'}, {label: '4 x 1', value: '4x1'}]} /></div>
-                            </div>}
-                        </div>
-
-                        {/* TOTAL */}
-                        <div className="bg-amber-900 text-white p-6 rounded-xl shadow-lg mt-8 mb-8">
-                            <h2 className="text-amber-200 text-sm font-bold uppercase tracking-wider mb-2">Total Estimated Volume</h2>
-                            <div className="flex items-baseline gap-2"><span className="text-5xl font-bold">{grandTotalCFT.toFixed(3)}</span><span className="text-xl font-medium opacity-80">CFT</span></div>
-                            <div className="mt-4 pt-4 border-t border-amber-800/50 text-xs text-amber-300 flex justify-between"><span>* Includes purchased waste</span><span>Simple Box Type</span></div>
-                        </div>
                     </div>
                 </div>
             );
