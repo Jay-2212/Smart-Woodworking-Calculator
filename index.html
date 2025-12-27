@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WoodWork Smart Calculator</title>
+    <title>Ambica Wooden Works - Smart CFT Calculator</title>
     
     <!-- 1. STYLE ENGINE (Tailwind CSS) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,32 +13,54 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- 3. 3D ENGINE (Three.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700;900&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+
     <style>
-        body { overscroll-behavior-y: none; }
+        body { 
+            overscroll-behavior-y: none; 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .font-brand { font-family: 'Roboto Slab', serif; }
+        
+        /* High Contrast Inputs */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
             -webkit-appearance: none; margin: 0; 
         }
+        
+        .wood-pattern {
+            background-color: #fcecdb;
+            background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z' fill='%23d97706' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+
+        .sticky-bar-enter { transform: translateY(-100%); opacity: 0; }
+        .sticky-bar-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-in-out; }
+        .sticky-bar-exit { transform: translateY(-100%); opacity: 0; transition: all 0.3s ease-in-out; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans pb-40 select-none">
+<body class="bg-amber-50 text-slate-900 font-sans pb-40 select-none wood-pattern">
 
     <div id="root"></div>
 
-    <!-- 3. THE APP LOGIC -->
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
         // --- ICONS ---
-        const Icon = ({ path, size = 20, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
+        const Icon = ({ path, size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
         );
 
         const Icons = {
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
             Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />,
-            Settings: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></>} />,
+            Rotate: (p) => <Icon {...p} path={<><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></>} />,
         };
 
         // --- HELPERS ---
@@ -80,59 +102,254 @@
             return 2; 
         };
 
-        // --- CRATE LOGIC ---
-        // Calculates wood needed to cover a 'span' with planks and gaps
         const calculateCrateEffectiveLength = (span, plankWidth, gap) => {
             if (!span || span <= 0) return 0;
             const unit = plankWidth + gap;
-            // How many planks? Ceil ensures we cover the end or start/end structure
             const planks = Math.ceil(span / unit);
-            // Return total width of WOOD
             return planks * plankWidth;
         };
 
         const getEffectiveCrateDims = (partName, l, w, boxType, crateSettings) => {
-            // Default: Solid (No change)
             let effL = l;
             let effW = w;
             let note = null;
 
-            // Logic Switch based on Orientation
             if (partName === 'Sides') {
                 if (boxType === 'simple' || boxType === 'crateSimple') {
-                    // SIMPLE CRATE SIDE:
-                    // Runners Vertical -> Maal Horizontal
-                    // Stack planks along HEIGHT (w). Length (l) is solid plank length.
                     const originalH = w;
                     effW = calculateCrateEffectiveLength(originalH, crateSettings.plank, crateSettings.gap);
                     note = `(Height ${originalH}" → Wood ${effW}")`;
                 } else {
-                    // BOTTOM CRATE SIDE:
-                    // Runners Horizontal -> Maal Vertical
-                    // Stack planks along LENGTH (l). Height (w) is solid plank length.
                     const originalL = l;
                     effL = calculateCrateEffectiveLength(originalL, crateSettings.plank, crateSettings.gap);
                     note = `(Length ${originalL}" → Wood ${effL}")`;
                 }
-            } 
-            else if (partName === 'Kara') {
-                // KARA (Both Types):
-                // Runners Vertical -> Maal Horizontal
-                // Stack planks along HEIGHT (w). Width (l) is solid plank length.
+            } else if (partName === 'Kara') {
                 const originalH = w;
                 effW = calculateCrateEffectiveLength(originalH, crateSettings.plank, crateSettings.gap);
                 note = `(Height ${originalH}" → Wood ${effW}")`;
-            }
-            else if (partName === 'Top') {
-                // TOP (Both Types):
-                // Runners Width-wise -> Maal Length-wise
-                // Stack planks along WIDTH (w). Length (l) is solid plank length.
+            } else if (partName === 'Top') {
                 const originalW = w;
                 effW = calculateCrateEffectiveLength(originalW, crateSettings.plank, crateSettings.gap);
                 note = `(Width ${originalW}" → Wood ${effW}")`;
             }
-
             return { l: effL, w: effW, note };
+        };
+
+        // --- 3D VISUALIZER COMPONENT (THREE.JS) ---
+        const ThreeScene = ({ dims, boxType, crateType, supps, mainRows }) => {
+            const mountRef = useRef(null);
+            
+            useEffect(() => {
+                if (!mountRef.current) return;
+
+                // 1. Setup Scene
+                const w = mountRef.current.clientWidth;
+                const h = mountRef.current.clientHeight;
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xfff8ef); 
+
+                const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+                camera.position.set(50, 40, 70);
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(w, h);
+                renderer.shadowMap.enabled = true;
+                mountRef.current.appendChild(renderer.domElement);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+                dirLight.position.set(50, 60, 50);
+                dirLight.castShadow = true;
+                scene.add(dirLight);
+
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+
+                // Materials
+                const woodMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.8 }); // Panel (Amber 300)
+                const woodMatSide = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.8 }); // Side (Amber 500)
+                const woodMatDark = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }); // Runners (Dark)
+
+                // Helpers
+                const createBox = (w, h, d, colorMat, x, y, z) => {
+                    const geo = new THREE.BoxGeometry(w, h, d);
+                    const mesh = new THREE.Mesh(geo, colorMat);
+                    mesh.position.set(x, y, z);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    return mesh;
+                };
+
+                const group = new THREE.Group();
+                scene.add(group);
+
+                // --- BOX BUILDING LOGIC ---
+                const L = parseFloat(dims.l) || 0;
+                const W = parseFloat(dims.w) || 0;
+                const H = parseFloat(dims.h) || 0;
+                const thickness = 1; 
+
+                const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+                
+                // --- A. BOTTOM RUNNERS ---
+                const bCount = supps.bottom.count || 2;
+                const bSize = getSizeDims(supps.bottom.size);
+                const bHeight = bSize.w; 
+                const bWidth = bSize.t; 
+
+                // Simple: Runners along Width (Z axis). Length = W.
+                // Bottom: Runners along Length (X axis). Length = L + 4.
+                
+                if (bCount > 0) {
+                    if (isBottomType) {
+                        // BOTTOM TYPE: Runners along LENGTH
+                        const bRunnerLen = L + 4; 
+                        const startZ = -W/2 + (W / (bCount + 1));
+                        const stepZ = W / (bCount + 1);
+                        
+                        for(let i=1; i<=bCount; i++) {
+                             const zPos = -W/2 + (i * stepZ);
+                             group.add(createBox(bRunnerLen, bHeight, bWidth, woodMatDark, 0, bHeight/2, zPos));
+                        }
+                    } else {
+                        // SIMPLE TYPE: Runners along WIDTH
+                        const bRunnerLen = W; // Length of runner is box width
+                        const startX = -L/2 + (L / (bCount + 1));
+                        const stepX = L / (bCount + 1);
+                        
+                        for(let i=1; i<=bCount; i++) {
+                             const xPos = -L/2 + (i * stepX);
+                             // Rotated 90 deg around Y implicitly by swapping W/D args
+                             group.add(createBox(bWidth, bHeight, bRunnerLen, woodMatDark, xPos, bHeight/2, 0));
+                        }
+                    }
+                }
+
+                const baseHeight = bHeight;
+
+                // --- B. PANELS ---
+                group.add(createBox(L, thickness, W, woodMat, 0, baseHeight + thickness/2, 0)); // Bottom
+                group.add(createBox(L, thickness, W, woodMat, 0, baseHeight + H - thickness/2, 0)); // Top
+
+                // Sides
+                group.add(createBox(L, H - 2*thickness, thickness, woodMatSide, 0, baseHeight + H/2, W/2 - thickness/2));
+                group.add(createBox(L, H - 2*thickness, thickness, woodMatSide, 0, baseHeight + H/2, -W/2 + thickness/2));
+
+                // --- C. KARA (Ends) ---
+                const kThick = 1;
+                
+                if(isBottomType) {
+                    // BOTTOM TYPE KARA: Only Vertical Runners (Legs)
+                    // H + bHeight usually.
+                    // Visualized as vertical planks at the ends.
+                    // Assuming Kara Verts are at the corners or near ends.
+                    const kVertCount = supps.karaVert.count || 4;
+                    // Simply put 4 posts at corners
+                    const kH = H + bHeight; // Total height from ground
+                    const kSize = getSizeDims(supps.karaVert.size);
+                    const kW = kSize.w; // 3 inch wide usually
+                    
+                    // 4 Corners roughly
+                    const corners = [
+                        {x: L/2 + kThick, z: W/2}, {x: L/2 + kThick, z: -W/2},
+                        {x: -L/2 - kThick, z: W/2}, {x: -L/2 - kThick, z: -W/2}
+                    ];
+                    corners.forEach(c => {
+                        group.add(createBox(kThick, kH, kW, woodMatSide, c.x, kH/2, c.z));
+                    });
+
+                } else {
+                    // SIMPLE TYPE KARA: Square Frame
+                    // Two Horizontal Planks (Top/Bottom) + Vertical Planks in middle
+                    const horzSize = getSizeDims(supps.karaHorz.size);
+                    const horzW = horzSize.w; // e.g., 3 inches
+                    
+                    // Draw Frame on Left (-L/2) and Right (L/2)
+                    [1, -1].forEach(dir => {
+                        const xPos = dir * (L/2 - thickness/2);
+                        
+                        // 1. Top Plank
+                        group.add(createBox(thickness, horzW, W, woodMatSide, xPos, baseHeight + H - horzW/2, 0));
+                        
+                        // 2. Bottom Plank
+                        group.add(createBox(thickness, horzW, W, woodMatSide, xPos, baseHeight + horzW/2, 0));
+                        
+                        // 3. Vertical Planks (Gap fillers)
+                        const gapH = H - (2 * horzW);
+                        if(gapH > 0) {
+                            // Place 2 verticals in the middle gap
+                            // Distributed along Z
+                            const zOffset = W/4;
+                            group.add(createBox(thickness, gapH, 3, woodMatSide, xPos, baseHeight + H/2, zOffset));
+                            group.add(createBox(thickness, gapH, 3, woodMatSide, xPos, baseHeight + H/2, -zOffset));
+                        }
+                    });
+                }
+
+                // --- D. SIDE SUPPORTS ---
+                const sCount = supps.sides.count;
+                const sPerSide = Math.ceil(sCount / 2);
+                
+                if(sPerSide > 0) {
+                    if (isBottomType) {
+                        // BOTTOM TYPE: Horizontal Side Supports
+                        // Run along the length of the side (X axis)
+                        const sSize = getSizeDims(supps.sides.size);
+                        const sW = sSize.w; // width of plank
+                        
+                        const stepY = (H - 2) / (sPerSide + 1);
+                        
+                        for(let i=1; i<=sPerSide; i++) {
+                            const yPos = baseHeight + (i * stepY);
+                            // Right Side
+                            group.add(createBox(L, sW, 1, woodMatDark, 0, yPos, W/2 + 0.5));
+                            // Left Side
+                            group.add(createBox(L, sW, 1, woodMatDark, 0, yPos, -W/2 - 0.5));
+                        }
+
+                    } else {
+                        // SIMPLE TYPE: Vertical Side Supports
+                        // Run along Height (Y axis)
+                        const stepX = L / (sPerSide + 1);
+                        for(let i=1; i<=sPerSide; i++) {
+                            const xPos = -L/2 + (i * stepX);
+                            // Right Side
+                            group.add(createBox(2, H-2, 1, woodMatDark, xPos, baseHeight + H/2, W/2 + 0.5));
+                            // Left Side
+                            group.add(createBox(2, H-2, 1, woodMatDark, xPos, baseHeight + H/2, -W/2 - 0.5));
+                        }
+                    }
+                }
+
+                // --- E. TOP SUPPORTS (Lid) ---
+                const tCount = supps.top.count;
+                if(tCount > 0) {
+                    const stepX = L / (tCount + 1);
+                     for(let i=1; i<=tCount; i++) {
+                        const xPos = -L/2 + (i * stepX);
+                        group.add(createBox(2, 1, W, woodMatDark, xPos, baseHeight + H + 0.5, 0));
+                     }
+                }
+
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                return () => {
+                    if(mountRef.current && renderer.domElement) {
+                        mountRef.current.removeChild(renderer.domElement);
+                    }
+                    renderer.dispose();
+                };
+            }, [dims, boxType, crateType, supps]);
+
+            return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
         };
 
         // --- COMPONENTS ---
@@ -143,7 +360,7 @@
                 value={value} 
                 onChange={(e) => { const val = e.target.value; onChange(val === '' ? '' : parseFloat(val)); }} 
                 step={step}
-                className={`w-full bg-white border-2 border-slate-300 rounded-md px-2 py-2 text-center font-mono font-bold text-lg text-slate-900 focus:ring-4 focus:ring-amber-200 focus:border-amber-500 outline-none transition-all ${className}`}
+                className={`w-full bg-white border-2 border-slate-900 rounded-lg px-2 py-3 text-center font-mono font-black text-xl text-black focus:ring-4 focus:ring-amber-400 focus:border-amber-700 outline-none transition-all shadow-sm ${className}`}
             />
         );
 
@@ -152,18 +369,13 @@
             let effW = data.w || 0;
             let note = null;
 
-            // Apply Crate Logic if needed
             if (isCrate) {
-                // Identify Part Name for Logic
                 let partName = '';
                 if (label.includes('Sides')) partName = 'Sides';
                 else if (label.includes('Kara')) partName = 'Kara';
                 else if (label.includes('Top')) partName = 'Top';
 
                 if (partName) {
-                    // Determine internal sub-type for logic (simple vs bottom)
-                    // If label passed boxType 'crate', we need to know if it is 'crateSimple' or 'crateBottom'
-                    // We pass 'crateSimple' or 'crateBottom' directly in props now
                     const res = getEffectiveCrateDims(partName, data.l, data.w, boxType, crateSettings);
                     effL = res.l;
                     effW = res.w;
@@ -174,22 +386,22 @@
             const cft = calculateLineCFT(effL, effW, data.t || 0, data.qty || 0);
 
             return (
-                <div className={`grid grid-cols-12 gap-2 items-center border-b border-slate-200 py-3 last:border-0 ${isCrate && note ? 'bg-amber-50/50' : ''}`}>
+                <div className={`grid grid-cols-12 gap-2 items-center border-b-2 border-slate-300 py-4 last:border-0 ${isCrate && note ? 'bg-amber-100/50' : ''}`}>
                     <div className="col-span-3">
-                        <div className="text-sm font-black text-slate-700 uppercase tracking-tight leading-tight">{label}</div>
-                        {isCrate && note && <div className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Crate Gap</div>}
+                        <div className="text-sm font-black text-black uppercase tracking-tight leading-tight">{label}</div>
+                        {isCrate && note && <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-amber-200 inline-block px-1 rounded mt-1">GAP ACTIVE</div>}
                     </div>
                     <div className="col-span-2 relative">
-                        <NumberInput value={data.l} onChange={(v) => onChange('l', v)} />
-                        {isCrate && note && note.includes("Length") && <div className="absolute -bottom-3 left-0 w-full text-[8px] text-center font-bold text-amber-600">Wood: {effL}</div>}
+                        <NumberInput value={data.l} onChange={(v) => onChange('l', v)} className="text-lg py-2" />
+                        {isCrate && note && note.includes("Length") && <div className="absolute -bottom-4 left-0 w-full text-[9px] text-center font-bold text-amber-800 bg-amber-100 rounded px-1">Wood: {effL}</div>}
                     </div>
                     <div className="col-span-2 relative">
-                        <NumberInput value={data.w} onChange={(v) => onChange('w', v)} />
-                        {isCrate && note && (note.includes("Height") || note.includes("Width")) && <div className="absolute -bottom-3 left-0 w-full text-[8px] text-center font-bold text-amber-600">Wood: {effW}</div>}
+                        <NumberInput value={data.w} onChange={(v) => onChange('w', v)} className="text-lg py-2" />
+                        {isCrate && note && (note.includes("Height") || note.includes("Width")) && <div className="absolute -bottom-4 left-0 w-full text-[9px] text-center font-bold text-amber-800 bg-amber-100 rounded px-1">Wood: {effW}</div>}
                     </div>
-                    <div className="col-span-2"><NumberInput value={data.t} onChange={(v) => onChange('t', v)} step={0.25} /></div>
-                    <div className="col-span-1"><NumberInput value={data.qty} onChange={(v) => onChange('qty', v)} className="px-0" step={1} /></div>
-                    <div className="col-span-2 text-right font-mono font-black text-amber-700 text-base">{cft.toFixed(2)}</div>
+                    <div className="col-span-2"><NumberInput value={data.t} onChange={(v) => onChange('t', v)} step={0.25} className="text-lg py-2" /></div>
+                    <div className="col-span-1"><NumberInput value={data.qty} onChange={(v) => onChange('qty', v)} className="px-0 text-lg py-2" step={1} /></div>
+                    <div className="col-span-2 text-right font-mono font-black text-amber-800 text-lg">{cft.toFixed(2)}</div>
                 </div>
             );
         };
@@ -200,44 +412,50 @@
             const cft = ((feet * sDims.w * sDims.t) / 144) * settings.count;
 
             return (
-                <div className={`rounded-xl shadow-md border-2 border-slate-200 overflow-hidden ${colorClass}`}>
-                    <div className="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-100">
-                        <span className="text-sm font-black text-slate-700 uppercase tracking-wide">{label}</span>
-                        <span className="font-mono font-black text-xl text-amber-700">{cft.toFixed(2)} <span className="text-xs text-slate-400">CFT</span></span>
+                <div className={`rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-slate-900 overflow-hidden ${colorClass}`}>
+                    <div className="p-3 border-b-2 border-slate-900 flex justify-between items-center bg-slate-200">
+                        <span className="text-base font-black text-black uppercase tracking-wide">{label}</span>
+                        <span className="font-mono font-black text-xl text-amber-800">{cft.toFixed(2)} <span className="text-xs text-black">CFT</span></span>
                     </div>
                     <div className="p-4 space-y-4">
-                        <div>
-                            <label className="text-xs text-slate-500 font-black mb-1 uppercase block tracking-wider">Size (Width x Thick)</label>
-                            <select 
-                                value={settings.size} 
-                                onChange={(e) => onUpdate('size', e.target.value)}
-                                className="w-full bg-white border-2 border-slate-300 rounded-md py-3 px-3 text-xl font-bold text-slate-900 focus:ring-4 focus:ring-amber-200 outline-none"
-                            >
-                                {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex-grow">
-                                <label className="text-xs text-slate-500 font-black mb-1 uppercase block tracking-wider">Length (Inches)</label>
+                        <div className="grid grid-cols-2 gap-4">
+                             <div>
+                                <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Size</label>
+                                <select 
+                                    value={settings.size} 
+                                    onChange={(e) => onUpdate('size', e.target.value)}
+                                    className="w-full bg-white border-2 border-slate-900 rounded-lg py-2 px-2 text-xl font-black text-black focus:ring-4 focus:ring-amber-400 outline-none appearance-none"
+                                >
+                                    {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                             <div>
+                                <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Length</label>
                                 <select 
                                     value={settings.dim} 
                                     onChange={(e) => onUpdate('dim', parseFloat(e.target.value))}
-                                    className="w-full bg-white border-2 border-slate-300 rounded-md py-3 px-3 text-xl font-bold text-slate-900 focus:ring-4 focus:ring-amber-200 outline-none"
+                                    className="w-full bg-white border-2 border-slate-900 rounded-lg py-2 px-2 text-xl font-black text-black focus:ring-4 focus:ring-amber-400 outline-none"
                                 >
                                     {dimOptions.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
                                 </select>
                             </div>
-                            <div className="w-24">
-                                <label className="text-xs text-slate-500 font-black mb-1 uppercase block text-right tracking-wider">Purchase</label>
-                                <div className="bg-amber-50 border-2 border-amber-100 rounded-md py-2 px-2 text-right">
-                                    <span className="text-xl font-black text-amber-800">{feet.toFixed(1)}</span>
-                                    <span className="text-xs text-slate-500 ml-1 font-bold">ft</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                             <div className="flex-grow">
+                                <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Quantity</label>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => onUpdate('count', Math.max(0, settings.count - 1))} className="bg-slate-200 w-12 h-12 flex items-center justify-center rounded-lg border-2 border-slate-900 font-bold hover:bg-slate-300 active:bg-slate-400 text-xl">-</button>
+                                    <NumberInput value={settings.count} onChange={(v) => onUpdate('count', v)} step={1} className="py-2 text-2xl font-black bg-white" />
+                                    <button onClick={() => onUpdate('count', settings.count + 1)} className="bg-slate-200 w-12 h-12 flex items-center justify-center rounded-lg border-2 border-slate-900 font-bold hover:bg-slate-300 active:bg-slate-400 text-xl">+</button>
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-black mb-1 uppercase block tracking-wider">Quantity</label>
-                            <NumberInput value={settings.count} onChange={(v) => onUpdate('count', v)} step={1} className="py-3 text-2xl font-black bg-slate-50" />
+                            <div className="w-24">
+                                <label className="text-xs text-black font-black mb-1 uppercase block text-right tracking-wider">Purchase</label>
+                                <div className="bg-amber-100 border-2 border-amber-800 rounded-lg py-2 px-2 text-right">
+                                    <span className="text-2xl font-black text-amber-900">{feet.toFixed(1)}</span>
+                                    <span className="text-xs text-black ml-1 font-bold">ft</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -246,17 +464,17 @@
 
         const BoxTypeSelector = ({ type, setType, subType, setSubType, crateSettings, setCrateSettings }) => {
             return (
-                <div className="bg-white p-3 rounded-xl shadow-sm border-2 border-slate-200 mb-4 transition-all">
-                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-wide block mb-2">Select Box Type</label>
-                    <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black mb-6">
+                    <label className="text-sm text-black font-black uppercase tracking-wide block mb-3 border-b-2 border-slate-100 pb-2">Select Box Type</label>
+                    <div className="grid grid-cols-3 gap-3">
                         {['simple', 'bottom', 'crate'].map(t => (
                             <button 
                                 key={t}
                                 onClick={() => setType(t)}
-                                className={`py-3 px-1 rounded-lg text-sm font-black uppercase tracking-wider transition-all ${
+                                className={`py-4 px-2 rounded-xl text-base font-black uppercase tracking-wider transition-all border-2 ${
                                     type === t 
-                                    ? 'bg-amber-600 text-white ring-2 ring-amber-300 ring-offset-1 shadow-md' 
-                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                    ? 'bg-amber-600 border-black text-white shadow-inner transform scale-105' 
+                                    : 'bg-white border-slate-300 text-slate-900 hover:border-black hover:bg-slate-100'
                                 }`}
                             >
                                 {t}
@@ -265,45 +483,44 @@
                     </div>
                     
                     {type === 'crate' && (
-                        <div className="mt-3 pt-3 border-t-2 border-slate-100 animate-fade-in">
-                            <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="mt-4 pt-4 border-t-2 border-slate-200 animate-fade-in bg-amber-50 -mx-4 px-4 pb-4 rounded-b-lg">
+                            <label className="text-xs text-amber-900 font-black uppercase mb-2 block">Crate Configuration</label>
+                            <div className="grid grid-cols-2 gap-3 mb-4">
                                 <button 
                                     onClick={() => setSubType('simple')}
-                                    className={`py-2 text-xs font-bold uppercase rounded-lg border-2 ${subType === 'simple' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-transparent text-slate-300'}`}
+                                    className={`py-3 text-sm font-black uppercase rounded-lg border-2 shadow-sm ${subType === 'simple' ? 'bg-blue-600 border-black text-white' : 'bg-white border-slate-400 text-slate-800'}`}
                                 >
                                     Simple Crate
                                 </button>
                                 <button 
                                     onClick={() => setSubType('bottom')}
-                                    className={`py-2 text-xs font-bold uppercase rounded-lg border-2 ${subType === 'bottom' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-transparent text-slate-300'}`}
+                                    className={`py-3 text-sm font-black uppercase rounded-lg border-2 shadow-sm ${subType === 'bottom' ? 'bg-blue-600 border-black text-white' : 'bg-white border-slate-400 text-slate-800'}`}
                                 >
                                     Bottom Crate
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded-xl border-2 border-amber-200 shadow-sm">
                                 <div>
-                                    <label className="text-[9px] text-slate-500 font-black uppercase block mb-1">Plank Width</label>
-                                    <div className="flex items-center bg-white border border-slate-300 rounded px-2">
+                                    <label className="text-[11px] text-amber-900 font-black uppercase block mb-1">Plank Width (Inch)</label>
+                                    <div className="flex items-center bg-white border-2 border-amber-300 rounded-lg overflow-hidden">
                                         <input 
                                             type="number" 
                                             value={crateSettings.plank} 
                                             onChange={(e) => setCrateSettings({...crateSettings, plank: parseFloat(e.target.value) || 0})} 
-                                            className="w-full py-1 text-center font-bold text-slate-800 outline-none"
+                                            className="w-full py-2 text-center font-black text-xl text-black outline-none"
                                         />
-                                        <span className="text-[10px] text-slate-400">in</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-[9px] text-slate-500 font-black uppercase block mb-1">Gap Size</label>
-                                    <div className="flex items-center bg-white border border-slate-300 rounded px-2">
+                                    <label className="text-[11px] text-amber-900 font-black uppercase block mb-1">Gap Size (Inch)</label>
+                                    <div className="flex items-center bg-white border-2 border-amber-300 rounded-lg overflow-hidden">
                                         <input 
                                             type="number" 
                                             value={crateSettings.gap} 
                                             onChange={(e) => setCrateSettings({...crateSettings, gap: parseFloat(e.target.value) || 0})} 
-                                            className="w-full py-1 text-center font-bold text-slate-800 outline-none"
+                                            className="w-full py-2 text-center font-black text-xl text-black outline-none"
                                         />
-                                        <span className="text-[10px] text-slate-400">in</span>
                                     </div>
                                 </div>
                             </div>
@@ -320,6 +537,8 @@
             const [crateType, setCrateType] = useState('simple'); 
             const [crateSettings, setCrateSettings] = useState({ plank: 4, gap: 4 });
             const [costPerCFT, setCostPerCFT] = useState(625);
+            const [showStickyStats, setShowStickyStats] = useState(false);
+            const headerRef = useRef(null);
 
             // Row States
             const [mainRows, setMainRows] = useState({
@@ -339,10 +558,23 @@
 
             const [extras, setExtras] = useState([]);
             const [globalRunners, setGlobalRunners] = useState(2);
-
-            // Derived
-            const sideVertLengthSimple = parseFloat(dims.h) + (supps.bottom.dim === parseFloat(dims.w) + 2 ? (getMaxDim(supps.bottom.size) + 2) : 0);
             
+            // Scroll Listener for Sticky Bar
+            useEffect(() => {
+                const handleScroll = () => {
+                    if (headerRef.current) {
+                        // Show sticky bar when we pass the internal size section (roughly 300px)
+                        if (window.scrollY > 280) {
+                            setShowStickyStats(true);
+                        } else {
+                            setShowStickyStats(false);
+                        }
+                    }
+                };
+                window.addEventListener('scroll', handleScroll);
+                return () => window.removeEventListener('scroll', handleScroll);
+            }, []);
+
             // LOGIC ENGINE
             useEffect(() => {
                 const l = parseFloat(dims.l) || 0;
@@ -395,7 +627,8 @@
                         bottom: { ...prev.bottom, dim: bRunnerLen, count: estimatedCount }, 
                         sides: { ...prev.sides, dim: sideRunnerLen, count: estimatedCount * 2 }, 
                         top: { ...prev.top, dim: topMaalW, count: estimatedCount }, 
-                        karaHorz: { ...prev.karaHorz, dim: w }, 
+                        // Kara horizontal is 0 for bottom type
+                        karaHorz: { ...prev.karaHorz, dim: w, count: 0 }, 
                         karaVert: { ...prev.karaVert, dim: karaRunnerHeight } 
                     }));
                 }
@@ -449,18 +682,15 @@
 
             // TOTALS
             const getRowCFT = (label, data) => {
-                // If crate, calculate effective wood volume
                 let effL = data.l;
                 let effW = data.w;
                 if (boxType === 'crate') {
-                     // Pass through the same logic as the component to get effective dim for total
                      let partName = '';
                      if (label.includes('Sides')) partName = 'Sides';
                      else if (label.includes('Kara')) partName = 'Kara';
                      else if (label.includes('Top')) partName = 'Top';
                      
                      if (partName) {
-                         // We need to know if it's crateSimple or crateBottom for logic
                          const specificBoxType = (crateType === 'simple') ? 'crateSimple' : 'crateBottom';
                          const res = getEffectiveCrateDims(partName, data.l, data.w, specificBoxType, crateSettings);
                          effL = res.l;
@@ -488,209 +718,165 @@
             const grandTotalCFT = totalBoard + totalSupp;
             const grandTotalCost = grandTotalCFT * costPerCFT;
 
-            const [showVis, setShowVis] = useState(true);
-            const canvasRef = useRef(null);
-            useEffect(() => {
-                if(!showVis) return;
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0,0, canvas.width, canvas.height);
-                const L = parseFloat(dims.l);
-                const W = parseFloat(dims.w);
-                const H = parseFloat(dims.h);
-                const max = Math.max(L, W, H);
-                const scale = 50 / max; 
-                const cx = canvas.width / 2; 
-                const cy = canvas.height / 2 + 20; 
-                const proj = (x,y,z) => ({ x: cx + (x - z) * scale * 0.866, y: cy + (x + z) * scale * 0.5 - y * scale });
-                const drawPoly = (pts, col) => {
-                    ctx.fillStyle = col; ctx.strokeStyle = '#78350f'; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-                    pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-                    ctx.closePath(); ctx.fill(); ctx.stroke();
-                };
-                const p0 = proj(-L/2, -H/2, W/2);
-                const p1 = proj(L/2, -H/2, W/2);
-                const p2 = proj(L/2, -H/2, -W/2);
-                const p4 = proj(-L/2, H/2, W/2);
-                const p5 = proj(L/2, H/2, W/2);
-                const p6 = proj(L/2, H/2, -W/2);
-                const p7 = proj(-L/2, H/2, -W/2);
-                
-                if (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom')) {
-                    drawPoly([p4, p5, p6, p7], '#a7f3d0'); 
-                    drawPoly([p1, p2, p6, p5], '#059669'); 
-                    drawPoly([p0, p1, p5, p4], '#34d399'); 
-                } else {
-                    drawPoly([p4, p5, p6, p7], '#fcd34d'); 
-                    drawPoly([p1, p2, p6, p5], '#d97706'); 
-                    drawPoly([p0, p1, p5, p4], '#fbbf24'); 
-                }
-            }, [showVis, dims, boxType, crateType]);
-
             return (
-                <div className="min-h-screen pb-10">
-                    <div className="bg-slate-900 text-white shadow-xl sticky top-0 z-50 border-b-4 border-amber-600">
-                        <div className="max-w-2xl mx-auto p-3">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex flex-col items-start">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="bg-amber-600 p-1.5 rounded text-white"><Icons.Box size={18} /></div>
-                                        <span className="font-bold text-slate-300 text-xs uppercase tracking-widest">Smart Calc</span>
-                                    </div>
-                                    <div className="text-3xl font-black text-white tracking-tight">
-                                        {dims.l} <span className="text-slate-500 text-xl">x</span> {dims.w} <span className="text-slate-500 text-xl">x</span> {dims.h}
+                <div className="min-h-screen pb-10 wood-pattern">
+                    
+                    {/* STICKY INFO BAR (Hidden by default, slides in) */}
+                    {showStickyStats && (
+                         <div className="fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 animate-fade-in p-3 px-4">
+                            <div className="max-w-2xl mx-auto flex justify-between items-center text-white">
+                                <div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Internal Size</div>
+                                    <div className="text-xl font-black text-amber-500 leading-none mt-1">
+                                        {dims.l} <span className="text-slate-500 text-sm">x</span> {dims.w} <span className="text-slate-500 text-sm">x</span> {dims.h}
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Cost</div>
-                                    <div className="text-4xl font-black text-amber-500 leading-none">
-                                        <span className="text-xl text-amber-700 mr-1">₹</span>{Math.round(grandTotalCost).toLocaleString()}
-                                    </div>
+                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</div>
+                                     <div className="text-lg font-black text-white uppercase">{boxType}</div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
-                                <div className="flex items-center bg-slate-800 rounded px-2 py-1 border border-slate-700">
-                                    <span className="text-xs font-bold text-slate-400 uppercase mr-2">Rate ₹</span>
-                                    <input type="number" value={costPerCFT} onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)} className="bg-transparent text-white font-bold text-lg w-full outline-none" />
-                                </div>
-                                <div className="flex items-center justify-end bg-slate-800 rounded px-2 py-1 border border-slate-700">
-                                    <span className="text-white font-bold text-lg mr-1">{grandTotalCFT.toFixed(2)}</span>
-                                    <span className="text-xs font-bold text-slate-400 uppercase">CFT</span>
-                                </div>
+                         </div>
+                    )}
+
+                    {/* BRANDING HEADER (Standard) */}
+                    <div ref={headerRef} className="bg-slate-900 text-white shadow-xl relative z-50 border-b-4 border-amber-600">
+                        <div className="max-w-2xl mx-auto p-4 pb-4">
+                            <div className="flex flex-col items-center justify-center text-center">
+                                <h1 className="font-brand font-black text-2xl md:text-3xl text-amber-500 tracking-wide uppercase" style={{textShadow: '2px 2px 0px #000'}}>
+                                    Ambica Wooden Works
+                                </h1>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Smart CFT Calculator</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="max-w-2xl mx-auto p-3 space-y-6">
+                    <div className="max-w-2xl mx-auto p-3 space-y-6 mt-4">
+
+                        {/* 1. HUGE CENTRAL COST DISPLAY */}
+                        <div className="bg-slate-800 rounded-2xl p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] border-4 border-amber-600 text-center">
+                            <div className="text-sm font-black text-amber-500 uppercase tracking-[0.2em] mb-2">Total Project Cost</div>
+                            <div className="text-6xl font-black text-white leading-none mb-6">
+                                <span className="text-3xl text-amber-600 align-top mr-1">₹</span>
+                                {Math.round(grandTotalCost).toLocaleString()}
+                            </div>
+                            
+                            <div className="flex items-center justify-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
+                                <div className="flex flex-col items-center">
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1">Rate (₹/CFT)</label>
+                                    <input 
+                                        type="number" 
+                                        value={costPerCFT} 
+                                        onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)} 
+                                        className="bg-white text-slate-900 font-black text-3xl w-32 p-2 rounded-lg text-center outline-none border-4 border-amber-500 focus:ring-4 focus:ring-amber-500/50" 
+                                    />
+                                </div>
+                                <div className="h-12 w-0.5 bg-slate-600 mx-2"></div>
+                                <div className="flex flex-col items-center">
+                                    <span className="text-xs font-bold text-slate-400 uppercase mb-1">Total CFT</span>
+                                    <span className="text-3xl font-black text-amber-400">{grandTotalCFT.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. INTERNAL SIZE INPUTS */}
+                        <div className="bg-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black">
+                            <div className="flex justify-between items-center mb-4 border-b-2 border-slate-100 pb-2">
+                                <h2 className="text-lg font-black text-black uppercase tracking-widest flex items-center gap-2">
+                                    <Icons.Box className="text-amber-600" /> Internal Size
+                                </h2>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {['l','w','h'].map(k => (
+                                    <div key={k} className="flex flex-col">
+                                        <label className="text-xs text-black font-black mb-2 uppercase tracking-wide bg-amber-100 w-full text-center py-1 rounded border border-amber-200">
+                                            {k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'}
+                                        </label>
+                                        <input 
+                                            type="number" 
+                                            value={dims[k]} 
+                                            onChange={(e) => setDims({...dims, [k]:e.target.value})} 
+                                            className="bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all" 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 3. BOX TYPE */}
                         <BoxTypeSelector 
                             type={boxType} setType={setBoxType} 
                             subType={crateType} setSubType={setCrateType}
                             crateSettings={crateSettings} setCrateSettings={setCrateSettings}
                         />
 
-                        <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-slate-200">
-                            <div className="flex justify-between items-center mb-3">
-                                <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest">Internal Size</h2>
-                                <button onClick={() => setShowVis(!showVis)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-wide">
-                                    {showVis ? 'Hide 3D' : 'Show 3D'}
-                                </button>
+                        {/* 4. REALISTIC 3D PREVIEW */}
+                        <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden relative" style={{height: '400px'}}>
+                            <div className="absolute top-0 left-0 bg-black text-white px-3 py-2 text-xs font-black uppercase rounded-br-lg z-10 flex items-center gap-2">
+                                <Icons.Rotate size={14} /> Tap & Drag to Rotate
                             </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {['l','w','h'].map(k => (
-                                    <div key={k} className="flex flex-col">
-                                        <label className="text-[10px] text-slate-500 font-black mb-1 uppercase tracking-wide bg-slate-100 w-fit px-1 rounded">{k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'}</label>
-                                        <input type="number" value={dims[k]} onChange={(e) => setDims({...dims, [k]:e.target.value})} className="bg-slate-50 border-2 border-slate-300 rounded-lg p-3 text-3xl font-black text-slate-900 text-center focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
-                                    </div>
-                                ))}
+                            <ThreeScene 
+                                dims={dims} 
+                                boxType={boxType} 
+                                crateType={crateType} 
+                                supps={supps}
+                                mainRows={mainRows}
+                            />
+                            <div className="absolute bottom-2 right-2 text-[10px] text-slate-400 font-bold bg-white/90 px-2 py-1 rounded border border-slate-200 pointer-events-none">
+                                *Visualisation Auto-Generates Runners
                             </div>
                         </div>
 
-                        {showVis && (
-                            <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 h-48 flex items-center justify-center overflow-hidden relative">
-                                <div className="absolute top-2 left-2 text-[10px] font-bold text-slate-300 uppercase">Preview</div>
-                                <canvas ref={canvasRef} width={600} height={300} className="w-full h-full" />
+                        {/* 5. CALCULATION DETAILS */}
+                        <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden">
+                            <div className="bg-slate-900 p-3 flex justify-between items-center">
+                                <span className="font-black text-sm text-white uppercase tracking-wide">Box Components</span>
+                                <span className="font-black text-xl text-amber-400">{totalBoard.toFixed(3)} <span className="text-xs text-slate-400">CFT</span></span>
                             </div>
-                        )}
-
-                        <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 overflow-hidden">
-                            <div className="bg-slate-100 border-b-2 border-slate-200 p-3 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-500 uppercase text-center tracking-widest">
-                                <div className="col-span-3 text-left pl-1">Item</div>
-                                <div className="col-span-2">L</div>
-                                <div className="col-span-2">W</div>
+                            
+                            <div className="bg-slate-100 border-b-2 border-slate-300 p-2 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-600 uppercase text-center tracking-widest">
+                                <div className="col-span-3 text-left pl-1">Part</div>
+                                <div className="col-span-2">Len</div>
+                                <div className="col-span-2">Wid</div>
                                 <div className="col-span-2">Thk</div>
                                 <div className="col-span-1">Qty</div>
                                 <div className="col-span-2 text-right">CFT</div>
                             </div>
-                            <div className="p-2">
+
+                            <div className="p-3">
                                 {(boxType === 'simple' || (boxType === 'crate' && crateType === 'simple')) && (
                                     <>
-                                        <CalculationRow 
-                                            label="Top & Bottom" 
-                                            data={mainRows.top} 
-                                            onChange={(f,v) => {updateMainRow('top', f, v); updateMainRow('bottom', f, v);}} 
-                                            isCrate={boxType === 'crate'}
-                                            crateSettings={crateSettings}
-                                            boxType="crateSimple"
-                                        />
-                                        <CalculationRow 
-                                            label="Sides" 
-                                            data={mainRows.sides} 
-                                            onChange={(f,v) => updateMainRow('sides', f, v)} 
-                                            isCrate={boxType === 'crate'}
-                                            crateSettings={crateSettings}
-                                            boxType="crateSimple"
-                                        />
-                                        <CalculationRow 
-                                            label="Kara (Ends)" 
-                                            data={mainRows.kara} 
-                                            onChange={(f,v) => updateMainRow('kara', f, v)} 
-                                            isCrate={boxType === 'crate'}
-                                            crateSettings={crateSettings}
-                                            boxType="crateSimple"
-                                        />
+                                        <CalculationRow label="Top & Bottom" data={mainRows.top} onChange={(f,v) => {updateMainRow('top', f, v); updateMainRow('bottom', f, v);}} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
+                                        <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
+                                        <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
                                     </>
                                 )}
 
                                 {(boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom')) && (
                                     <>
-                                        <CalculationRow 
-                                            label="Bottom" 
-                                            data={mainRows.bottom} 
-                                            onChange={(f,v) => updateMainRow('bottom', f, v)}
-                                            isCrate={false} 
-                                            crateSettings={crateSettings}
-                                            boxType="crateBottom"
-                                        />
-                                        <CalculationRow 
-                                            label="Top Lid" 
-                                            data={mainRows.top} 
-                                            onChange={(f,v) => updateMainRow('top', f, v)} 
-                                            isCrate={boxType === 'crate'}
-                                            crateSettings={crateSettings}
-                                            boxType="crateBottom"
-                                        />
-                                        <CalculationRow 
-                                            label="Sides" 
-                                            data={mainRows.sides} 
-                                            onChange={(f,v) => updateMainRow('sides', f, v)} 
-                                            isCrate={boxType === 'crate'}
-                                            crateSettings={crateSettings}
-                                            boxType="crateBottom"
-                                        />
-                                        <CalculationRow 
-                                            label="Kara (Ends)" 
-                                            data={mainRows.kara} 
-                                            onChange={(f,v) => updateMainRow('kara', f, v)} 
-                                            isCrate={boxType === 'crate'}
-                                            crateSettings={crateSettings}
-                                            boxType="crateBottom"
-                                        />
+                                        <CalculationRow label="Bottom" data={mainRows.bottom} onChange={(f,v) => updateMainRow('bottom', f, v)} isCrate={false} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Top Lid" data={mainRows.top} onChange={(f,v) => updateMainRow('top', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
                                     </>
                                 )}
                             </div>
-                            <div className="bg-amber-50 p-3 flex justify-between items-center border-t-2 border-amber-100">
-                                <span className="font-black text-sm text-amber-900 uppercase tracking-wide">Box Board Total</span>
-                                <span className="font-black text-xl text-amber-700">{totalBoard.toFixed(3)}</span>
-                            </div>
                         </div>
 
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center justify-between bg-slate-800 text-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
-                                <div className="flex items-center gap-3">
-                                    <Icons.Settings size={24} className="text-blue-400"/>
-                                    <div>
-                                        <h3 className="font-black text-lg uppercase tracking-wide">Runners</h3>
-                                        <p className="text-xs text-slate-400 font-bold">Auto-Estimated: {estimateRunners(dims.l)}</p>
-                                    </div>
+                        {/* 6. SUPPORTS SECTION */}
+                        <div className="space-y-4 pt-4 border-t-4 border-dashed border-slate-300">
+                            <div className="flex items-center justify-between bg-black text-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)]">
+                                <div>
+                                    <h3 className="font-black text-xl uppercase tracking-wide text-amber-500">Runners & Supports</h3>
+                                    <p className="text-sm text-slate-300 font-bold mt-1">Total: {totalSupp.toFixed(3)} CFT</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold uppercase text-slate-300">Set Global:</span>
+                                
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] font-bold uppercase text-slate-400 mb-1">Estimated Count</span>
                                     <div className="flex items-center bg-white rounded-lg p-1">
-                                        <button onClick={() => handleGlobalRunnerChange(globalRunners - 1)} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded hover:bg-slate-200 text-slate-800 font-bold text-xl">-</button>
-                                        <span className="w-12 text-center text-2xl font-black text-slate-900">{globalRunners}</span>
-                                        <button onClick={() => handleGlobalRunnerChange(globalRunners + 1)} className="w-10 h-10 flex items-center justify-center bg-blue-600 rounded text-white font-bold text-xl hover:bg-blue-700">+</button>
+                                        <button onClick={() => handleGlobalRunnerChange(globalRunners - 1)} className="w-10 h-10 flex items-center justify-center bg-slate-200 rounded hover:bg-slate-300 text-black font-black text-xl">-</button>
+                                        <span className="w-12 text-center text-2xl font-black text-black">{globalRunners}</span>
+                                        <button onClick={() => handleGlobalRunnerChange(globalRunners + 1)} className="w-10 h-10 flex items-center justify-center bg-amber-500 rounded text-black font-black text-xl hover:bg-amber-600">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -705,6 +891,7 @@
                                     ]}
                                     settings={supps.bottom}
                                     onUpdate={(f,v) => updateSupp('bottom', f, v)}
+                                    colorClass="bg-amber-50 border-amber-900"
                                 />
 
                                 <SupportCard 
@@ -748,45 +935,37 @@
                             </div>
 
                             {extras.map((ex) => (
-                                <div key={ex.id} className="rounded-xl shadow-md border-2 border-blue-200 bg-white overflow-hidden mb-3">
-                                    <div className="p-3 border-b border-blue-100 flex justify-between items-center bg-blue-50">
-                                        <span className="text-sm font-black text-blue-700 uppercase tracking-wide">Extra Support</span>
+                                <div key={ex.id} className="rounded-xl shadow-md border-2 border-blue-600 bg-white overflow-hidden mb-3">
+                                    <div className="p-3 border-b border-blue-200 flex justify-between items-center bg-blue-50">
+                                        <span className="text-sm font-black text-blue-800 uppercase tracking-wide">Extra Support</span>
                                         <div className="flex items-center gap-3">
-                                            <span className="font-mono font-black text-xl text-amber-700">{calculateLineCFT(ex.l, ex.w, ex.t, ex.qty).toFixed(2)}</span>
-                                            <button onClick={() => removeExtra(ex.id)} className="text-red-500 bg-white p-2 rounded-lg border border-red-200 hover:bg-red-50"><Icons.Trash size={20}/></button>
+                                            <span className="font-mono font-black text-xl text-amber-800">{calculateLineCFT(ex.l, ex.w, ex.t, ex.qty).toFixed(2)}</span>
+                                            <button onClick={() => removeExtra(ex.id)} className="text-white bg-red-600 p-2 rounded-lg border-2 border-red-800 hover:bg-red-700 shadow-sm"><Icons.Trash size={20}/></button>
                                         </div>
                                     </div>
                                     <div className="p-4 space-y-3">
                                         <div className="grid grid-cols-5 gap-2">
                                             <div className="col-span-3">
-                                                <label className="text-xs text-slate-400 font-bold uppercase mb-1 block">Size</label>
-                                                <select 
-                                                    className="w-full border-2 border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                                                    value={ex.size}
-                                                    onChange={(e) => {
-                                                        const s = getSizeDims(e.target.value);
-                                                        updateExtra(ex.id, 'size', e.target.value);
-                                                        updateExtra(ex.id, 'w', s.w); updateExtra(ex.id, 't', s.t);
-                                                    }}
-                                                >
+                                                <label className="text-xs text-black font-black uppercase mb-1 block">Size</label>
+                                                <select className="w-full border-2 border-slate-900 rounded-lg p-2 font-black text-black" value={ex.size} onChange={(e) => { const s = getSizeDims(e.target.value); updateExtra(ex.id, 'size', e.target.value); updateExtra(ex.id, 'w', s.w); updateExtra(ex.id, 't', s.t); }}>
                                                     <option value="Custom">Custom</option>
                                                     <option value="3x1">3 x 1</option>
                                                     <option value="4x1">4 x 1</option>
                                                 </select>
                                             </div>
-                                            <div className="col-span-1"><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">W</label><NumberInput value={ex.w} onChange={(v)=>updateExtra(ex.id,'w',v)} /></div>
-                                            <div className="col-span-1"><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">T</label><NumberInput value={ex.t} onChange={(v)=>updateExtra(ex.id,'t',v)} step={0.25} /></div>
+                                            <div className="col-span-1"><label className="text-xs text-black font-black uppercase mb-1 block">W</label><NumberInput value={ex.w} onChange={(v)=>updateExtra(ex.id,'w',v)} /></div>
+                                            <div className="col-span-1"><label className="text-xs text-black font-black uppercase mb-1 block">T</label><NumberInput value={ex.t} onChange={(v)=>updateExtra(ex.id,'t',v)} step={0.25} /></div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <div><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">Length</label><NumberInput value={ex.l} onChange={(v)=>updateExtra(ex.id,'l',v)} /></div>
-                                            <div><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">Qty</label><NumberInput value={ex.qty} onChange={(v)=>updateExtra(ex.id,'qty',v)} step={1} className="bg-blue-50" /></div>
+                                            <div><label className="text-xs text-black font-black uppercase mb-1 block">Length</label><NumberInput value={ex.l} onChange={(v)=>updateExtra(ex.id,'l',v)} /></div>
+                                            <div><label className="text-xs text-black font-black uppercase mb-1 block">Qty</label><NumberInput value={ex.qty} onChange={(v)=>updateExtra(ex.id,'qty',v)} step={1} className="bg-blue-50" /></div>
                                         </div>
                                     </div>
                                 </div>
                             ))}
 
-                            <button onClick={addExtra} className="w-full py-4 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-xl font-black hover:bg-blue-50 mt-2 flex justify-center items-center gap-2 shadow-sm uppercase tracking-wide text-lg transition-colors">
-                                <Icons.Plus size={24}/> Add Extra Support
+                            <button onClick={addExtra} className="w-full py-5 bg-white border-4 border-dashed border-blue-300 text-blue-600 rounded-xl font-black hover:bg-blue-50 mt-4 flex justify-center items-center gap-2 shadow-sm uppercase tracking-wide text-lg transition-colors">
+                                <Icons.Plus size={28}/> Add Extra Support
                             </button>
                         </div>
                     </div>
