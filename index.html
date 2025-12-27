@@ -42,6 +42,8 @@
         .sticky-bar-enter { transform: translateY(-100%); opacity: 0; }
         .sticky-bar-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-in-out; }
         .sticky-bar-exit { transform: translateY(-100%); opacity: 0; transition: all 0.3s ease-in-out; }
+        
+        select::-ms-expand { display: none; }
     </style>
 </head>
 <body class="bg-amber-50 text-slate-900 font-sans pb-40 select-none wood-pattern">
@@ -49,7 +51,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         // --- ICONS ---
         const Icon = ({ path, size = 24, className = "" }) => (
@@ -83,23 +85,15 @@
                 '3x1': {w:3, t:1}, '4x1': {w:4, t:1}, 
                 '3x1.5': {w:3, t:1.5}, '4x1.5': {w:4, t:1.5},
                 '3x2': {w:3, t:2}, '4x2': {w:4, t:2}, 
-                '4x3': {w:4, t:3}
+                '4x3': {w:4, t:3}, '4x4': {w:4, t:4}
             };
             return map[sizeStr] || {w:3, t:1};
         };
 
         const getMaxDim = (sizeStr) => {
             if(!sizeStr) return 0;
-            const parts = sizeStr.split('x').map(parseFloat);
-            return Math.max(...parts);
-        };
-
-        const estimateRunners = (length) => {
-            const l = parseFloat(length) || 0;
-            if (l >= 75) return 5;
-            if (l >= 60) return 4;
-            if (l >= 50) return 3;
-            return 2; 
+            const dims = getSizeDims(sizeStr);
+            return Math.max(dims.w, dims.t); 
         };
 
         const calculateCrateEffectiveLength = (span, plankWidth, gap) => {
@@ -109,52 +103,53 @@
             return planks * plankWidth;
         };
 
-        const getEffectiveCrateDims = (partName, l, w, boxType, crateSettings) => {
-            let effL = l;
-            let effW = w;
-            let note = null;
+        const getEffectiveCrateDims = (partName, originalL, originalW, boxType, crateSettings) => {
+            const { plank, gap } = crateSettings;
+            if (!plank || !gap) return { l: originalL, w: originalW, note: null };
+
+            let result = { l: originalL, w: originalW, note: null };
 
             if (partName === 'Sides') {
-                if (boxType === 'simple' || boxType === 'crateSimple') {
-                    const originalH = w;
-                    effW = calculateCrateEffectiveLength(originalH, crateSettings.plank, crateSettings.gap);
-                    note = `(Height ${originalH}" → Wood ${effW}")`;
-                } else {
-                    const originalL = l;
-                    effL = calculateCrateEffectiveLength(originalL, crateSettings.plank, crateSettings.gap);
-                    note = `(Length ${originalL}" → Wood ${effL}")`;
-                }
+                const effH = calculateCrateEffectiveLength(originalW, plank, gap);
+                result.w = effH;
+                result.note = 'Height adjusted for gaps';
             } else if (partName === 'Kara') {
-                const originalH = w;
-                effW = calculateCrateEffectiveLength(originalH, crateSettings.plank, crateSettings.gap);
-                note = `(Height ${originalH}" → Wood ${effW}")`;
+                const effW = calculateCrateEffectiveLength(originalL, plank, gap);
+                const effH = calculateCrateEffectiveLength(originalW, plank, gap);
+                result.l = effW;
+                result.w = effH;
+                result.note = 'Width & Height adjusted';
             } else if (partName === 'Top') {
-                const originalW = w;
-                effW = calculateCrateEffectiveLength(originalW, crateSettings.plank, crateSettings.gap);
-                note = `(Width ${originalW}" → Wood ${effW}")`;
+                if (boxType === 'crateBottom') {
+                    const effL = calculateCrateEffectiveLength(originalL, plank, gap);
+                    const effW = calculateCrateEffectiveLength(originalW, plank, gap);
+                    result.l = effL;
+                    result.w = effW;
+                    result.note = 'Length & Width adjusted';
+                }
             }
-            return { l: effL, w: effW, note };
+
+            return result;
         };
 
-        // --- 3D VISUALIZER COMPONENT (THREE.JS) ---
-        const ThreeScene = ({ dims, boxType, crateType, supps, mainRows }) => {
+        // --- 3D VISUALIZER ---
+        const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
             const mountRef = useRef(null);
             
             useEffect(() => {
                 if (!mountRef.current) return;
-
-                // 1. Setup Scene
                 const w = mountRef.current.clientWidth;
                 const h = mountRef.current.clientHeight;
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xfff8ef); 
 
                 const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-                camera.position.set(50, 40, 70);
+                camera.position.set(60, 50, 80);
 
                 const renderer = new THREE.WebGLRenderer({ antialias: true });
                 renderer.setSize(w, h);
                 renderer.shadowMap.enabled = true;
+                mountRef.current.innerHTML = '';
                 mountRef.current.appendChild(renderer.domElement);
 
                 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -169,11 +164,10 @@
                 controls.dampingFactor = 0.05;
 
                 // Materials
-                const woodMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.8 }); // Panel (Amber 300)
-                const woodMatSide = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.8 }); // Side (Amber 500)
-                const woodMatDark = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }); // Runners (Dark)
+                const woodMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.8 }); 
+                const woodMatSide = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.8 });
+                const woodMatDark = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }); 
 
-                // Helpers
                 const createBox = (w, h, d, colorMat, x, y, z) => {
                     const geo = new THREE.BoxGeometry(w, h, d);
                     const mesh = new THREE.Mesh(geo, colorMat);
@@ -186,151 +180,245 @@
                 const group = new THREE.Group();
                 scene.add(group);
 
-                // --- BOX BUILDING LOGIC ---
-                const L = parseFloat(dims.l) || 0;
-                const W = parseFloat(dims.w) || 0;
-                const H = parseFloat(dims.h) || 0;
-                const thickness = 1; 
-
+                // --- VISUALIZATION LOGIC ---
+                const THK = 1; 
                 const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
                 
-                // --- A. BOTTOM RUNNERS ---
-                const bCount = supps.bottom.count || 2;
+                // --- 1. BOTTOM RUNNERS ---
                 const bSize = getSizeDims(supps.bottom.size);
-                const bHeight = bSize.w; 
-                const bWidth = bSize.t; 
-
-                // Simple: Runners along Width (Z axis). Length = W.
-                // Bottom: Runners along Length (X axis). Length = L + 4.
+                const bH = bSize.w; 
+                const bW = bSize.t; 
+                const bLen = supps.bottom.dim;
+                const bCount = supps.bottom.count;
                 
-                if (bCount > 0) {
-                    if (isBottomType) {
-                        // BOTTOM TYPE: Runners along LENGTH
-                        const bRunnerLen = L + 4; 
-                        const startZ = -W/2 + (W / (bCount + 1));
-                        const stepZ = W / (bCount + 1);
+                let runnerPositions = [];
+
+                if(bCount > 0) {
+                    if(isBottomType) {
+                        // BOTTOM TYPE: Horizontal (Length-wise).
+                        const spreadW = mainRows.bottom.w; 
                         
-                        for(let i=1; i<=bCount; i++) {
-                             const zPos = -W/2 + (i * stepZ);
-                             group.add(createBox(bRunnerLen, bHeight, bWidth, woodMatDark, 0, bHeight/2, zPos));
+                        for(let i=0; i<bCount; i++) {
+                            let zPos;
+                            if (bCount === 1) zPos = 0;
+                            else {
+                                const maxOffset = (spreadW/2) - (bW/2);
+                                const pct = i / (bCount - 1);
+                                zPos = -maxOffset + (pct * 2 * maxOffset);
+                            }
+                            
+                            runnerPositions.push(zPos); 
+                            group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH/2, zPos));
                         }
                     } else {
-                        // SIMPLE TYPE: Runners along WIDTH
-                        const bRunnerLen = W; // Length of runner is box width
-                        const startX = -L/2 + (L / (bCount + 1));
-                        const stepX = L / (bCount + 1);
-                        
-                        for(let i=1; i<=bCount; i++) {
-                             const xPos = -L/2 + (i * stepX);
-                             // Rotated 90 deg around Y implicitly by swapping W/D args
-                             group.add(createBox(bWidth, bHeight, bRunnerLen, woodMatDark, xPos, bHeight/2, 0));
+                        // SIMPLE TYPE
+                        if(runnerConfig.bottomDir === 'width') {
+                            // Standard: Width-wise, spaced along Length
+                            const spreadL = mainRows.bottom.l; 
+                            const stepX = spreadL / (bCount + 1);
+                            for(let i=1; i<=bCount; i++) {
+                                const xPos = -spreadL/2 + (i * stepX);
+                                runnerPositions.push(xPos);
+                                group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH/2, 0));
+                            }
+                        } else {
+                            // *** FIX 1: Horizontal Override - NOW POPULATES runnerPositions ***
+                            const spreadW = mainRows.bottom.w; 
+                            const stepZ = spreadW / (bCount + 1);
+                            for(let i=1; i<=bCount; i++) {
+                                const zPos = -spreadW/2 + (i * stepZ);
+                                runnerPositions.push(zPos); // NOW STORES Z POSITIONS
+                                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH/2, zPos));
+                            }
                         }
                     }
                 }
 
-                const baseHeight = bHeight;
+                const baseY = bH; 
 
-                // --- B. PANELS ---
-                group.add(createBox(L, thickness, W, woodMat, 0, baseHeight + thickness/2, 0)); // Bottom
-                group.add(createBox(L, thickness, W, woodMat, 0, baseHeight + H - thickness/2, 0)); // Top
-
-                // Sides
-                group.add(createBox(L, H - 2*thickness, thickness, woodMatSide, 0, baseHeight + H/2, W/2 - thickness/2));
-                group.add(createBox(L, H - 2*thickness, thickness, woodMatSide, 0, baseHeight + H/2, -W/2 + thickness/2));
-
-                // --- C. KARA (Ends) ---
-                const kThick = 1;
+                // --- 2. BOTTOM PANEL ---
+                const botL = mainRows.bottom.l;
+                const botW = mainRows.bottom.w;
+                group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK/2, 0));
                 
-                if(isBottomType) {
-                    // BOTTOM TYPE KARA: Only Vertical Runners (Legs)
-                    // H + bHeight usually.
-                    // Visualized as vertical planks at the ends.
-                    // Assuming Kara Verts are at the corners or near ends.
-                    const kVertCount = supps.karaVert.count || 4;
-                    // Simply put 4 posts at corners
-                    const kH = H + bHeight; // Total height from ground
-                    const kSize = getSizeDims(supps.karaVert.size);
-                    const kW = kSize.w; // 3 inch wide usually
-                    
-                    // 4 Corners roughly
-                    const corners = [
-                        {x: L/2 + kThick, z: W/2}, {x: L/2 + kThick, z: -W/2},
-                        {x: -L/2 - kThick, z: W/2}, {x: -L/2 - kThick, z: -W/2}
-                    ];
-                    corners.forEach(c => {
-                        group.add(createBox(kThick, kH, kW, woodMatSide, c.x, kH/2, c.z));
-                    });
+                const floorLevel = baseY + THK;
 
+                // --- 3. SIDES ---
+                const sL = mainRows.sides.l;
+                const sH = mainRows.sides.w;
+                let sideY, sideZ_offset;
+                
+                if (isBottomType) {
+                    sideY = baseY + sH/2;
+                    sideZ_offset = (mainRows.bottom.w / 2) + (THK/2);
                 } else {
-                    // SIMPLE TYPE KARA: Square Frame
-                    // Two Horizontal Planks (Top/Bottom) + Vertical Planks in middle
-                    const horzSize = getSizeDims(supps.karaHorz.size);
-                    const horzW = horzSize.w; // e.g., 3 inches
+                    sideY = floorLevel + sH/2;
+                    sideZ_offset = (botW / 2) - (THK/2); 
+                }
+
+                group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset));
+                group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset));
+
+                // --- 4. KARA (ENDS) ---
+                const kL = mainRows.kara.l;
+                const kH = mainRows.kara.w;
+                const kThk = THK;
+
+                let karaY, karaX_offset;
+
+                if (isBottomType) {
+                    karaY = baseY + kH/2;
+                    karaX_offset = (mainRows.bottom.l / 2) + (kThk/2); 
+                } else {
+                    karaY = floorLevel + kH/2;
+                    karaX_offset = (parseFloat(dims.l) / 2) + (kThk/2);
+                }
+
+                group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0));
+                group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0));
+
+                // --- 5. SIDE RUNNERS ---
+                const srLen = supps.sides.dim;
+                const srCount = Math.round(supps.sides.count / 2);
+                
+                const drawSideRunners = (sideMultiplier) => {
+                    const zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5);
+
+                    if (isBottomType || runnerConfig.sideDir === 'horizontal') {
+                        // HORIZONTAL
+                        // *** FIX 4: Bottom Type - One runner at top, rest distributed ***
+                        if (isBottomType && srCount > 0) {
+                            // First runner at the very top
+                            const topY = baseY + sH - 1.5; // Near top edge (1.5 = half thickness of 3")
+                            group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel));
+                            
+                            // Remaining runners distributed in the middle/lower section
+                            if (srCount > 1) {
+                                const remainingSpace = sH - 3; // Space below the top runner
+                                const step = remainingSpace / srCount;
+                                for(let i=1; i<srCount; i++) {
+                                    const yPos = baseY + (i * step);
+                                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
+                                }
+                            }
+                        } else {
+                            // Simple type horizontal (original logic)
+                            const stepY = sH / (srCount + 1);
+                            for(let i=1; i<=srCount; i++) {
+                                const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
+                                group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
+                            }
+                        }
+                    } else {
+                        // VERTICAL (Simple Standard) - ALIGNED with Bottom Runners
+                        let positions = [];
+                        if (runnerConfig.bottomDir === 'width' && runnerPositions.length > 0) {
+                            positions = runnerPositions;
+                        } else {
+                            const totalL = mainRows.sides.l;
+                            const step = totalL / (srCount + 1);
+                            for(let i=1; i<=srCount; i++) positions.push(-totalL/2 + i*step);
+                        }
+
+                        const vCenterY = srLen / 2; 
+                        
+                        positions.forEach(xPos => {
+                             group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
+                        });
+                    }
+                };
+                
+                if (supps.sides.count > 0) {
+                    drawSideRunners(1);
+                    drawSideRunners(-1);
+                }
+
+                // --- 6. KARA RUNNERS (SQUARE FRAME LOGIC) ---
+                if (isBottomType) {
+                    // Bottom Type: Vertical Posts
+                    const kVertLen = supps.karaVert.dim;
+                    const kVertSize = getSizeDims(supps.karaVert.size);
+                    const kVertW = kVertSize.w; // Width of vertical post (e.g., 3 or 4)
+                    const kV_Y = baseY + (kVertLen / 2); 
                     
-                    // Draw Frame on Left (-L/2) and Right (L/2)
-                    [1, -1].forEach(dir => {
-                        const xPos = dir * (L/2 - thickness/2);
+                    [1, -1].forEach(dirX => { 
+                         const xPos = dirX * (karaX_offset + kThk + 1.5); 
+                         
+                         if(runnerPositions.length > 0) {
+                             runnerPositions.forEach(zPos => {
+                                 group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
+                             });
+                         } else {
+                             const kPostZ = (kL/2) - 1.5;
+                             group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
+                             group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
+                         }
+                    });
+                } else {
+                    // *** FIX 2: SIMPLE TYPE - KARA FRAME MORE VISIBLE ***
+                    const kHorzLen = supps.karaHorz.dim;
+                    const kVertLen = supps.karaVert.dim;
+                    const suppW = getSizeDims(supps.karaHorz.size).w;
+                    const frameThickness = 2.5; // Increased from 1 to 2.5 for visibility
+
+                    const kY_Top = floorLevel + kH - (suppW/2);
+                    const kY_Bot = floorLevel + (suppW/2);
+                    const kY_Mid = floorLevel + (kH/2);
+
+                    const kZ_Left = (kL/2) - (suppW/2);
+                    const kZ_Right = -((kL/2) - (suppW/2));
+
+                    [1, -1].forEach(dirX => {
+                        const xPos = dirX * (karaX_offset - kThk - 1.5); // Moved slightly outward
                         
-                        // 1. Top Plank
-                        group.add(createBox(thickness, horzW, W, woodMatSide, xPos, baseHeight + H - horzW/2, 0));
+                        // 1. Top Horizontal
+                        group.add(createBox(frameThickness, suppW, kHorzLen, woodMatDark, xPos, kY_Top, 0));
+                        // 2. Bottom Horizontal
+                        group.add(createBox(frameThickness, suppW, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
                         
-                        // 2. Bottom Plank
-                        group.add(createBox(thickness, horzW, W, woodMatSide, xPos, baseHeight + horzW/2, 0));
-                        
-                        // 3. Vertical Planks (Gap fillers)
-                        const gapH = H - (2 * horzW);
-                        if(gapH > 0) {
-                            // Place 2 verticals in the middle gap
-                            // Distributed along Z
-                            const zOffset = W/4;
-                            group.add(createBox(thickness, gapH, 3, woodMatSide, xPos, baseHeight + H/2, zOffset));
-                            group.add(createBox(thickness, gapH, 3, woodMatSide, xPos, baseHeight + H/2, -zOffset));
+                        // 3. Vertical Left & Right
+                        if (kVertLen > 0) {
+                            group.add(createBox(frameThickness, kVertLen, suppW, woodMatDark, xPos, kY_Mid, kZ_Left));
+                            group.add(createBox(frameThickness, kVertLen, suppW, woodMatDark, xPos, kY_Mid, kZ_Right));
                         }
                     });
                 }
 
-                // --- D. SIDE SUPPORTS ---
-                const sCount = supps.sides.count;
-                const sPerSide = Math.ceil(sCount / 2);
-                
-                if(sPerSide > 0) {
-                    if (isBottomType) {
-                        // BOTTOM TYPE: Horizontal Side Supports
-                        // Run along the length of the side (X axis)
-                        const sSize = getSizeDims(supps.sides.size);
-                        const sW = sSize.w; // width of plank
-                        
-                        const stepY = (H - 2) / (sPerSide + 1);
-                        
-                        for(let i=1; i<=sPerSide; i++) {
-                            const yPos = baseHeight + (i * stepY);
-                            // Right Side
-                            group.add(createBox(L, sW, 1, woodMatDark, 0, yPos, W/2 + 0.5));
-                            // Left Side
-                            group.add(createBox(L, sW, 1, woodMatDark, 0, yPos, -W/2 - 0.5));
-                        }
+                // --- 7. TOP LID ---
+                const tL = mainRows.top.l;
+                const tW = mainRows.top.w;
+                const topY = (isBottomType ? baseY : floorLevel) + sH + THK/2;
+                group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0));
 
-                    } else {
-                        // SIMPLE TYPE: Vertical Side Supports
-                        // Run along Height (Y axis)
-                        const stepX = L / (sPerSide + 1);
-                        for(let i=1; i<=sPerSide; i++) {
-                            const xPos = -L/2 + (i * stepX);
-                            // Right Side
-                            group.add(createBox(2, H-2, 1, woodMatDark, xPos, baseHeight + H/2, W/2 + 0.5));
-                            // Left Side
-                            group.add(createBox(2, H-2, 1, woodMatDark, xPos, baseHeight + H/2, -W/2 - 0.5));
-                        }
-                    }
-                }
+                // --- 8. TOP LID RUNNERS ---
+                if (runnerPositions.length > 0) {
+                     const trH = 1.5; // Increased thickness for visibility
+                     const trY = topY - (THK/2) - (trH/2);
+                     
+                     if (isBottomType) {
+                         // *** FIX 3: BOTTOM TYPE - Length-wise runners connecting kara posts ***
+                         const trW = 3; 
+                         const trLen = tL;
+                         
+                         // Calculate the positions where kara vertical posts are
+                         const karaPostX_Left = -(karaX_offset + kThk + 1.5);
+                         const karaPostX_Right = (karaX_offset + kThk + 1.5);
 
-                // --- E. TOP SUPPORTS (Lid) ---
-                const tCount = supps.top.count;
-                if(tCount > 0) {
-                    const stepX = L / (tCount + 1);
-                     for(let i=1; i<=tCount; i++) {
-                        const xPos = -L/2 + (i * stepX);
-                        group.add(createBox(2, 1, W, woodMatDark, xPos, baseHeight + H + 0.5, 0));
+                         runnerPositions.forEach(zPos => {
+                             // Create runners that span from left kara post to right kara post
+                             // Position them at the Z positions of the bottom runners
+                             group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
+                         });
+
+                     } else {
+                         // SIMPLE TYPE: Run Width-wise (Z), aligned with X positions
+                         const trLen = tW;
+                         const sideSize = getSizeDims(supps.sides.size);
+                         const trW = sideSize.w; 
+
+                         runnerPositions.forEach(xPos => {
+                             group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
+                         });
                      }
                 }
 
@@ -347,7 +435,7 @@
                     }
                     renderer.dispose();
                 };
-            }, [dims, boxType, crateType, supps]);
+            }, [dims, boxType, crateType, mainRows, supps, runnerConfig]);
 
             return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
         };
@@ -406,7 +494,7 @@
             );
         };
 
-        const SupportCard = ({ label, sizeOptions, dimOptions, settings, onUpdate, colorClass="bg-white" }) => {
+        const SupportCard = ({ label, sizeOptions, dimValue, settings, onUpdate, colorClass="bg-white", configKey, runnerConfig, onConfigChange, fixedDir }) => {
             const sDims = getSizeDims(settings.size);
             const feet = getPurchasedFeet(settings.dim);
             const cft = ((feet * sDims.w * sDims.t) / 144) * settings.count;
@@ -414,7 +502,7 @@
             return (
                 <div className={`rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-slate-900 overflow-hidden ${colorClass}`}>
                     <div className="p-3 border-b-2 border-slate-900 flex justify-between items-center bg-slate-200">
-                        <span className="text-base font-black text-black uppercase tracking-wide">{label}</span>
+                        <span className="text-sm font-black text-black uppercase tracking-wide">{label}</span>
                         <span className="font-mono font-black text-xl text-amber-800">{cft.toFixed(2)} <span className="text-xs text-black">CFT</span></span>
                     </div>
                     <div className="p-4 space-y-4">
@@ -431,15 +519,34 @@
                             </div>
                              <div>
                                 <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Length</label>
-                                <select 
-                                    value={settings.dim} 
-                                    onChange={(e) => onUpdate('dim', parseFloat(e.target.value))}
-                                    className="w-full bg-white border-2 border-slate-900 rounded-lg py-2 px-2 text-xl font-black text-black focus:ring-4 focus:ring-amber-400 outline-none"
-                                >
-                                    {dimOptions.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
-                                </select>
+                                <div className="w-full bg-slate-100 border-2 border-slate-400 rounded-lg py-2 px-2 text-xl font-black text-slate-600 text-center">
+                                    {settings.dim}"
+                                </div>
                             </div>
                         </div>
+
+                        {!fixedDir && configKey && (
+                            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-300">
+                                <button 
+                                    onClick={() => onConfigChange(configKey, configKey === 'bottomDir' ? 'width' : 'vertical')}
+                                    className={`flex-1 py-1 text-xs font-black uppercase rounded ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') ? 'bg-white shadow text-black' : 'text-slate-400'}`}
+                                >
+                                    {configKey === 'bottomDir' ? 'Width-wise' : 'Vertical'}
+                                </button>
+                                <button 
+                                    onClick={() => onConfigChange(configKey, configKey === 'bottomDir' ? 'length' : 'horizontal')}
+                                    className={`flex-1 py-1 text-xs font-black uppercase rounded ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') ? 'bg-white shadow text-black' : 'text-slate-400'}`}
+                                >
+                                    Horizontal
+                                </button>
+                            </div>
+                        )}
+                        {fixedDir && (
+                             <div className="text-[10px] text-center font-black uppercase text-slate-400 bg-slate-100 py-1 rounded border border-slate-200">
+                                Fixed: {fixedDir}
+                            </div>
+                        )}
+
                         <div className="flex items-center gap-4">
                              <div className="flex-grow">
                                 <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Quantity</label>
@@ -530,7 +637,6 @@
             )
         };
 
-        // --- MAIN APP ---
         function App() {
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
             const [boxType, setBoxType] = useState('simple'); 
@@ -540,7 +646,11 @@
             const [showStickyStats, setShowStickyStats] = useState(false);
             const headerRef = useRef(null);
 
-            // Row States
+            const [runnerConfig, setRunnerConfig] = useState({
+                bottomDir: 'width', 
+                sideDir: 'vertical' 
+            });
+
             const [mainRows, setMainRows] = useState({
                 top: { l: 44, w: 22, t: 1, qty: 1 },
                 bottom: { l: 44, w: 22, t: 1, qty: 1 },
@@ -559,111 +669,101 @@
             const [extras, setExtras] = useState([]);
             const [globalRunners, setGlobalRunners] = useState(2);
             
-            // Scroll Listener for Sticky Bar
             useEffect(() => {
                 const handleScroll = () => {
                     if (headerRef.current) {
-                        // Show sticky bar when we pass the internal size section (roughly 300px)
-                        if (window.scrollY > 280) {
-                            setShowStickyStats(true);
-                        } else {
-                            setShowStickyStats(false);
-                        }
+                        if (window.scrollY > 280) setShowStickyStats(true);
+                        else setShowStickyStats(false);
                     }
                 };
                 window.addEventListener('scroll', handleScroll);
                 return () => window.removeEventListener('scroll', handleScroll);
             }, []);
 
-            // LOGIC ENGINE
             useEffect(() => {
                 const l = parseFloat(dims.l) || 0;
                 const w = parseFloat(dims.w) || 0;
                 const h = parseFloat(dims.h) || 0;
-                const estimatedCount = estimateRunners(l);
-                setGlobalRunners(estimatedCount);
-
-                const isSimpleLogic = (boxType === 'simple' || (boxType === 'crate' && crateType === 'simple'));
+                
                 const isBottomLogic = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+                const isSimpleLogic = !isBottomLogic;
+                const estimatedCount = globalRunners; 
 
-                if (isSimpleLogic) { 
-                    const eL = l + 4; 
-                    const eW = w + 2;
+                if (isSimpleLogic) {
+                    const baseL = l + 4;
+                    const baseW = w + 2;
+
                     setMainRows({
-                        top: { l: eL, w: eW, t: 1, qty: 1 },
-                        bottom: { l: eL, w: eW, t: 1, qty: 1 },
-                        sides: { l: eL, w: h, t: 1, qty: 2 },
-                        kara: { l: w, w: h, t: 1, qty: 2 }
+                        top: { l: baseL, w: baseW, t: 1, qty: 1 },
+                        bottom: { l: baseL, w: baseW, t: 1, qty: 1 },
+                        sides: { l: baseL, w: h, t: 1, qty: 2 }, 
+                        kara: { l: w, w: h, t: 1, qty: 2 }       
                     });
+
                     setSupps(prev => {
-                        const newBottomDim = eW; 
-                        const bHeight = getMaxDim(prev.bottom.size);
-                        const newSideVert = h + bHeight + 2; 
+                        const bSize = getMaxDim(prev.bottom.size);
+                        let bRunLen;
+                        if (runnerConfig.bottomDir === 'width') bRunLen = baseW; 
+                        else bRunLen = baseL; 
+
+                        let sRunLen;
+                        if (runnerConfig.sideDir === 'horizontal') {
+                            sRunLen = baseL; 
+                        } else {
+                            const bottomAdd = (runnerConfig.bottomDir === 'width') ? bSize : 0;
+                            sRunLen = h + bottomAdd + 2;
+                        }
+
+                        const kRunLen = w;
+                        const kSuppWidth = getSizeDims(prev.karaHorz.size).w;
+                        const kVertLen = Math.max(0, h - (2 * kSuppWidth));
+
                         return {
                             ...prev,
-                            bottom: { ...prev.bottom, dim: newBottomDim, count: estimatedCount }, 
-                            sides: { ...prev.sides, dim: newSideVert, count: estimatedCount * 2 },
-                            top: { ...prev.top, dim: eW, count: estimatedCount },
-                            karaHorz: { ...prev.karaHorz, dim: w },
-                            karaVert: { ...prev.karaVert, dim: Math.max(0, h - 6) } 
+                            bottom: { ...prev.bottom, dim: bRunLen, count: estimatedCount },
+                            sides: { ...prev.sides, dim: sRunLen, count: estimatedCount * 2 },
+                            top: { ...prev.top, dim: baseW, count: estimatedCount },
+                            karaHorz: { ...prev.karaHorz, dim: kRunLen, count: 4 },
+                            karaVert: { ...prev.karaVert, dim: kVertLen, count: 4 }
                         };
                     });
-                } else if (isBottomLogic) {
-                    const bRunnerLen = l + 2;
-                    const bRunnerHeight = getMaxDim(supps.bottom.size);
-                    const sideMaalL = l + 2;
-                    const sideRunnerLen = l + 4;
-                    const karaRunnerHeight = h + bRunnerHeight;
-                    const topMaalL = l + 4;
-                    const topMaalW = w + 4;
+
+                } else {
+                    const bRunLen = l + 2;
+                    const sidePanelL = l + 2;
+                    const sidePanelH = h + 1;
+                    const sideRunLen = l + 4; 
+                    const topL = l + 4;
+                    const topW = w + 4;
+                    
                     setMainRows({
-                        top: { l: topMaalL, w: topMaalW, t: 1, qty: 1 },
-                        bottom: { l: l, w: w, t: 1, qty: 1 },
-                        sides: { l: sideMaalL, w: h + 1, t: 1, qty: 2 },
+                        top: { l: topL, w: topW, t: 1, qty: 1 },
+                        bottom: { l: l, w: w, t: 1, qty: 1 }, 
+                        sides: { l: sidePanelL, w: sidePanelH, t: 1, qty: 2 },
                         kara: { l: w, w: h + 1, t: 1, qty: 2 } 
                     });
-                    setSupps(prev => ({
-                        ...prev,
-                        bottom: { ...prev.bottom, dim: bRunnerLen, count: estimatedCount }, 
-                        sides: { ...prev.sides, dim: sideRunnerLen, count: estimatedCount * 2 }, 
-                        top: { ...prev.top, dim: topMaalW, count: estimatedCount }, 
-                        // Kara horizontal is 0 for bottom type
-                        karaHorz: { ...prev.karaHorz, dim: w, count: 0 }, 
-                        karaVert: { ...prev.karaVert, dim: karaRunnerHeight } 
-                    }));
-                }
-            }, [dims.l, dims.w, dims.h, boxType, crateType]);
 
-            // Support Size Watcher
-            useEffect(() => {
-                const isBottomLogic = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
-                if (isBottomLogic) {
-                    const h = parseFloat(dims.h) || 0;
-                    const bRunnerHeight = getMaxDim(supps.bottom.size);
-                    const karaRunnerHeight = h + bRunnerHeight;
-                    if (supps.karaVert.dim !== karaRunnerHeight) {
-                         setSupps(prev => ({...prev, karaVert: {...prev.karaVert, dim: karaRunnerHeight}}));
-                    }
-                } else {
-                    const isBottomWidth = supps.bottom.dim === (parseFloat(dims.w) + 2);
-                    const h = parseFloat(dims.h) || 0;
-                    const bHeight = getMaxDim(supps.bottom.size);
-                    const newSideVert = h + (isBottomWidth ? (bHeight + 2) : 0);
-                    if (supps.sides.dim > h && supps.sides.dim !== newSideVert) {
-                        setSupps(prev => ({...prev, sides: {...prev.sides, dim: newSideVert}}));
-                    }
+                    setSupps(prev => {
+                        const bSize = getMaxDim(prev.bottom.size);
+                        const kVertLen = h + bSize + 2;
+
+                        return {
+                            ...prev,
+                            bottom: { ...prev.bottom, dim: bRunLen, count: estimatedCount },
+                            sides: { ...prev.sides, dim: sideRunLen, count: estimatedCount * 2 },
+                            top: { ...prev.top, dim: topL, count: estimatedCount },
+                            karaHorz: { ...prev.karaHorz, count: 0 }, 
+                            karaVert: { ...prev.karaVert, dim: kVertLen, count: estimatedCount * 2 } 
+                        };
+                    });
                 }
-            }, [supps.bottom.size, supps.bottom.dim, boxType, crateType, dims.h, dims.w]);
+
+            }, [dims.l, dims.w, dims.h, boxType, crateType, globalRunners, runnerConfig, supps.bottom.size, supps.karaHorz.size]);
+
 
             const handleGlobalRunnerChange = (val) => {
                 const count = parseInt(val) || 2;
                 setGlobalRunners(count);
-                setSupps(prev => ({
-                    ...prev,
-                    bottom: { ...prev.bottom, count: count },
-                    top: { ...prev.top, count: count },
-                    sides: { ...prev.sides, count: count * 2 }
-                }));
             };
 
             const updateMainRow = (key, field, val) => {
@@ -673,6 +773,10 @@
             const updateSupp = (key, field, val) => {
                 setSupps(p => ({ ...p, [key]: { ...p[key], [field]: val } }));
             };
+            
+            const handleConfigChange = (key, val) => {
+                setRunnerConfig(prev => ({...prev, [key]: val}));
+            };
 
             const addExtra = () => setExtras(p => [...p, { id: Date.now(), l: 12, w: 3, t: 1, qty: 1, size: '3x1' }]);
             const removeExtra = (id) => setExtras(p => p.filter(x => x.id !== id));
@@ -680,7 +784,6 @@
                 setExtras(p => p.map(x => x.id === id ? { ...x, [field]: val } : x));
             };
 
-            // TOTALS
             const getRowCFT = (label, data) => {
                 let effL = data.l;
                 let effW = data.w;
@@ -718,10 +821,11 @@
             const grandTotalCFT = totalBoard + totalSupp;
             const grandTotalCost = grandTotalCFT * costPerCFT;
 
+            const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+
             return (
                 <div className="min-h-screen pb-10 wood-pattern">
                     
-                    {/* STICKY INFO BAR (Hidden by default, slides in) */}
                     {showStickyStats && (
                          <div className="fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 animate-fade-in p-3 px-4">
                             <div className="max-w-2xl mx-auto flex justify-between items-center text-white">
@@ -739,7 +843,6 @@
                          </div>
                     )}
 
-                    {/* BRANDING HEADER (Standard) */}
                     <div ref={headerRef} className="bg-slate-900 text-white shadow-xl relative z-50 border-b-4 border-amber-600">
                         <div className="max-w-2xl mx-auto p-4 pb-4">
                             <div className="flex flex-col items-center justify-center text-center">
@@ -753,7 +856,6 @@
 
                     <div className="max-w-2xl mx-auto p-3 space-y-6 mt-4">
 
-                        {/* 1. HUGE CENTRAL COST DISPLAY */}
                         <div className="bg-slate-800 rounded-2xl p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] border-4 border-amber-600 text-center">
                             <div className="text-sm font-black text-amber-500 uppercase tracking-[0.2em] mb-2">Total Project Cost</div>
                             <div className="text-6xl font-black text-white leading-none mb-6">
@@ -779,7 +881,6 @@
                             </div>
                         </div>
 
-                        {/* 2. INTERNAL SIZE INPUTS */}
                         <div className="bg-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black">
                             <div className="flex justify-between items-center mb-4 border-b-2 border-slate-100 pb-2">
                                 <h2 className="text-lg font-black text-black uppercase tracking-widest flex items-center gap-2">
@@ -803,14 +904,12 @@
                             </div>
                         </div>
 
-                        {/* 3. BOX TYPE */}
                         <BoxTypeSelector 
                             type={boxType} setType={setBoxType} 
                             subType={crateType} setSubType={setCrateType}
                             crateSettings={crateSettings} setCrateSettings={setCrateSettings}
                         />
 
-                        {/* 4. REALISTIC 3D PREVIEW */}
                         <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden relative" style={{height: '400px'}}>
                             <div className="absolute top-0 left-0 bg-black text-white px-3 py-2 text-xs font-black uppercase rounded-br-lg z-10 flex items-center gap-2">
                                 <Icons.Rotate size={14} /> Tap & Drag to Rotate
@@ -819,15 +918,15 @@
                                 dims={dims} 
                                 boxType={boxType} 
                                 crateType={crateType} 
-                                supps={supps}
                                 mainRows={mainRows}
+                                supps={supps}
+                                runnerConfig={runnerConfig}
                             />
                             <div className="absolute bottom-2 right-2 text-[10px] text-slate-400 font-bold bg-white/90 px-2 py-1 rounded border border-slate-200 pointer-events-none">
-                                *Visualisation Auto-Generates Runners
+                                *Visualisation based on Calculated Cuts
                             </div>
                         </div>
 
-                        {/* 5. CALCULATION DETAILS */}
                         <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden">
                             <div className="bg-slate-900 p-3 flex justify-between items-center">
                                 <span className="font-black text-sm text-white uppercase tracking-wide">Box Components</span>
@@ -844,7 +943,7 @@
                             </div>
 
                             <div className="p-3">
-                                {(boxType === 'simple' || (boxType === 'crate' && crateType === 'simple')) && (
+                                {!isBottomType && (
                                     <>
                                         <CalculationRow label="Top & Bottom" data={mainRows.top} onChange={(f,v) => {updateMainRow('top', f, v); updateMainRow('bottom', f, v);}} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
                                         <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
@@ -852,7 +951,7 @@
                                     </>
                                 )}
 
-                                {(boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom')) && (
+                                {isBottomType && (
                                     <>
                                         <CalculationRow label="Bottom" data={mainRows.bottom} onChange={(f,v) => updateMainRow('bottom', f, v)} isCrate={false} crateSettings={crateSettings} boxType="crateBottom" />
                                         <CalculationRow label="Top Lid" data={mainRows.top} onChange={(f,v) => updateMainRow('top', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
@@ -863,7 +962,6 @@
                             </div>
                         </div>
 
-                        {/* 6. SUPPORTS SECTION */}
                         <div className="space-y-4 pt-4 border-t-4 border-dashed border-slate-300">
                             <div className="flex items-center justify-between bg-black text-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)]">
                                 <div>
@@ -872,7 +970,7 @@
                                 </div>
                                 
                                 <div className="flex flex-col items-end">
-                                    <span className="text-[10px] font-bold uppercase text-slate-400 mb-1">Estimated Count</span>
+                                    <span className="text-[10px] font-bold uppercase text-slate-400 mb-1">Global Override</span>
                                     <div className="flex items-center bg-white rounded-lg p-1">
                                         <button onClick={() => handleGlobalRunnerChange(globalRunners - 1)} className="w-10 h-10 flex items-center justify-center bg-slate-200 rounded hover:bg-slate-300 text-black font-black text-xl">-</button>
                                         <span className="w-12 text-center text-2xl font-black text-black">{globalRunners}</span>
@@ -885,53 +983,64 @@
                                 <SupportCard 
                                     label="Bottom Supports"
                                     sizeOptions={['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1']}
-                                    dimOptions={[
-                                        {val: mainRows.bottom.w, label: `${mainRows.bottom.w}" (Width)`},
-                                        {val: supps.bottom.dim, label: `${supps.bottom.dim}" (Calc Length)`}
-                                    ]}
+                                    dimValue={supps.bottom.dim} 
                                     settings={supps.bottom}
                                     onUpdate={(f,v) => updateSupp('bottom', f, v)}
                                     colorClass="bg-amber-50 border-amber-900"
+                                    configKey="bottomDir"
+                                    runnerConfig={runnerConfig}
+                                    onConfigChange={handleConfigChange}
+                                    fixedDir={isBottomType ? 'Horizontal' : null}
                                 />
 
                                 <SupportCard 
                                     label="Side Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5', '4x1.5']}
-                                    dimOptions={[
-                                        {val: supps.sides.dim, label: `${supps.sides.dim}" (Calc)`},
-                                        {val: mainRows.sides.l, label: `${mainRows.sides.l}" (Panel Len)`}
-                                    ]}
+                                    dimValue={supps.sides.dim}
                                     settings={supps.sides}
                                     onUpdate={(f,v) => updateSupp('sides', f, v)}
+                                    configKey="sideDir"
+                                    runnerConfig={runnerConfig}
+                                    onConfigChange={handleConfigChange}
+                                    fixedDir={isBottomType ? 'Horizontal' : null}
                                 />
 
                                 <SupportCard 
                                     label="Top Lid Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5']}
-                                    dimOptions={[
-                                        {val: mainRows.top.w, label: `${mainRows.top.w}" (Width)`},
-                                        {val: mainRows.top.l, label: `${mainRows.top.l}" (Length)`}
-                                    ]}
+                                    dimValue={supps.top.dim}
                                     settings={supps.top}
                                     onUpdate={(f,v) => updateSupp('top', f, v)}
                                 />
 
-                                <SupportCard 
-                                    label="Kara Horizontal"
-                                    sizeOptions={['3x1', '4x1']}
-                                    dimOptions={[{val: mainRows.kara.l, label: `${mainRows.kara.l}" (Width)`}]}
-                                    settings={supps.karaHorz}
-                                    onUpdate={(f,v) => updateSupp('karaHorz', f, v)}
-                                />
-                                <SupportCard 
-                                    label="Kara Vertical (Gap)"
-                                    sizeOptions={['3x1', '4x1']}
-                                    dimOptions={[
-                                        {val: supps.karaVert.dim, label: `${supps.karaVert.dim}" (Calc H)`}
-                                    ]}
-                                    settings={supps.karaVert}
-                                    onUpdate={(f,v) => updateSupp('karaVert', f, v)}
-                                />
+                                {!isBottomType && (
+                                    <>
+                                        <SupportCard 
+                                            label="Kara Horizontal"
+                                            sizeOptions={['3x1', '4x1']}
+                                            dimValue={supps.karaHorz.dim}
+                                            settings={supps.karaHorz}
+                                            onUpdate={(f,v) => updateSupp('karaHorz', f, v)}
+                                        />
+                                        <SupportCard 
+                                            label="Kara Vertical (Gap)"
+                                            sizeOptions={['3x1', '4x1']}
+                                            dimValue={supps.karaVert.dim}
+                                            settings={supps.karaVert}
+                                            onUpdate={(f,v) => updateSupp('karaVert', f, v)}
+                                        />
+                                    </>
+                                )}
+                                {isBottomType && (
+                                    <SupportCard 
+                                        label="Kara Vertical (Ends)"
+                                        sizeOptions={['3x1', '4x1']}
+                                        dimValue={supps.karaVert.dim}
+                                        settings={supps.karaVert}
+                                        onUpdate={(f,v) => updateSupp('karaVert', f, v)}
+                                        fixedDir="Vertical"
+                                    />
+                                )}
                             </div>
 
                             {extras.map((ex) => (
