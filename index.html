@@ -15,7 +15,6 @@
 
     <style>
         body { overscroll-behavior-y: none; }
-        /* Remove spin buttons for clean numbers */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
             -webkit-appearance: none; margin: 0; 
@@ -40,10 +39,9 @@
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
             Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />,
             Settings: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></>} />,
-            Rupee: (p) => <Icon {...p} path={<><path d="M6 3h12"/><path d="M6 8h12"/><path d="M6 13h12"/><path d="M6 13l5.5 5.5M20 21l-7.5-7.5"/><path d="M9 3v10"/></>} />
         };
 
-        // --- LOGIC HELPERS ---
+        // --- HELPERS ---
         const getPurchasedFeet = (inches) => {
             const feet = inches / 12;
             const whole = Math.floor(feet);
@@ -82,6 +80,61 @@
             return 2; 
         };
 
+        // --- CRATE LOGIC ---
+        // Calculates wood needed to cover a 'span' with planks and gaps
+        const calculateCrateEffectiveLength = (span, plankWidth, gap) => {
+            if (!span || span <= 0) return 0;
+            const unit = plankWidth + gap;
+            // How many planks? Ceil ensures we cover the end or start/end structure
+            const planks = Math.ceil(span / unit);
+            // Return total width of WOOD
+            return planks * plankWidth;
+        };
+
+        const getEffectiveCrateDims = (partName, l, w, boxType, crateSettings) => {
+            // Default: Solid (No change)
+            let effL = l;
+            let effW = w;
+            let note = null;
+
+            // Logic Switch based on Orientation
+            if (partName === 'Sides') {
+                if (boxType === 'simple' || boxType === 'crateSimple') {
+                    // SIMPLE CRATE SIDE:
+                    // Runners Vertical -> Maal Horizontal
+                    // Stack planks along HEIGHT (w). Length (l) is solid plank length.
+                    const originalH = w;
+                    effW = calculateCrateEffectiveLength(originalH, crateSettings.plank, crateSettings.gap);
+                    note = `(Height ${originalH}" → Wood ${effW}")`;
+                } else {
+                    // BOTTOM CRATE SIDE:
+                    // Runners Horizontal -> Maal Vertical
+                    // Stack planks along LENGTH (l). Height (w) is solid plank length.
+                    const originalL = l;
+                    effL = calculateCrateEffectiveLength(originalL, crateSettings.plank, crateSettings.gap);
+                    note = `(Length ${originalL}" → Wood ${effL}")`;
+                }
+            } 
+            else if (partName === 'Kara') {
+                // KARA (Both Types):
+                // Runners Vertical -> Maal Horizontal
+                // Stack planks along HEIGHT (w). Width (l) is solid plank length.
+                const originalH = w;
+                effW = calculateCrateEffectiveLength(originalH, crateSettings.plank, crateSettings.gap);
+                note = `(Height ${originalH}" → Wood ${effW}")`;
+            }
+            else if (partName === 'Top') {
+                // TOP (Both Types):
+                // Runners Width-wise -> Maal Length-wise
+                // Stack planks along WIDTH (w). Length (l) is solid plank length.
+                const originalW = w;
+                effW = calculateCrateEffectiveLength(originalW, crateSettings.plank, crateSettings.gap);
+                note = `(Width ${originalW}" → Wood ${effW}")`;
+            }
+
+            return { l: effL, w: effW, note };
+        };
+
         // --- COMPONENTS ---
 
         const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
@@ -94,13 +147,46 @@
             />
         );
 
-        const CalculationRow = ({ label, data, onChange }) => {
-            const cft = calculateLineCFT(data.l || 0, data.w || 0, data.t || 0, data.qty || 0);
+        const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType }) => {
+            let effL = data.l || 0;
+            let effW = data.w || 0;
+            let note = null;
+
+            // Apply Crate Logic if needed
+            if (isCrate) {
+                // Identify Part Name for Logic
+                let partName = '';
+                if (label.includes('Sides')) partName = 'Sides';
+                else if (label.includes('Kara')) partName = 'Kara';
+                else if (label.includes('Top')) partName = 'Top';
+
+                if (partName) {
+                    // Determine internal sub-type for logic (simple vs bottom)
+                    // If label passed boxType 'crate', we need to know if it is 'crateSimple' or 'crateBottom'
+                    // We pass 'crateSimple' or 'crateBottom' directly in props now
+                    const res = getEffectiveCrateDims(partName, data.l, data.w, boxType, crateSettings);
+                    effL = res.l;
+                    effW = res.w;
+                    note = res.note;
+                }
+            }
+
+            const cft = calculateLineCFT(effL, effW, data.t || 0, data.qty || 0);
+
             return (
-                <div className="grid grid-cols-12 gap-2 items-center border-b border-slate-200 py-3 last:border-0">
-                    <div className="col-span-3 text-sm font-black text-slate-700 uppercase tracking-tight leading-tight">{label}</div>
-                    <div className="col-span-2"><NumberInput value={data.l} onChange={(v) => onChange('l', v)} /></div>
-                    <div className="col-span-2"><NumberInput value={data.w} onChange={(v) => onChange('w', v)} /></div>
+                <div className={`grid grid-cols-12 gap-2 items-center border-b border-slate-200 py-3 last:border-0 ${isCrate && note ? 'bg-amber-50/50' : ''}`}>
+                    <div className="col-span-3">
+                        <div className="text-sm font-black text-slate-700 uppercase tracking-tight leading-tight">{label}</div>
+                        {isCrate && note && <div className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Crate Gap</div>}
+                    </div>
+                    <div className="col-span-2 relative">
+                        <NumberInput value={data.l} onChange={(v) => onChange('l', v)} />
+                        {isCrate && note && note.includes("Length") && <div className="absolute -bottom-3 left-0 w-full text-[8px] text-center font-bold text-amber-600">Wood: {effL}</div>}
+                    </div>
+                    <div className="col-span-2 relative">
+                        <NumberInput value={data.w} onChange={(v) => onChange('w', v)} />
+                        {isCrate && note && (note.includes("Height") || note.includes("Width")) && <div className="absolute -bottom-3 left-0 w-full text-[8px] text-center font-bold text-amber-600">Wood: {effW}</div>}
+                    </div>
                     <div className="col-span-2"><NumberInput value={data.t} onChange={(v) => onChange('t', v)} step={0.25} /></div>
                     <div className="col-span-1"><NumberInput value={data.qty} onChange={(v) => onChange('qty', v)} className="px-0" step={1} /></div>
                     <div className="col-span-2 text-right font-mono font-black text-amber-700 text-base">{cft.toFixed(2)}</div>
@@ -158,22 +244,91 @@
             );
         };
 
+        const BoxTypeSelector = ({ type, setType, subType, setSubType, crateSettings, setCrateSettings }) => {
+            return (
+                <div className="bg-white p-3 rounded-xl shadow-sm border-2 border-slate-200 mb-4 transition-all">
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-wide block mb-2">Select Box Type</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {['simple', 'bottom', 'crate'].map(t => (
+                            <button 
+                                key={t}
+                                onClick={() => setType(t)}
+                                className={`py-3 px-1 rounded-lg text-sm font-black uppercase tracking-wider transition-all ${
+                                    type === t 
+                                    ? 'bg-amber-600 text-white ring-2 ring-amber-300 ring-offset-1 shadow-md' 
+                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                }`}
+                            >
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+                    
+                    {type === 'crate' && (
+                        <div className="mt-3 pt-3 border-t-2 border-slate-100 animate-fade-in">
+                            <div className="grid grid-cols-2 gap-2 mb-3">
+                                <button 
+                                    onClick={() => setSubType('simple')}
+                                    className={`py-2 text-xs font-bold uppercase rounded-lg border-2 ${subType === 'simple' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-transparent text-slate-300'}`}
+                                >
+                                    Simple Crate
+                                </button>
+                                <button 
+                                    onClick={() => setSubType('bottom')}
+                                    className={`py-2 text-xs font-bold uppercase rounded-lg border-2 ${subType === 'bottom' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-transparent text-slate-300'}`}
+                                >
+                                    Bottom Crate
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                <div>
+                                    <label className="text-[9px] text-slate-500 font-black uppercase block mb-1">Plank Width</label>
+                                    <div className="flex items-center bg-white border border-slate-300 rounded px-2">
+                                        <input 
+                                            type="number" 
+                                            value={crateSettings.plank} 
+                                            onChange={(e) => setCrateSettings({...crateSettings, plank: parseFloat(e.target.value) || 0})} 
+                                            className="w-full py-1 text-center font-bold text-slate-800 outline-none"
+                                        />
+                                        <span className="text-[10px] text-slate-400">in</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-slate-500 font-black uppercase block mb-1">Gap Size</label>
+                                    <div className="flex items-center bg-white border border-slate-300 rounded px-2">
+                                        <input 
+                                            type="number" 
+                                            value={crateSettings.gap} 
+                                            onChange={(e) => setCrateSettings({...crateSettings, gap: parseFloat(e.target.value) || 0})} 
+                                            className="w-full py-1 text-center font-bold text-slate-800 outline-none"
+                                        />
+                                        <span className="text-[10px] text-slate-400">in</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )
+        };
+
         // --- MAIN APP ---
         function App() {
-            // Internal Dims
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
-            
-            // Cost State
+            const [boxType, setBoxType] = useState('simple'); 
+            const [crateType, setCrateType] = useState('simple'); 
+            const [crateSettings, setCrateSettings] = useState({ plank: 4, gap: 4 });
             const [costPerCFT, setCostPerCFT] = useState(625);
 
-            // --- MAIN BOX STATE ---
+            // Row States
             const [mainRows, setMainRows] = useState({
-                topBottom: { l: 44, w: 22, t: 1, qty: 2 },
+                top: { l: 44, w: 22, t: 1, qty: 1 },
+                bottom: { l: 44, w: 22, t: 1, qty: 1 },
                 sides: { l: 44, w: 20, t: 1, qty: 2 },
                 kara: { l: 20, w: 20, t: 1, qty: 2 }
             });
 
-            // --- SUPPORT STATE ---
             const [supps, setSupps] = useState({
                 bottom: { size: '4x2', dim: 22, count: 2 }, 
                 sides: { size: '3x1', dim: 20, count: 4 }, 
@@ -185,55 +340,87 @@
             const [extras, setExtras] = useState([]);
             const [globalRunners, setGlobalRunners] = useState(2);
 
-            // 1. CALCULATE DERIVED VALUES
-            const extL = parseFloat(dims.l) + 4;
-            const extW = parseFloat(dims.w) + 2;
-            const h = parseFloat(dims.h);
-            const isBottomWidth = supps.bottom.dim === extW;
-            const bottomSupportHeight = getMaxDim(supps.bottom.size);
-            const sideVertLength = h + (isBottomWidth ? (bottomSupportHeight + 2) : 0);
-
-            // 2. EFFECT: Handle Main Box Dimensions & AUTO-RUNNER LOGIC
+            // Derived
+            const sideVertLengthSimple = parseFloat(dims.h) + (supps.bottom.dim === parseFloat(dims.w) + 2 ? (getMaxDim(supps.bottom.size) + 2) : 0);
+            
+            // LOGIC ENGINE
             useEffect(() => {
                 const l = parseFloat(dims.l) || 0;
                 const w = parseFloat(dims.w) || 0;
-                const hVal = parseFloat(dims.h) || 0;
-                const eL = l + 4; 
-                const eW = w + 2;
-
+                const h = parseFloat(dims.h) || 0;
                 const estimatedCount = estimateRunners(l);
                 setGlobalRunners(estimatedCount);
-                
-                setMainRows(prev => ({
-                    ...prev,
-                    topBottom: { ...prev.topBottom, l: eL, w: eW },
-                    sides: { ...prev.sides, l: eL, w: hVal },
-                    kara: { ...prev.kara, l: w, w: hVal }
-                }));
 
-                setSupps(prev => {
-                    const newBottomDim = eW; 
-                    const bHeight = getMaxDim(prev.bottom.size);
-                    const newSideVert = hVal + bHeight + 2; 
+                const isSimpleLogic = (boxType === 'simple' || (boxType === 'crate' && crateType === 'simple'));
+                const isBottomLogic = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
 
-                    return {
+                if (isSimpleLogic) { 
+                    const eL = l + 4; 
+                    const eW = w + 2;
+                    setMainRows({
+                        top: { l: eL, w: eW, t: 1, qty: 1 },
+                        bottom: { l: eL, w: eW, t: 1, qty: 1 },
+                        sides: { l: eL, w: h, t: 1, qty: 2 },
+                        kara: { l: w, w: h, t: 1, qty: 2 }
+                    });
+                    setSupps(prev => {
+                        const newBottomDim = eW; 
+                        const bHeight = getMaxDim(prev.bottom.size);
+                        const newSideVert = h + bHeight + 2; 
+                        return {
+                            ...prev,
+                            bottom: { ...prev.bottom, dim: newBottomDim, count: estimatedCount }, 
+                            sides: { ...prev.sides, dim: newSideVert, count: estimatedCount * 2 },
+                            top: { ...prev.top, dim: eW, count: estimatedCount },
+                            karaHorz: { ...prev.karaHorz, dim: w },
+                            karaVert: { ...prev.karaVert, dim: Math.max(0, h - 6) } 
+                        };
+                    });
+                } else if (isBottomLogic) {
+                    const bRunnerLen = l + 2;
+                    const bRunnerHeight = getMaxDim(supps.bottom.size);
+                    const sideMaalL = l + 2;
+                    const sideRunnerLen = l + 4;
+                    const karaRunnerHeight = h + bRunnerHeight;
+                    const topMaalL = l + 4;
+                    const topMaalW = w + 4;
+                    setMainRows({
+                        top: { l: topMaalL, w: topMaalW, t: 1, qty: 1 },
+                        bottom: { l: l, w: w, t: 1, qty: 1 },
+                        sides: { l: sideMaalL, w: h + 1, t: 1, qty: 2 },
+                        kara: { l: w, w: h + 1, t: 1, qty: 2 } 
+                    });
+                    setSupps(prev => ({
                         ...prev,
-                        bottom: { ...prev.bottom, dim: newBottomDim, count: estimatedCount }, 
-                        sides: { ...prev.sides, dim: newSideVert, count: estimatedCount * 2 },
-                        top: { ...prev.top, dim: eW, count: estimatedCount },
-                        karaHorz: { ...prev.karaHorz, dim: w },
-                        karaVert: { ...prev.karaVert, dim: Math.max(0, hVal - 6) } 
-                    };
-                });
-            }, [dims.l, dims.w, dims.h]);
-
-            // 3. EFFECT: Side Length Update
-            useEffect(() => {
-                const horzLen = mainRows.sides.l;
-                if (supps.sides.dim !== horzLen && supps.sides.dim !== sideVertLength) {
-                    setSupps(prev => ({ ...prev, sides: { ...prev.sides, dim: sideVertLength } }));
+                        bottom: { ...prev.bottom, dim: bRunnerLen, count: estimatedCount }, 
+                        sides: { ...prev.sides, dim: sideRunnerLen, count: estimatedCount * 2 }, 
+                        top: { ...prev.top, dim: topMaalW, count: estimatedCount }, 
+                        karaHorz: { ...prev.karaHorz, dim: w }, 
+                        karaVert: { ...prev.karaVert, dim: karaRunnerHeight } 
+                    }));
                 }
-            }, [supps.bottom.size, supps.bottom.dim, sideVertLength, mainRows.sides.l]);
+            }, [dims.l, dims.w, dims.h, boxType, crateType]);
+
+            // Support Size Watcher
+            useEffect(() => {
+                const isBottomLogic = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+                if (isBottomLogic) {
+                    const h = parseFloat(dims.h) || 0;
+                    const bRunnerHeight = getMaxDim(supps.bottom.size);
+                    const karaRunnerHeight = h + bRunnerHeight;
+                    if (supps.karaVert.dim !== karaRunnerHeight) {
+                         setSupps(prev => ({...prev, karaVert: {...prev.karaVert, dim: karaRunnerHeight}}));
+                    }
+                } else {
+                    const isBottomWidth = supps.bottom.dim === (parseFloat(dims.w) + 2);
+                    const h = parseFloat(dims.h) || 0;
+                    const bHeight = getMaxDim(supps.bottom.size);
+                    const newSideVert = h + (isBottomWidth ? (bHeight + 2) : 0);
+                    if (supps.sides.dim > h && supps.sides.dim !== newSideVert) {
+                        setSupps(prev => ({...prev, sides: {...prev.sides, dim: newSideVert}}));
+                    }
+                }
+            }, [supps.bottom.size, supps.bottom.dim, boxType, crateType, dims.h, dims.w]);
 
             const handleGlobalRunnerChange = (val) => {
                 const count = parseInt(val) || 2;
@@ -260,21 +447,47 @@
                 setExtras(p => p.map(x => x.id === id ? { ...x, [field]: val } : x));
             };
 
-            // Totals
-            const sumRow = (r) => calculateLineCFT(r.l, r.w, r.t, r.qty);
+            // TOTALS
+            const getRowCFT = (label, data) => {
+                // If crate, calculate effective wood volume
+                let effL = data.l;
+                let effW = data.w;
+                if (boxType === 'crate') {
+                     // Pass through the same logic as the component to get effective dim for total
+                     let partName = '';
+                     if (label.includes('Sides')) partName = 'Sides';
+                     else if (label.includes('Kara')) partName = 'Kara';
+                     else if (label.includes('Top')) partName = 'Top';
+                     
+                     if (partName) {
+                         // We need to know if it's crateSimple or crateBottom for logic
+                         const specificBoxType = (crateType === 'simple') ? 'crateSimple' : 'crateBottom';
+                         const res = getEffectiveCrateDims(partName, data.l, data.w, specificBoxType, crateSettings);
+                         effL = res.l;
+                         effW = res.w;
+                     }
+                }
+                return calculateLineCFT(effL, effW, data.t, data.qty);
+            };
+
+            const totalBoard = getRowCFT("Top", mainRows.top) + 
+                               getRowCFT("Bottom", mainRows.bottom) + 
+                               getRowCFT("Sides", mainRows.sides) + 
+                               getRowCFT("Kara", mainRows.kara);
+
             const sumSupp = (s) => {
                 const d = getSizeDims(s.size);
                 const feet = getPurchasedFeet(s.dim);
                 return ((feet * d.w * d.t) / 144) * s.count;
             };
-            const totalBoard = sumRow(mainRows.topBottom) + sumRow(mainRows.sides) + sumRow(mainRows.kara);
+            
             const totalSupp = sumSupp(supps.bottom) + sumSupp(supps.sides) + sumSupp(supps.top) + 
                               sumSupp(supps.karaHorz) + sumSupp(supps.karaVert) + 
                               extras.reduce((acc,e) => acc + calculateLineCFT(e.l, e.w, e.t, e.qty), 0);
+            
             const grandTotalCFT = totalBoard + totalSupp;
             const grandTotalCost = grandTotalCFT * costPerCFT;
 
-            // Visualization
             const [showVis, setShowVis] = useState(true);
             const canvasRef = useRef(null);
             useEffect(() => {
@@ -283,15 +496,13 @@
                 if (!canvas) return;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0,0, canvas.width, canvas.height);
-                const L = mainRows.topBottom.l;
-                const W = mainRows.topBottom.w;
-                const H = mainRows.sides.w;
+                const L = parseFloat(dims.l);
+                const W = parseFloat(dims.w);
+                const H = parseFloat(dims.h);
                 const max = Math.max(L, W, H);
-                // Reduce scale to fit, center vertically better
-                const scale = 85 / max; 
+                const scale = 50 / max; 
                 const cx = canvas.width / 2; 
-                const cy = canvas.height / 2 + 10; // Center Y + offset
-                
+                const cy = canvas.height / 2 + 20; 
                 const proj = (x,y,z) => ({ x: cx + (x - z) * scale * 0.866, y: cy + (x + z) * scale * 0.5 - y * scale });
                 const drawPoly = (pts, col) => {
                     ctx.fillStyle = col; ctx.strokeStyle = '#78350f'; ctx.lineWidth = 2;
@@ -306,17 +517,22 @@
                 const p5 = proj(L/2, H/2, W/2);
                 const p6 = proj(L/2, H/2, -W/2);
                 const p7 = proj(-L/2, H/2, -W/2);
-                drawPoly([p4, p5, p6, p7], '#fcd34d'); 
-                drawPoly([p1, p2, p6, p5], '#d97706'); 
-                drawPoly([p0, p1, p5, p4], '#fbbf24'); 
-            }, [showVis, mainRows]);
+                
+                if (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom')) {
+                    drawPoly([p4, p5, p6, p7], '#a7f3d0'); 
+                    drawPoly([p1, p2, p6, p5], '#059669'); 
+                    drawPoly([p0, p1, p5, p4], '#34d399'); 
+                } else {
+                    drawPoly([p4, p5, p6, p7], '#fcd34d'); 
+                    drawPoly([p1, p2, p6, p5], '#d97706'); 
+                    drawPoly([p0, p1, p5, p4], '#fbbf24'); 
+                }
+            }, [showVis, dims, boxType, crateType]);
 
             return (
                 <div className="min-h-screen pb-10">
-                    {/* NEW DESIGN: STICKY HEADER */}
                     <div className="bg-slate-900 text-white shadow-xl sticky top-0 z-50 border-b-4 border-amber-600">
                         <div className="max-w-2xl mx-auto p-3">
-                            {/* Row 1: Brand & Total Cost */}
                             <div className="flex justify-between items-start mb-2">
                                 <div className="flex flex-col items-start">
                                     <div className="flex items-center gap-2 mb-1">
@@ -327,7 +543,6 @@
                                         {dims.l} <span className="text-slate-500 text-xl">x</span> {dims.w} <span className="text-slate-500 text-xl">x</span> {dims.h}
                                     </div>
                                 </div>
-
                                 <div className="text-right">
                                     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Cost</div>
                                     <div className="text-4xl font-black text-amber-500 leading-none">
@@ -335,17 +550,10 @@
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Row 2: Rate & CFT Input/Display */}
                             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                                 <div className="flex items-center bg-slate-800 rounded px-2 py-1 border border-slate-700">
                                     <span className="text-xs font-bold text-slate-400 uppercase mr-2">Rate ₹</span>
-                                    <input 
-                                        type="number" 
-                                        value={costPerCFT} 
-                                        onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)}
-                                        className="bg-transparent text-white font-bold text-lg w-full outline-none"
-                                    />
+                                    <input type="number" value={costPerCFT} onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)} className="bg-transparent text-white font-bold text-lg w-full outline-none" />
                                 </div>
                                 <div className="flex items-center justify-end bg-slate-800 rounded px-2 py-1 border border-slate-700">
                                     <span className="text-white font-bold text-lg mr-1">{grandTotalCFT.toFixed(2)}</span>
@@ -356,9 +564,13 @@
                     </div>
 
                     <div className="max-w-2xl mx-auto p-3 space-y-6">
-                        
-                        {/* 1. INPUTS */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-slate-200 mt-2">
+                        <BoxTypeSelector 
+                            type={boxType} setType={setBoxType} 
+                            subType={crateType} setSubType={setCrateType}
+                            crateSettings={crateSettings} setCrateSettings={setCrateSettings}
+                        />
+
+                        <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-slate-200">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest">Internal Size</h2>
                                 <button onClick={() => setShowVis(!showVis)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-wide">
@@ -375,7 +587,6 @@
                             </div>
                         </div>
 
-                        {/* VISUALIZER */}
                         {showVis && (
                             <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 h-48 flex items-center justify-center overflow-hidden relative">
                                 <div className="absolute top-2 left-2 text-[10px] font-bold text-slate-300 uppercase">Preview</div>
@@ -383,7 +594,6 @@
                             </div>
                         )}
 
-                        {/* 2. MAIN BOX TABLE */}
                         <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 overflow-hidden">
                             <div className="bg-slate-100 border-b-2 border-slate-200 p-3 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-500 uppercase text-center tracking-widest">
                                 <div className="col-span-3 text-left pl-1">Item</div>
@@ -394,9 +604,71 @@
                                 <div className="col-span-2 text-right">CFT</div>
                             </div>
                             <div className="p-2">
-                                <CalculationRow label="Top & Bottom" data={mainRows.topBottom} onChange={(f,v) => updateMainRow('topBottom', f, v)} />
-                                <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} />
-                                <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} />
+                                {(boxType === 'simple' || (boxType === 'crate' && crateType === 'simple')) && (
+                                    <>
+                                        <CalculationRow 
+                                            label="Top & Bottom" 
+                                            data={mainRows.top} 
+                                            onChange={(f,v) => {updateMainRow('top', f, v); updateMainRow('bottom', f, v);}} 
+                                            isCrate={boxType === 'crate'}
+                                            crateSettings={crateSettings}
+                                            boxType="crateSimple"
+                                        />
+                                        <CalculationRow 
+                                            label="Sides" 
+                                            data={mainRows.sides} 
+                                            onChange={(f,v) => updateMainRow('sides', f, v)} 
+                                            isCrate={boxType === 'crate'}
+                                            crateSettings={crateSettings}
+                                            boxType="crateSimple"
+                                        />
+                                        <CalculationRow 
+                                            label="Kara (Ends)" 
+                                            data={mainRows.kara} 
+                                            onChange={(f,v) => updateMainRow('kara', f, v)} 
+                                            isCrate={boxType === 'crate'}
+                                            crateSettings={crateSettings}
+                                            boxType="crateSimple"
+                                        />
+                                    </>
+                                )}
+
+                                {(boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom')) && (
+                                    <>
+                                        <CalculationRow 
+                                            label="Bottom" 
+                                            data={mainRows.bottom} 
+                                            onChange={(f,v) => updateMainRow('bottom', f, v)}
+                                            isCrate={false} 
+                                            crateSettings={crateSettings}
+                                            boxType="crateBottom"
+                                        />
+                                        <CalculationRow 
+                                            label="Top Lid" 
+                                            data={mainRows.top} 
+                                            onChange={(f,v) => updateMainRow('top', f, v)} 
+                                            isCrate={boxType === 'crate'}
+                                            crateSettings={crateSettings}
+                                            boxType="crateBottom"
+                                        />
+                                        <CalculationRow 
+                                            label="Sides" 
+                                            data={mainRows.sides} 
+                                            onChange={(f,v) => updateMainRow('sides', f, v)} 
+                                            isCrate={boxType === 'crate'}
+                                            crateSettings={crateSettings}
+                                            boxType="crateBottom"
+                                        />
+                                        <CalculationRow 
+                                            label="Kara (Ends)" 
+                                            data={mainRows.kara} 
+                                            onChange={(f,v) => updateMainRow('kara', f, v)} 
+                                            isCrate={boxType === 'crate'}
+                                            crateSettings={crateSettings}
+                                            boxType="crateBottom"
+                                        />
+                                    </>
+                                )}
                             </div>
                             <div className="bg-amber-50 p-3 flex justify-between items-center border-t-2 border-amber-100">
                                 <span className="font-black text-sm text-amber-900 uppercase tracking-wide">Box Board Total</span>
@@ -404,9 +676,7 @@
                             </div>
                         </div>
 
-                        {/* 3. SUPPORTS */}
                         <div className="space-y-4 pt-2">
-                            {/* GLOBAL RUNNER CONTROLLER */}
                             <div className="flex items-center justify-between bg-slate-800 text-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
                                 <div className="flex items-center gap-3">
                                     <Icons.Settings size={24} className="text-blue-400"/>
@@ -430,8 +700,8 @@
                                     label="Bottom Supports"
                                     sizeOptions={['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1']}
                                     dimOptions={[
-                                        {val: mainRows.topBottom.w, label: `${mainRows.topBottom.w}" (Width)`},
-                                        {val: mainRows.topBottom.l, label: `${mainRows.topBottom.l}" (Length)`}
+                                        {val: mainRows.bottom.w, label: `${mainRows.bottom.w}" (Width)`},
+                                        {val: supps.bottom.dim, label: `${supps.bottom.dim}" (Calc Length)`}
                                     ]}
                                     settings={supps.bottom}
                                     onUpdate={(f,v) => updateSupp('bottom', f, v)}
@@ -441,8 +711,8 @@
                                     label="Side Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5', '4x1.5']}
                                     dimOptions={[
-                                        {val: sideVertLength, label: `${sideVertLength}" (Vert)`},
-                                        {val: mainRows.sides.l, label: `${mainRows.sides.l}" (Horz)`}
+                                        {val: supps.sides.dim, label: `${supps.sides.dim}" (Calc)`},
+                                        {val: mainRows.sides.l, label: `${mainRows.sides.l}" (Panel Len)`}
                                     ]}
                                     settings={supps.sides}
                                     onUpdate={(f,v) => updateSupp('sides', f, v)}
@@ -452,8 +722,8 @@
                                     label="Top Lid Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5']}
                                     dimOptions={[
-                                        {val: mainRows.topBottom.w, label: `${mainRows.topBottom.w}" (Width)`},
-                                        {val: mainRows.topBottom.l, label: `${mainRows.topBottom.l}" (Length)`}
+                                        {val: mainRows.top.w, label: `${mainRows.top.w}" (Width)`},
+                                        {val: mainRows.top.l, label: `${mainRows.top.l}" (Length)`}
                                     ]}
                                     settings={supps.top}
                                     onUpdate={(f,v) => updateSupp('top', f, v)}
@@ -470,15 +740,13 @@
                                     label="Kara Vertical (Gap)"
                                     sizeOptions={['3x1', '4x1']}
                                     dimOptions={[
-                                        {val: Math.max(0, mainRows.kara.w - 6), label: `~${mainRows.kara.w - 6}" (Height - 6)`},
-                                        {val: mainRows.kara.w, label: `${mainRows.kara.w}" (Full Height)`}
+                                        {val: supps.karaVert.dim, label: `${supps.karaVert.dim}" (Calc H)`}
                                     ]}
                                     settings={supps.karaVert}
                                     onUpdate={(f,v) => updateSupp('karaVert', f, v)}
                                 />
                             </div>
 
-                            {/* EXTRAS */}
                             {extras.map((ex) => (
                                 <div key={ex.id} className="rounded-xl shadow-md border-2 border-blue-200 bg-white overflow-hidden mb-3">
                                     <div className="p-3 border-b border-blue-100 flex justify-between items-center bg-blue-50">
@@ -521,7 +789,6 @@
                                 <Icons.Plus size={24}/> Add Extra Support
                             </button>
                         </div>
-
                     </div>
                 </div>
             );
