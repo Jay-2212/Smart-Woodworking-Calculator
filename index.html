@@ -15,13 +15,14 @@
 
     <style>
         body { overscroll-behavior-y: none; }
+        /* Remove spin buttons for clean numbers */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
             -webkit-appearance: none; margin: 0; 
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans pb-40 select-none">
+<body class="bg-slate-50 text-slate-900 font-sans pb-40 select-none">
 
     <div id="root"></div>
 
@@ -30,20 +31,19 @@
         const { useState, useEffect, useRef } = React;
 
         // --- ICONS ---
-        const Icon = ({ path, size = 16, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
+        const Icon = ({ path, size = 20, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
         );
 
         const Icons = {
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
             Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />,
-            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>} />,
-            EyeOff: (p) => <Icon {...p} path={<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>} />
+            Settings: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></>} />,
+            Rupee: (p) => <Icon {...p} path={<><path d="M6 3h12"/><path d="M6 8h12"/><path d="M6 13h12"/><path d="M6 13l5.5 5.5M20 21l-7.5-7.5"/><path d="M9 3v10"/></>} />
         };
 
-        // --- HELPER FUNCTIONS ---
-        
+        // --- LOGIC HELPERS ---
         const getPurchasedFeet = (inches) => {
             const feet = inches / 12;
             const whole = Math.floor(feet);
@@ -68,6 +68,20 @@
             return map[sizeStr] || {w:3, t:1};
         };
 
+        const getMaxDim = (sizeStr) => {
+            if(!sizeStr) return 0;
+            const parts = sizeStr.split('x').map(parseFloat);
+            return Math.max(...parts);
+        };
+
+        const estimateRunners = (length) => {
+            const l = parseFloat(length) || 0;
+            if (l >= 75) return 5;
+            if (l >= 60) return 4;
+            if (l >= 50) return 3;
+            return 2; 
+        };
+
         // --- COMPONENTS ---
 
         const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
@@ -76,151 +90,82 @@
                 value={value} 
                 onChange={(e) => { const val = e.target.value; onChange(val === '' ? '' : parseFloat(val)); }} 
                 step={step}
-                className={`w-full bg-white border border-gray-300 rounded px-1 py-1 text-center font-mono text-sm focus:ring-2 focus:ring-amber-500 outline-none ${className}`}
+                className={`w-full bg-white border-2 border-slate-300 rounded-md px-2 py-2 text-center font-mono font-bold text-lg text-slate-900 focus:ring-4 focus:ring-amber-200 focus:border-amber-500 outline-none transition-all ${className}`}
             />
         );
 
         const CalculationRow = ({ label, data, onChange }) => {
             const cft = calculateLineCFT(data.l || 0, data.w || 0, data.t || 0, data.qty || 0);
             return (
-                <div className="grid grid-cols-12 gap-1 items-center border-b border-gray-100 py-2 last:border-0">
-                    <div className="col-span-3 text-xs font-bold text-gray-700 uppercase tracking-tight">{label}</div>
+                <div className="grid grid-cols-12 gap-2 items-center border-b border-slate-200 py-3 last:border-0">
+                    <div className="col-span-3 text-sm font-black text-slate-700 uppercase tracking-tight leading-tight">{label}</div>
                     <div className="col-span-2"><NumberInput value={data.l} onChange={(v) => onChange('l', v)} /></div>
                     <div className="col-span-2"><NumberInput value={data.w} onChange={(v) => onChange('w', v)} /></div>
                     <div className="col-span-2"><NumberInput value={data.t} onChange={(v) => onChange('t', v)} step={0.25} /></div>
                     <div className="col-span-1"><NumberInput value={data.qty} onChange={(v) => onChange('qty', v)} className="px-0" step={1} /></div>
-                    <div className="col-span-2 text-right font-mono font-bold text-amber-700 text-sm">{cft.toFixed(2)}</div>
+                    <div className="col-span-2 text-right font-mono font-black text-amber-700 text-base">{cft.toFixed(2)}</div>
                 </div>
             );
         };
 
-        // NEW BIG CARD DESIGN (User Request)
         const SupportCard = ({ label, sizeOptions, dimOptions, settings, onUpdate, colorClass="bg-white" }) => {
             const sDims = getSizeDims(settings.size);
             const feet = getPurchasedFeet(settings.dim);
             const cft = ((feet * sDims.w * sDims.t) / 144) * settings.count;
 
             return (
-                <div className={`rounded-lg shadow-sm border border-gray-200 overflow-hidden ${colorClass}`}>
-                    <div className="p-2 border-b border-gray-200/50 flex justify-between items-center bg-gray-50/50">
-                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{label}</span>
-                        <span className="font-mono font-bold text-lg text-amber-700">{cft.toFixed(2)} <span className="text-xs text-gray-400">CFT</span></span>
+                <div className={`rounded-xl shadow-md border-2 border-slate-200 overflow-hidden ${colorClass}`}>
+                    <div className="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-100">
+                        <span className="text-sm font-black text-slate-700 uppercase tracking-wide">{label}</span>
+                        <span className="font-mono font-black text-xl text-amber-700">{cft.toFixed(2)} <span className="text-xs text-slate-400">CFT</span></span>
                     </div>
-                    <div className="p-3 space-y-3">
-                        {/* Row 1: Size Selector */}
+                    <div className="p-4 space-y-4">
                         <div>
-                            <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Size (Width x Thick)</label>
+                            <label className="text-xs text-slate-500 font-black mb-1 uppercase block tracking-wider">Size (Width x Thick)</label>
                             <select 
                                 value={settings.size} 
                                 onChange={(e) => onUpdate('size', e.target.value)}
-                                className="w-full bg-white border border-gray-300 rounded py-2 px-2 text-lg font-bold text-gray-800"
+                                className="w-full bg-white border-2 border-slate-300 rounded-md py-3 px-3 text-xl font-bold text-slate-900 focus:ring-4 focus:ring-amber-200 outline-none"
                             >
                                 {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
-
-                        {/* Row 2: Length & Feet */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <div className="flex-grow">
-                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Length (Inches)</label>
+                                <label className="text-xs text-slate-500 font-black mb-1 uppercase block tracking-wider">Length (Inches)</label>
                                 <select 
                                     value={settings.dim} 
                                     onChange={(e) => onUpdate('dim', parseFloat(e.target.value))}
-                                    className="w-full bg-white border border-gray-300 rounded py-2 px-2 text-lg font-bold text-gray-800"
+                                    className="w-full bg-white border-2 border-slate-300 rounded-md py-3 px-3 text-xl font-bold text-slate-900 focus:ring-4 focus:ring-amber-200 outline-none"
                                 >
                                     {dimOptions.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
                                 </select>
                             </div>
                             <div className="w-24">
-                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block text-right">Purchase</label>
-                                <div className="bg-amber-50 border border-amber-100 rounded py-2 px-2 text-right">
-                                    <span className="text-lg font-bold text-amber-800">{feet.toFixed(1)}</span>
-                                    <span className="text-xs text-gray-500 ml-1">ft</span>
+                                <label className="text-xs text-slate-500 font-black mb-1 uppercase block text-right tracking-wider">Purchase</label>
+                                <div className="bg-amber-50 border-2 border-amber-100 rounded-md py-2 px-2 text-right">
+                                    <span className="text-xl font-black text-amber-800">{feet.toFixed(1)}</span>
+                                    <span className="text-xs text-slate-500 ml-1 font-bold">ft</span>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Row 3: Quantity */}
                         <div>
-                            <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Quantity</label>
-                            <NumberInput value={settings.count} onChange={(v) => onUpdate('count', v)} step={1} className="py-2 text-xl font-bold bg-gray-50" />
+                            <label className="text-xs text-slate-500 font-black mb-1 uppercase block tracking-wider">Quantity</label>
+                            <NumberInput value={settings.count} onChange={(v) => onUpdate('count', v)} step={1} className="py-3 text-2xl font-black bg-slate-50" />
                         </div>
                     </div>
                 </div>
             );
         };
-
-        const BigExtraCard = ({ data, onChange, onDelete }) => {
-            const cft = calculateLineCFT(data.l, data.w, data.t, data.qty);
-            const feet = getPurchasedFeet(data.l);
-
-            return (
-                <div className="rounded-lg shadow-sm border border-blue-200 bg-white overflow-hidden mb-3">
-                    <div className="p-2 border-b border-blue-100 flex justify-between items-center bg-blue-50/30">
-                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">EXTRA SUPPORT</span>
-                        <div className="flex items-center gap-3">
-                            <span className="font-mono font-bold text-lg text-amber-700">{cft.toFixed(2)}</span>
-                            <button onClick={onDelete} className="text-red-400 bg-white p-1 rounded border border-red-100"><Icons.Trash size={16}/></button>
-                        </div>
-                    </div>
-                    <div className="p-3 space-y-3">
-                        {/* Size Row with Manual Overrides */}
-                        <div>
-                            <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Size (Select or Edit)</label>
-                            <div className="grid grid-cols-5 gap-2">
-                                <div className="col-span-3">
-                                    <select 
-                                        className="w-full h-full border border-gray-300 rounded px-2 font-bold text-gray-700 bg-white"
-                                        value={data.size}
-                                        onChange={(e) => {
-                                            const s = getSizeDims(e.target.value);
-                                            onChange('size', e.target.value);
-                                            onChange('w', s.w); onChange('t', s.t);
-                                        }}
-                                    >
-                                        <option value="Custom">Select...</option>
-                                        <option value="3x1">3 x 1</option>
-                                        <option value="4x1">4 x 1</option>
-                                        <option value="3x1.5">3 x 1.5</option>
-                                        <option value="4x2">4 x 2</option>
-                                    </select>
-                                </div>
-                                <div className="col-span-1 relative">
-                                    <NumberInput value={data.w} onChange={(v)=>onChange('w',v)} className="h-full font-bold" />
-                                    <span className="absolute bottom-0 right-1 text-[8px] text-gray-400 pointer-events-none">W</span>
-                                </div>
-                                <div className="col-span-1 relative">
-                                    <NumberInput value={data.t} onChange={(v)=>onChange('t',v)} step={0.25} className="h-full font-bold" />
-                                    <span className="absolute bottom-0 right-1 text-[8px] text-gray-400 pointer-events-none">T</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Length & Qty Row */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Length (In)</label>
-                                <div className="flex items-center gap-1">
-                                    <NumberInput value={data.l} onChange={(v)=>onChange('l',v)} className="py-2 text-lg font-bold" />
-                                    <span className="text-xs text-gray-400 font-mono">({feet.toFixed(1)}ft)</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-gray-400 font-bold mb-1 uppercase block">Quantity</label>
-                                <NumberInput value={data.qty} onChange={(v)=>onChange('qty',v)} step={1} className="py-2 text-lg font-bold bg-blue-50/50" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
 
         // --- MAIN APP ---
         function App() {
             // Internal Dims
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
             
+            // Cost State
+            const [costPerCFT, setCostPerCFT] = useState(625);
+
             // --- MAIN BOX STATE ---
             const [mainRows, setMainRows] = useState({
                 topBottom: { l: 44, w: 22, t: 1, qty: 2 },
@@ -230,43 +175,76 @@
 
             // --- SUPPORT STATE ---
             const [supps, setSupps] = useState({
-                bottom: { size: '4x2', dim: 44, count: 3 },
-                sides: { size: '3x1', dim: 20, count: 4 }, // 2 per side * 2 sides
+                bottom: { size: '4x2', dim: 22, count: 2 }, 
+                sides: { size: '3x1', dim: 20, count: 4 }, 
                 top: { size: '3x1', dim: 22, count: 2 },
                 karaHorz: { size: '3x1', dim: 20, count: 4 }, 
                 karaVert: { size: '3x1', dim: 14, count: 4 } 
             });
 
             const [extras, setExtras] = useState([]);
+            const [globalRunners, setGlobalRunners] = useState(2);
 
-            // EFFECT: Auto-calculate Main Box & Update Support Defaults
+            // 1. CALCULATE DERIVED VALUES
+            const extL = parseFloat(dims.l) + 4;
+            const extW = parseFloat(dims.w) + 2;
+            const h = parseFloat(dims.h);
+            const isBottomWidth = supps.bottom.dim === extW;
+            const bottomSupportHeight = getMaxDim(supps.bottom.size);
+            const sideVertLength = h + (isBottomWidth ? (bottomSupportHeight + 2) : 0);
+
+            // 2. EFFECT: Handle Main Box Dimensions & AUTO-RUNNER LOGIC
             useEffect(() => {
                 const l = parseFloat(dims.l) || 0;
                 const w = parseFloat(dims.w) || 0;
-                const h = parseFloat(dims.h) || 0;
+                const hVal = parseFloat(dims.h) || 0;
+                const eL = l + 4; 
+                const eW = w + 2;
 
-                const extL = l + 4; 
-                const extW = w + 2;
+                const estimatedCount = estimateRunners(l);
+                setGlobalRunners(estimatedCount);
                 
-                // Update Main Box Rows
                 setMainRows(prev => ({
                     ...prev,
-                    topBottom: { ...prev.topBottom, l: extL, w: extW },
-                    sides: { ...prev.sides, l: extL, w: h },
-                    kara: { ...prev.kara, l: w, w: h }
+                    topBottom: { ...prev.topBottom, l: eL, w: eW },
+                    sides: { ...prev.sides, l: eL, w: hVal },
+                    kara: { ...prev.kara, l: w, w: hVal }
                 }));
 
-                // Update Support Dims (Defaults)
+                setSupps(prev => {
+                    const newBottomDim = eW; 
+                    const bHeight = getMaxDim(prev.bottom.size);
+                    const newSideVert = hVal + bHeight + 2; 
+
+                    return {
+                        ...prev,
+                        bottom: { ...prev.bottom, dim: newBottomDim, count: estimatedCount }, 
+                        sides: { ...prev.sides, dim: newSideVert, count: estimatedCount * 2 },
+                        top: { ...prev.top, dim: eW, count: estimatedCount },
+                        karaHorz: { ...prev.karaHorz, dim: w },
+                        karaVert: { ...prev.karaVert, dim: Math.max(0, hVal - 6) } 
+                    };
+                });
+            }, [dims.l, dims.w, dims.h]);
+
+            // 3. EFFECT: Side Length Update
+            useEffect(() => {
+                const horzLen = mainRows.sides.l;
+                if (supps.sides.dim !== horzLen && supps.sides.dim !== sideVertLength) {
+                    setSupps(prev => ({ ...prev, sides: { ...prev.sides, dim: sideVertLength } }));
+                }
+            }, [supps.bottom.size, supps.bottom.dim, sideVertLength, mainRows.sides.l]);
+
+            const handleGlobalRunnerChange = (val) => {
+                const count = parseInt(val) || 2;
+                setGlobalRunners(count);
                 setSupps(prev => ({
                     ...prev,
-                    bottom: { ...prev.bottom, dim: (prev.bottom.dim === w+2 || prev.bottom.dim === l+4) ? (prev.bottom.dim === w+2 ? extW : extL) : extL }, 
-                    sides: { ...prev.sides, dim: h },
-                    top: { ...prev.top, dim: extW },
-                    karaHorz: { ...prev.karaHorz, dim: w },
-                    karaVert: { ...prev.karaVert, dim: Math.max(0, h - 6) } 
+                    bottom: { ...prev.bottom, count: count },
+                    top: { ...prev.top, count: count },
+                    sides: { ...prev.sides, count: count * 2 }
                 }));
-
-            }, [dims.l, dims.w, dims.h]);
+            };
 
             const updateMainRow = (key, field, val) => {
                 setMainRows(p => ({ ...p, [key]: { ...p[key], [field]: val } }));
@@ -276,116 +254,138 @@
                 setSupps(p => ({ ...p, [key]: { ...p[key], [field]: val } }));
             };
 
-            // Extra Handlers
             const addExtra = () => setExtras(p => [...p, { id: Date.now(), l: 12, w: 3, t: 1, qty: 1, size: '3x1' }]);
             const removeExtra = (id) => setExtras(p => p.filter(x => x.id !== id));
             const updateExtra = (id, field, val) => {
                 setExtras(p => p.map(x => x.id === id ? { ...x, [field]: val } : x));
             };
 
-            // --- TOTALS ---
+            // Totals
             const sumRow = (r) => calculateLineCFT(r.l, r.w, r.t, r.qty);
             const sumSupp = (s) => {
                 const d = getSizeDims(s.size);
                 const feet = getPurchasedFeet(s.dim);
                 return ((feet * d.w * d.t) / 144) * s.count;
             };
-
             const totalBoard = sumRow(mainRows.topBottom) + sumRow(mainRows.sides) + sumRow(mainRows.kara);
             const totalSupp = sumSupp(supps.bottom) + sumSupp(supps.sides) + sumSupp(supps.top) + 
                               sumSupp(supps.karaHorz) + sumSupp(supps.karaVert) + 
                               extras.reduce((acc,e) => acc + calculateLineCFT(e.l, e.w, e.t, e.qty), 0);
-            
-            const grandTotal = totalBoard + totalSupp;
+            const grandTotalCFT = totalBoard + totalSupp;
+            const grandTotalCost = grandTotalCFT * costPerCFT;
 
-            // --- VISUALIZATION (Simple Box) ---
+            // Visualization
             const [showVis, setShowVis] = useState(true);
             const canvasRef = useRef(null);
-            
             useEffect(() => {
                 if(!showVis) return;
                 const canvas = canvasRef.current;
                 if (!canvas) return;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0,0, canvas.width, canvas.height);
-                
                 const L = mainRows.topBottom.l;
                 const W = mainRows.topBottom.w;
                 const H = mainRows.sides.w;
-
                 const max = Math.max(L, W, H);
-                const scale = 100 / max;
-                const cx = 300; const cy = 70;
-
+                // Reduce scale to fit, center vertically better
+                const scale = 85 / max; 
+                const cx = canvas.width / 2; 
+                const cy = canvas.height / 2 + 10; // Center Y + offset
+                
                 const proj = (x,y,z) => ({ x: cx + (x - z) * scale * 0.866, y: cy + (x + z) * scale * 0.5 - y * scale });
                 const drawPoly = (pts, col) => {
-                    ctx.fillStyle = col; ctx.strokeStyle = '#854d0e'; ctx.lineWidth = 1;
+                    ctx.fillStyle = col; ctx.strokeStyle = '#78350f'; ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
                     pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
                     ctx.closePath(); ctx.fill(); ctx.stroke();
                 };
-
                 const p0 = proj(-L/2, -H/2, W/2);
                 const p1 = proj(L/2, -H/2, W/2);
-                const p2 = proj(L/2, -H/2, -W/2); // Fixed missing reference
+                const p2 = proj(L/2, -H/2, -W/2);
                 const p4 = proj(-L/2, H/2, W/2);
                 const p5 = proj(L/2, H/2, W/2);
                 const p6 = proj(L/2, H/2, -W/2);
                 const p7 = proj(-L/2, H/2, -W/2);
-
-                drawPoly([p4, p5, p6, p7], '#fcd34d'); // Top
-                drawPoly([p1, p2, p6, p5], '#d97706'); // Right
-                drawPoly([p0, p1, p5, p4], '#fbbf24'); // Front
-
+                drawPoly([p4, p5, p6, p7], '#fcd34d'); 
+                drawPoly([p1, p2, p6, p5], '#d97706'); 
+                drawPoly([p0, p1, p5, p4], '#fbbf24'); 
             }, [showVis, mainRows]);
 
             return (
-                <div className="min-h-screen">
-                    {/* Sticky Header with Dimensions */}
-                    <div className="bg-amber-800 text-white p-3 shadow-md sticky top-0 z-50">
-                        <div className="flex justify-between items-center max-w-xl mx-auto">
-                            <div className="flex items-center gap-2">
-                                <Icons.Box size={20}/>
-                                <div className="leading-tight">
-                                    <h1 className="font-bold text-sm tracking-wide">WoodWork Calc</h1>
-                                    <div className="text-[10px] font-mono text-amber-200 opacity-90">
-                                        L:{dims.l} × W:{dims.w} × H:{dims.h}
+                <div className="min-h-screen pb-10">
+                    {/* NEW DESIGN: STICKY HEADER */}
+                    <div className="bg-slate-900 text-white shadow-xl sticky top-0 z-50 border-b-4 border-amber-600">
+                        <div className="max-w-2xl mx-auto p-3">
+                            {/* Row 1: Brand & Total Cost */}
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="flex flex-col items-start">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="bg-amber-600 p-1.5 rounded text-white"><Icons.Box size={18} /></div>
+                                        <span className="font-bold text-slate-300 text-xs uppercase tracking-widest">Smart Calc</span>
+                                    </div>
+                                    <div className="text-3xl font-black text-white tracking-tight">
+                                        {dims.l} <span className="text-slate-500 text-xl">x</span> {dims.w} <span className="text-slate-500 text-xl">x</span> {dims.h}
+                                    </div>
+                                </div>
+
+                                <div className="text-right">
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Cost</div>
+                                    <div className="text-4xl font-black text-amber-500 leading-none">
+                                        <span className="text-xl text-amber-700 mr-1">₹</span>{Math.round(grandTotalCost).toLocaleString()}
                                     </div>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold leading-none">{grandTotal.toFixed(2)}</div>
-                                <div className="text-[9px] opacity-75">CFT</div>
+
+                            {/* Row 2: Rate & CFT Input/Display */}
+                            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                                <div className="flex items-center bg-slate-800 rounded px-2 py-1 border border-slate-700">
+                                    <span className="text-xs font-bold text-slate-400 uppercase mr-2">Rate ₹</span>
+                                    <input 
+                                        type="number" 
+                                        value={costPerCFT} 
+                                        onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)}
+                                        className="bg-transparent text-white font-bold text-lg w-full outline-none"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-end bg-slate-800 rounded px-2 py-1 border border-slate-700">
+                                    <span className="text-white font-bold text-lg mr-1">{grandTotalCFT.toFixed(2)}</span>
+                                    <span className="text-xs font-bold text-slate-400 uppercase">CFT</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="max-w-xl mx-auto p-2 space-y-4">
+                    <div className="max-w-2xl mx-auto p-3 space-y-6">
                         
                         {/* 1. INPUTS */}
-                        <div className="bg-white p-3 rounded shadow-sm border border-gray-200">
-                            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Internal Size (Inches)</h2>
-                            <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-slate-200 mt-2">
+                            <div className="flex justify-between items-center mb-3">
+                                <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest">Internal Size</h2>
+                                <button onClick={() => setShowVis(!showVis)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-wide">
+                                    {showVis ? 'Hide 3D' : 'Show 3D'}
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
                                 {['l','w','h'].map(k => (
                                     <div key={k} className="flex flex-col">
-                                        <label className="text-[9px] text-gray-500 font-bold mb-1 uppercase">{k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'}</label>
-                                        <input type="number" value={dims[k]} onChange={(e) => setDims({...dims, [k]:e.target.value})} className="bg-gray-50 border border-gray-300 rounded p-1 text-lg font-bold text-gray-900 text-center focus:ring-2 focus:ring-amber-500 outline-none" />
+                                        <label className="text-[10px] text-slate-500 font-black mb-1 uppercase tracking-wide bg-slate-100 w-fit px-1 rounded">{k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'}</label>
+                                        <input type="number" value={dims[k]} onChange={(e) => setDims({...dims, [k]:e.target.value})} className="bg-slate-50 border-2 border-slate-300 rounded-lg p-3 text-3xl font-black text-slate-900 text-center focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
                                     </div>
                                 ))}
                             </div>
-                            <button onClick={() => setShowVis(!showVis)} className="w-full text-center text-xs text-blue-500 mt-2">{showVis ? 'Hide' : 'Show'} 3D Preview</button>
                         </div>
 
                         {/* VISUALIZER */}
                         {showVis && (
-                            <div className="bg-white rounded shadow-sm border border-gray-200 h-28 flex items-center justify-center overflow-hidden">
-                                <canvas ref={canvasRef} width={600} height={150} className="w-full h-full" />
+                            <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 h-48 flex items-center justify-center overflow-hidden relative">
+                                <div className="absolute top-2 left-2 text-[10px] font-bold text-slate-300 uppercase">Preview</div>
+                                <canvas ref={canvasRef} width={600} height={300} className="w-full h-full" />
                             </div>
                         )}
 
                         {/* 2. MAIN BOX TABLE */}
-                        <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-gray-50 border-b border-gray-200 p-2 grid grid-cols-12 gap-1 text-[9px] font-bold text-gray-500 uppercase text-center">
+                        <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 overflow-hidden">
+                            <div className="bg-slate-100 border-b-2 border-slate-200 p-3 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-500 uppercase text-center tracking-widest">
                                 <div className="col-span-3 text-left pl-1">Item</div>
                                 <div className="col-span-2">L</div>
                                 <div className="col-span-2">W</div>
@@ -393,47 +393,61 @@
                                 <div className="col-span-1">Qty</div>
                                 <div className="col-span-2 text-right">CFT</div>
                             </div>
-                            <div className="p-1">
+                            <div className="p-2">
                                 <CalculationRow label="Top & Bottom" data={mainRows.topBottom} onChange={(f,v) => updateMainRow('topBottom', f, v)} />
                                 <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} />
                                 <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} />
                             </div>
-                            <div className="bg-amber-50 p-2 flex justify-between items-center text-xs border-t border-amber-100">
-                                <span className="font-bold text-amber-800">BOARD TOTAL</span>
-                                <span className="font-bold text-amber-900">{totalBoard.toFixed(3)}</span>
+                            <div className="bg-amber-50 p-3 flex justify-between items-center border-t-2 border-amber-100">
+                                <span className="font-black text-sm text-amber-900 uppercase tracking-wide">Box Board Total</span>
+                                <span className="font-black text-xl text-amber-700">{totalBoard.toFixed(3)}</span>
                             </div>
                         </div>
 
-                        {/* 3. SUPPORTS (BIG CARDS) */}
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-bold text-gray-500 uppercase pl-1 pt-2">Runners (Supports)</h3>
+                        {/* 3. SUPPORTS */}
+                        <div className="space-y-4 pt-2">
+                            {/* GLOBAL RUNNER CONTROLLER */}
+                            <div className="flex items-center justify-between bg-slate-800 text-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                <div className="flex items-center gap-3">
+                                    <Icons.Settings size={24} className="text-blue-400"/>
+                                    <div>
+                                        <h3 className="font-black text-lg uppercase tracking-wide">Runners</h3>
+                                        <p className="text-xs text-slate-400 font-bold">Auto-Estimated: {estimateRunners(dims.l)}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold uppercase text-slate-300">Set Global:</span>
+                                    <div className="flex items-center bg-white rounded-lg p-1">
+                                        <button onClick={() => handleGlobalRunnerChange(globalRunners - 1)} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded hover:bg-slate-200 text-slate-800 font-bold text-xl">-</button>
+                                        <span className="w-12 text-center text-2xl font-black text-slate-900">{globalRunners}</span>
+                                        <button onClick={() => handleGlobalRunnerChange(globalRunners + 1)} className="w-10 h-10 flex items-center justify-center bg-blue-600 rounded text-white font-bold text-xl hover:bg-blue-700">+</button>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Bottom Card */}
                                 <SupportCard 
                                     label="Bottom Supports"
                                     sizeOptions={['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1']}
                                     dimOptions={[
-                                        {val: mainRows.topBottom.l, label: `${mainRows.topBottom.l}" (Length)`},
-                                        {val: mainRows.topBottom.w, label: `${mainRows.topBottom.w}" (Width)`}
+                                        {val: mainRows.topBottom.w, label: `${mainRows.topBottom.w}" (Width)`},
+                                        {val: mainRows.topBottom.l, label: `${mainRows.topBottom.l}" (Length)`}
                                     ]}
                                     settings={supps.bottom}
                                     onUpdate={(f,v) => updateSupp('bottom', f, v)}
                                 />
 
-                                {/* Side Card */}
                                 <SupportCard 
                                     label="Side Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5', '4x1.5']}
                                     dimOptions={[
-                                        {val: mainRows.sides.w, label: `${mainRows.sides.w}" (Vert)`},
+                                        {val: sideVertLength, label: `${sideVertLength}" (Vert)`},
                                         {val: mainRows.sides.l, label: `${mainRows.sides.l}" (Horz)`}
                                     ]}
                                     settings={supps.sides}
                                     onUpdate={(f,v) => updateSupp('sides', f, v)}
                                 />
 
-                                {/* Top Card */}
                                 <SupportCard 
                                     label="Top Lid Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5']}
@@ -445,13 +459,10 @@
                                     onUpdate={(f,v) => updateSupp('top', f, v)}
                                 />
 
-                                {/* Kara Cards (Split for Clarity) */}
                                 <SupportCard 
                                     label="Kara Horizontal"
                                     sizeOptions={['3x1', '4x1']}
-                                    dimOptions={[
-                                        {val: mainRows.kara.l, label: `${mainRows.kara.l}" (Width)`}
-                                    ]}
+                                    dimOptions={[{val: mainRows.kara.l, label: `${mainRows.kara.l}" (Width)`}]}
                                     settings={supps.karaHorz}
                                     onUpdate={(f,v) => updateSupp('karaHorz', f, v)}
                                 />
@@ -469,16 +480,45 @@
 
                             {/* EXTRAS */}
                             {extras.map((ex) => (
-                                <BigExtraCard 
-                                    key={ex.id} 
-                                    data={ex} 
-                                    onChange={(f,v) => updateExtra(ex.id, f, v)}
-                                    onDelete={() => removeExtra(ex.id)}
-                                />
+                                <div key={ex.id} className="rounded-xl shadow-md border-2 border-blue-200 bg-white overflow-hidden mb-3">
+                                    <div className="p-3 border-b border-blue-100 flex justify-between items-center bg-blue-50">
+                                        <span className="text-sm font-black text-blue-700 uppercase tracking-wide">Extra Support</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-mono font-black text-xl text-amber-700">{calculateLineCFT(ex.l, ex.w, ex.t, ex.qty).toFixed(2)}</span>
+                                            <button onClick={() => removeExtra(ex.id)} className="text-red-500 bg-white p-2 rounded-lg border border-red-200 hover:bg-red-50"><Icons.Trash size={20}/></button>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        <div className="grid grid-cols-5 gap-2">
+                                            <div className="col-span-3">
+                                                <label className="text-xs text-slate-400 font-bold uppercase mb-1 block">Size</label>
+                                                <select 
+                                                    className="w-full border-2 border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                                                    value={ex.size}
+                                                    onChange={(e) => {
+                                                        const s = getSizeDims(e.target.value);
+                                                        updateExtra(ex.id, 'size', e.target.value);
+                                                        updateExtra(ex.id, 'w', s.w); updateExtra(ex.id, 't', s.t);
+                                                    }}
+                                                >
+                                                    <option value="Custom">Custom</option>
+                                                    <option value="3x1">3 x 1</option>
+                                                    <option value="4x1">4 x 1</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-1"><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">W</label><NumberInput value={ex.w} onChange={(v)=>updateExtra(ex.id,'w',v)} /></div>
+                                            <div className="col-span-1"><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">T</label><NumberInput value={ex.t} onChange={(v)=>updateExtra(ex.id,'t',v)} step={0.25} /></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">Length</label><NumberInput value={ex.l} onChange={(v)=>updateExtra(ex.id,'l',v)} /></div>
+                                            <div><label className="text-xs text-slate-400 font-bold uppercase mb-1 block">Qty</label><NumberInput value={ex.qty} onChange={(v)=>updateExtra(ex.id,'qty',v)} step={1} className="bg-blue-50" /></div>
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
 
-                            <button onClick={addExtra} className="w-full py-3 bg-white border border-dashed border-blue-300 text-blue-500 rounded font-bold hover:bg-blue-50 mt-2 flex justify-center items-center gap-2 shadow-sm">
-                                <Icons.Plus size={18}/> ADD EXTRA SUPPORT
+                            <button onClick={addExtra} className="w-full py-4 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-xl font-black hover:bg-blue-50 mt-2 flex justify-center items-center gap-2 shadow-sm uppercase tracking-wide text-lg transition-colors">
+                                <Icons.Plus size={24}/> Add Extra Support
                             </button>
                         </div>
 
