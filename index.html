@@ -51,13 +51,50 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        /*
+        ================================================================================
+        AMBICA WOODEN WORKS - SMART CFT CALCULATOR
+        ================================================================================
+        
+        PURPOSE:
+        Calculates wood requirements (in CFT) for wooden boxes/crates for shipping.
+        Supports 3 types: Simple, Bottom-type, and Crate (with gaps).
+        
+        SECTIONS:
+        1. CONSTANTS & ICONS - App-wide settings and icon components
+        2. CALCULATION FUNCTIONS - Pure math, business logic for wood calculations
+        3. 3D VISUALIZATION ENGINE - Three.js scene for box preview
+        4. UI COMPONENTS - Reusable React components
+        5. MAIN APPLICATION - App state and orchestration
+        6. TESTS & VERIFICATION - Browser console tests
+        
+        FILE STRUCTURE:
+        This is intentionally ONE FILE for easy GitHub Pages hosting.
+        Each section is clearly marked for AI collaboration.
+        
+        KNOWN ISSUES:
+        - 3D Visualization: Kara (end) runners not showing correctly
+        - 3D Visualization: Top lid runners not showing correctly
+        
+        ================================================================================
+        */
+
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- ICONS ---
+        // ================================================================================
+        // SECTION 1: CONSTANTS & ICONS
+        // ================================================================================
+        
+        /**
+         * Icon component for rendering SVG icons
+         */
         const Icon = ({ path, size = 24, className = "" }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
         );
 
+        /**
+         * Icon library - all icons used in the app
+         */
         const Icons = {
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
@@ -65,37 +102,103 @@
             Rotate: (p) => <Icon {...p} path={<><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></>} />,
         };
 
-        // --- HELPERS ---
+        // ================================================================================
+        // SECTION 2: CALCULATION FUNCTIONS
+        // Pure business logic - no UI, just math
+        // ================================================================================
+
+        /**
+         * Calculates how many feet of wood to purchase based on actual inches needed.
+         * 
+         * BUSINESS RULE:
+         * Wood is sold in half-foot increments (0.5, 1.0, 1.5, 2.0, etc.)
+         * If actual length falls between increments, round up to next 0.5 or 1.0
+         * 
+         * EXAMPLES:
+         * - 12" (1.0 ft) → Buy 1.0 ft
+         * - 15" (1.25 ft) → Buy 1.5 ft (rounds up to next 0.5)
+         * - 19" (1.58 ft) → Buy 2.0 ft (rounds up to next 1.0)
+         * 
+         * @param {number} inches - Actual length needed in inches
+         * @returns {number} Feet to purchase (in 0.5 increments)
+         */
         const getPurchasedFeet = (inches) => {
             const feet = inches / 12;
             const whole = Math.floor(feet);
             const fraction = feet - whole;
+            
             if (fraction === 0) return whole;
             if (fraction <= 0.5001) return whole + 0.5;
             return whole + 1.0;
         };
 
+        /**
+         * Calculates CFT (Cubic Feet) for a wood piece.
+         * 
+         * FORMULA: (Length_in_feet × Width_in_inches × Thickness_in_inches) / 144
+         * Why 144? Because 1 cubic foot = 12" × 12" × 12" = 1728 cubic inches
+         * But we measure: feet × inches × inches, so we divide by 12×12 = 144
+         * 
+         * @param {number} l - Length in inches
+         * @param {number} w - Width in inches  
+         * @param {number} t - Thickness in inches
+         * @param {number} qty - Quantity of pieces
+         * @returns {number} Total CFT
+         */
         const calculateLineCFT = (l, w, t, qty) => {
             const feet = getPurchasedFeet(l);
             return ((feet * w * t) / 144) * qty;
         };
 
+        /**
+         * Wood size dimension lookup table.
+         * Common sizes: "3x1" means 3" wide × 1" thick
+         * 
+         * @param {string} sizeStr - Size code like "3x1", "4x2", etc.
+         * @returns {object} {w: width, t: thickness} in inches
+         */
         const getSizeDims = (sizeStr) => {
             const map = {
-                '3x1': {w:3, t:1}, '4x1': {w:4, t:1}, 
-                '3x1.5': {w:3, t:1.5}, '4x1.5': {w:4, t:1.5},
-                '3x2': {w:3, t:2}, '4x2': {w:4, t:2}, 
-                '4x3': {w:4, t:3}, '4x4': {w:4, t:4}
+                '3x1': {w:3, t:1}, 
+                '4x1': {w:4, t:1}, 
+                '3x1.5': {w:3, t:1.5}, 
+                '4x1.5': {w:4, t:1.5},
+                '3x2': {w:3, t:2}, 
+                '4x2': {w:4, t:2}, 
+                '4x3': {w:4, t:3}, 
+                '4x4': {w:4, t:4}
             };
             return map[sizeStr] || {w:3, t:1};
         };
 
+        /**
+         * Gets the maximum dimension from a wood size.
+         * Used for spacing calculations in 3D visualization.
+         * 
+         * @param {string} sizeStr - Size code
+         * @returns {number} Maximum of width or thickness
+         */
         const getMaxDim = (sizeStr) => {
             if(!sizeStr) return 0;
             const dims = getSizeDims(sizeStr);
             return Math.max(dims.w, dims.t); 
         };
 
+        /**
+         * CRATE-SPECIFIC CALCULATION
+         * 
+         * Calculates effective wood length for crates with gaps between planks.
+         * 
+         * BUSINESS CONTEXT:
+         * Crates use planks with gaps for ventilation. If you need to cover 20" width,
+         * and each plank is 4" with 4" gaps, you need: ceil(20/(4+4)) = 3 planks
+         * Effective wood = 3 planks × 4" = 12" of actual wood
+         * 
+         * @param {number} span - Total distance to cover (inches)
+         * @param {number} plankWidth - Width of each plank (inches)
+         * @param {number} gap - Gap between planks (inches)
+         * @returns {number} Total inches of wood needed
+         */
         const calculateCrateEffectiveLength = (span, plankWidth, gap) => {
             if (!span || span <= 0) return 0;
             const unit = plankWidth + gap;
@@ -103,6 +206,19 @@
             return planks * plankWidth;
         };
 
+        /**
+         * CRATE-SPECIFIC CALCULATION
+         * 
+         * Adjusts dimensions for crate parts based on plank gaps.
+         * Different parts (Sides, Kara, Top) adjust differently.
+         * 
+         * @param {string} partName - 'Sides', 'Kara', or 'Top'
+         * @param {number} originalL - Original length
+         * @param {number} originalW - Original width
+         * @param {string} boxType - 'crateSimple' or 'crateBottom'
+         * @param {object} crateSettings - {plank, gap} settings
+         * @returns {object} {l, w, note} - Adjusted dimensions and explanation
+         */
         const getEffectiveCrateDims = (partName, originalL, originalW, boxType, crateSettings) => {
             const { plank, gap } = crateSettings;
             if (!plank || !gap) return { l: originalL, w: originalW, note: null };
@@ -132,12 +248,37 @@
             return result;
         };
 
-        // --- 3D VISUALIZER ---
+        // ================================================================================
+        // SECTION 3: 3D VISUALIZATION ENGINE
+        // Three.js scene - renders the rotating 3D box preview
+        // 
+        // KNOWN BUGS TO FIX:
+        // 🐛 BUG #1: Kara (end) runners not visualizing correctly
+        // 🐛 BUG #2: Top lid runners not visualizing correctly
+        // 
+        // When asking AI to fix: "Work only on SECTION 3 - 3D VISUALIZATION ENGINE"
+        // ================================================================================
+
+        /**
+         * ThreeScene Component
+         * 
+         * Creates a 3D visualization of the box with all parts:
+         * - Bottom runners
+         * - Bottom panel
+         * - Side panels
+         * - Kara (end panels)
+         * - Side runners
+         * - Kara runners (🐛 BUG: Not showing correctly)
+         * - Top lid
+         * - Top lid runners (🐛 BUG: Not showing correctly)
+         */
         const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
             const mountRef = useRef(null);
             
             useEffect(() => {
                 if (!mountRef.current) return;
+                
+                // Scene Setup
                 const w = mountRef.current.clientWidth;
                 const h = mountRef.current.clientHeight;
                 const scene = new THREE.Scene();
@@ -152,6 +293,7 @@
                 mountRef.current.innerHTML = '';
                 mountRef.current.appendChild(renderer.domElement);
 
+                // Lighting
                 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
                 scene.add(ambientLight);
                 const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
@@ -159,15 +301,19 @@
                 dirLight.castShadow = true;
                 scene.add(dirLight);
 
+                // Camera Controls
                 const controls = new THREE.OrbitControls(camera, renderer.domElement);
                 controls.enableDamping = true;
                 controls.dampingFactor = 0.05;
 
-                // Materials
-                const woodMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.8 }); 
-                const woodMatSide = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.8 });
-                const woodMatDark = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }); 
+                // Materials (wood colors)
+                const woodMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.8 }); // Light wood
+                const woodMatSide = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.8 }); // Medium wood
+                const woodMatDark = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }); // Dark wood (runners)
 
+                /**
+                 * Helper function to create a box mesh
+                 */
                 const createBox = (w, h, d, colorMat, x, y, z) => {
                     const geo = new THREE.BoxGeometry(w, h, d);
                     const mesh = new THREE.Mesh(geo, colorMat);
@@ -180,22 +326,26 @@
                 const group = new THREE.Group();
                 scene.add(group);
 
-                // --- VISUALIZATION LOGIC ---
-                const THK = 1; 
+                // --- VISUALIZATION LOGIC STARTS HERE ---
+                
+                const THK = 1; // Panel thickness in 3D units
                 const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
                 
-                // --- 1. BOTTOM RUNNERS ---
+                // ============================================================
+                // STEP 1: BOTTOM RUNNERS (Foundation support beams)
+                // ============================================================
+                
                 const bSize = getSizeDims(supps.bottom.size);
-                const bH = bSize.w; 
-                const bW = bSize.t; 
+                const bH = bSize.w; // Height of runner in 3D
+                const bW = bSize.t; // Width of runner in 3D
                 const bLen = supps.bottom.dim;
                 const bCount = supps.bottom.count;
                 
-                let runnerPositions = [];
+                let runnerPositions = []; // Store positions for alignment with other parts
 
                 if(bCount > 0) {
                     if(isBottomType) {
-                        // BOTTOM TYPE: Horizontal (Length-wise).
+                        // BOTTOM TYPE: Runners run horizontally (length-wise)
                         const spreadW = mainRows.bottom.w; 
                         
                         for(let i=0; i<bCount; i++) {
@@ -211,7 +361,7 @@
                             group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH/2, zPos));
                         }
                     } else {
-                        // SIMPLE TYPE
+                        // SIMPLE TYPE: Can run width-wise or horizontally
                         if(runnerConfig.bottomDir === 'width') {
                             // Standard: Width-wise, spaced along Length
                             const spreadL = mainRows.bottom.l; 
@@ -222,12 +372,12 @@
                                 group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH/2, 0));
                             }
                         } else {
-                            // *** FIX 1: Horizontal Override - NOW POPULATES runnerPositions ***
+                            // Horizontal Override
                             const spreadW = mainRows.bottom.w; 
                             const stepZ = spreadW / (bCount + 1);
                             for(let i=1; i<=bCount; i++) {
                                 const zPos = -spreadW/2 + (i * stepZ);
-                                runnerPositions.push(zPos); // NOW STORES Z POSITIONS
+                                runnerPositions.push(zPos);
                                 group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH/2, zPos));
                             }
                         }
@@ -236,14 +386,20 @@
 
                 const baseY = bH; 
 
-                // --- 2. BOTTOM PANEL ---
+                // ============================================================
+                // STEP 2: BOTTOM PANEL
+                // ============================================================
+                
                 const botL = mainRows.bottom.l;
                 const botW = mainRows.bottom.w;
                 group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK/2, 0));
                 
                 const floorLevel = baseY + THK;
 
-                // --- 3. SIDES ---
+                // ============================================================
+                // STEP 3: SIDE PANELS (Left and Right walls)
+                // ============================================================
+                
                 const sL = mainRows.sides.l;
                 const sH = mainRows.sides.w;
                 let sideY, sideZ_offset;
@@ -259,7 +415,10 @@
                 group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset));
                 group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset));
 
-                // --- 4. KARA (ENDS) ---
+                // ============================================================
+                // STEP 4: KARA PANELS (Front and Back end walls)
+                // ============================================================
+                
                 const kL = mainRows.kara.l;
                 const kH = mainRows.kara.w;
                 const kThk = THK;
@@ -277,24 +436,29 @@
                 group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0));
                 group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0));
 
-                // --- 5. SIDE RUNNERS ---
-                const srLen = supps.sides.dim;
-                const srCount = Math.round(supps.sides.count / 2);
+                // ============================================================
+                // STEP 5: SIDE RUNNERS (Support beams on side panels)
+                // ============================================================
                 
+                const srLen = supps.sides.dim;
+                const srCount = Math.round(supps.sides.count / 2); // Divide by 2 for each side
+                
+                /**
+                 * Draws runners on one side panel
+                 * @param {number} sideMultiplier - 1 for right side, -1 for left side
+                 */
                 const drawSideRunners = (sideMultiplier) => {
                     const zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5);
 
                     if (isBottomType || runnerConfig.sideDir === 'horizontal') {
-                        // HORIZONTAL
-                        // *** FIX 4: Bottom Type - One runner at top, rest distributed ***
+                        // HORIZONTAL RUNNERS (run along length of box)
                         if (isBottomType && srCount > 0) {
-                            // First runner at the very top
-                            const topY = baseY + sH - 1.5; // Near top edge (1.5 = half thickness of 3")
+                            // Bottom Type: One runner at top, rest distributed
+                            const topY = baseY + sH - 1.5;
                             group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel));
                             
-                            // Remaining runners distributed in the middle/lower section
                             if (srCount > 1) {
-                                const remainingSpace = sH - 3; // Space below the top runner
+                                const remainingSpace = sH - 3;
                                 const step = remainingSpace / srCount;
                                 for(let i=1; i<srCount; i++) {
                                     const yPos = baseY + (i * step);
@@ -302,7 +466,7 @@
                                 }
                             }
                         } else {
-                            // Simple type horizontal (original logic)
+                            // Simple type horizontal
                             const stepY = sH / (srCount + 1);
                             for(let i=1; i<=srCount; i++) {
                                 const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
@@ -310,10 +474,10 @@
                             }
                         }
                     } else {
-                        // VERTICAL (Simple Standard) - ALIGNED with Bottom Runners
+                        // VERTICAL RUNNERS (run up/down) - ALIGNED with Bottom Runners
                         let positions = [];
                         if (runnerConfig.bottomDir === 'width' && runnerPositions.length > 0) {
-                            positions = runnerPositions;
+                            positions = runnerPositions; // Align with bottom runners
                         } else {
                             const totalL = mainRows.sides.l;
                             const step = totalL / (srCount + 1);
@@ -329,37 +493,44 @@
                 };
                 
                 if (supps.sides.count > 0) {
-                    drawSideRunners(1);
-                    drawSideRunners(-1);
+                    drawSideRunners(1);  // Right side
+                    drawSideRunners(-1); // Left side
                 }
 
-                // --- 6. KARA RUNNERS (SQUARE FRAME LOGIC) ---
+                // ============================================================
+                // STEP 6: KARA RUNNERS (Support beams on end panels)
+                // 🐛 BUG AREA #1: These runners are not showing correctly
+                // ============================================================
+                
                 if (isBottomType) {
-                    // Bottom Type: Vertical Posts
+                    // Bottom Type: Vertical Posts at corners
                     const kVertLen = supps.karaVert.dim;
                     const kVertSize = getSizeDims(supps.karaVert.size);
-                    const kVertW = kVertSize.w; // Width of vertical post (e.g., 3 or 4)
+                    const kVertW = kVertSize.w;
                     const kV_Y = baseY + (kVertLen / 2); 
                     
                     [1, -1].forEach(dirX => { 
                          const xPos = dirX * (karaX_offset + kThk + 1.5); 
                          
                          if(runnerPositions.length > 0) {
+                             // Place posts at bottom runner positions
                              runnerPositions.forEach(zPos => {
                                  group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
                              });
                          } else {
+                             // Default: posts at corners
                              const kPostZ = (kL/2) - 1.5;
                              group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
                              group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
                          }
                     });
                 } else {
-                    // *** FIX 2: SIMPLE TYPE - KARA FRAME MORE VISIBLE ***
+                    // SIMPLE TYPE: SQUARE FRAME (top, bottom, left, right beams)
+                    // 🐛 This frame is not very visible - needs improvement
                     const kHorzLen = supps.karaHorz.dim;
                     const kVertLen = supps.karaVert.dim;
                     const suppW = getSizeDims(supps.karaHorz.size).w;
-                    const frameThickness = 2.5; // Increased from 1 to 2.5 for visibility
+                    const frameThickness = 2.5;
 
                     const kY_Top = floorLevel + kH - (suppW/2);
                     const kY_Bot = floorLevel + (suppW/2);
@@ -369,14 +540,14 @@
                     const kZ_Right = -((kL/2) - (suppW/2));
 
                     [1, -1].forEach(dirX => {
-                        const xPos = dirX * (karaX_offset - kThk - 1.5); // Moved slightly outward
+                        const xPos = dirX * (karaX_offset - kThk - 1.5);
                         
-                        // 1. Top Horizontal
+                        // Top horizontal beam
                         group.add(createBox(frameThickness, suppW, kHorzLen, woodMatDark, xPos, kY_Top, 0));
-                        // 2. Bottom Horizontal
+                        // Bottom horizontal beam
                         group.add(createBox(frameThickness, suppW, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
                         
-                        // 3. Vertical Left & Right
+                        // Left and right vertical beams
                         if (kVertLen > 0) {
                             group.add(createBox(frameThickness, kVertLen, suppW, woodMatDark, xPos, kY_Mid, kZ_Left));
                             group.add(createBox(frameThickness, kVertLen, suppW, woodMatDark, xPos, kY_Mid, kZ_Right));
@@ -384,34 +555,38 @@
                     });
                 }
 
-                // --- 7. TOP LID ---
+                // ============================================================
+                // STEP 7: TOP LID PANEL
+                // ============================================================
+                
                 const tL = mainRows.top.l;
                 const tW = mainRows.top.w;
                 const topY = (isBottomType ? baseY : floorLevel) + sH + THK/2;
                 group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0));
 
-                // --- 8. TOP LID RUNNERS ---
+                // ============================================================
+                // STEP 8: TOP LID RUNNERS
+                // 🐛 BUG AREA #2: These runners are not showing correctly
+                // ============================================================
+                
                 if (runnerPositions.length > 0) {
-                     const trH = 1.5; // Increased thickness for visibility
-                     const trY = topY - (THK/2) - (trH/2);
+                     const trH = 1.5; // Runner thickness
+                     const trY = topY - (THK/2) - (trH/2); // Position just under the lid
                      
                      if (isBottomType) {
-                         // *** FIX 3: BOTTOM TYPE - Length-wise runners connecting kara posts ***
+                         // BOTTOM TYPE: Runners run length-wise, connecting kara posts
+                         // 🐛 These should be visible but may not be showing
                          const trW = 3; 
                          const trLen = tL;
-                         
-                         // Calculate the positions where kara vertical posts are
-                         const karaPostX_Left = -(karaX_offset + kThk + 1.5);
-                         const karaPostX_Right = (karaX_offset + kThk + 1.5);
 
                          runnerPositions.forEach(zPos => {
-                             // Create runners that span from left kara post to right kara post
-                             // Position them at the Z positions of the bottom runners
+                             // Create runners that span the length of the top
                              group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
                          });
 
                      } else {
-                         // SIMPLE TYPE: Run Width-wise (Z), aligned with X positions
+                         // SIMPLE TYPE: Runners run width-wise
+                         // 🐛 These should be visible but may not be showing
                          const trLen = tW;
                          const sideSize = getSizeDims(supps.sides.size);
                          const trW = sideSize.w; 
@@ -422,6 +597,7 @@
                      }
                 }
 
+                // Animation loop
                 const animate = () => {
                     requestAnimationFrame(animate);
                     controls.update();
@@ -429,6 +605,7 @@
                 };
                 animate();
 
+                // Cleanup
                 return () => {
                     if(mountRef.current && renderer.domElement) {
                         mountRef.current.removeChild(renderer.domElement);
@@ -440,23 +617,44 @@
             return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
         };
 
-        // --- COMPONENTS ---
+        // ================================================================================
+        // SECTION 4: UI COMPONENTS
+        // Reusable React components for the interface
+        // ================================================================================
 
+        /**
+         * NumberInput Component
+         * 
+         * Styled number input with step control.
+         * Used throughout the app for dimension inputs.
+         */
         const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
             <input 
                 type="number" 
                 value={value} 
-                onChange={(e) => { const val = e.target.value; onChange(val === '' ? '' : parseFloat(val)); }} 
+                onChange={(e) => { 
+                    const val = e.target.value; 
+                    onChange(val === '' ? '' : parseFloat(val)); 
+                }} 
                 step={step}
                 className={`w-full bg-white border-2 border-slate-900 rounded-lg px-2 py-3 text-center font-mono font-black text-xl text-black focus:ring-4 focus:ring-amber-400 focus:border-amber-700 outline-none transition-all shadow-sm ${className}`}
             />
         );
 
+        /**
+         * CalculationRow Component
+         * 
+         * Displays one row in the main calculation table.
+         * Shows: Label, Length, Width, Thickness, Qty, and calculated CFT.
+         * 
+         * For crates, applies gap adjustments and shows the effective wood dimensions.
+         */
         const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType }) => {
             let effL = data.l || 0;
             let effW = data.w || 0;
             let note = null;
 
+            // Apply crate gap adjustments if applicable
             if (isCrate) {
                 let partName = '';
                 if (label.includes('Sides')) partName = 'Sides';
@@ -494,6 +692,12 @@
             );
         };
 
+        /**
+         * SupportCard Component
+         * 
+         * Displays a card for one type of support runner.
+         * Shows size selector, length, quantity controls, and calculated CFT.
+         */
         const SupportCard = ({ label, sizeOptions, dimValue, settings, onUpdate, colorClass="bg-white", configKey, runnerConfig, onConfigChange, fixedDir }) => {
             const sDims = getSizeDims(settings.size);
             const feet = getPurchasedFeet(settings.dim);
@@ -569,6 +773,12 @@
             );
         };
 
+        /**
+         * BoxTypeSelector Component
+         * 
+         * Allows user to select box type: Simple, Bottom, or Crate.
+         * For crates, shows additional configuration for plank width and gap size.
+         */
         const BoxTypeSelector = ({ type, setType, subType, setSubType, crateSettings, setCrateSettings }) => {
             return (
                 <div className="bg-white p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black mb-6">
@@ -637,20 +847,39 @@
             )
         };
 
+        // ================================================================================
+        // SECTION 5: MAIN APPLICATION
+        // State management and orchestration
+        // ================================================================================
+
+        /**
+         * Main App Component
+         * 
+         * Manages all state and coordinates between UI and calculations.
+         */
         function App() {
+            // --- STATE: Box Dimensions ---
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
+            
+            // --- STATE: Box Type ---
             const [boxType, setBoxType] = useState('simple'); 
             const [crateType, setCrateType] = useState('simple'); 
             const [crateSettings, setCrateSettings] = useState({ plank: 4, gap: 4 });
+            
+            // --- STATE: Pricing ---
             const [costPerCFT, setCostPerCFT] = useState(625);
+            
+            // --- STATE: UI ---
             const [showStickyStats, setShowStickyStats] = useState(false);
             const headerRef = useRef(null);
 
+            // --- STATE: Runner Configuration ---
             const [runnerConfig, setRunnerConfig] = useState({
                 bottomDir: 'width', 
                 sideDir: 'vertical' 
             });
 
+            // --- STATE: Main Panel Dimensions ---
             const [mainRows, setMainRows] = useState({
                 top: { l: 44, w: 22, t: 1, qty: 1 },
                 bottom: { l: 44, w: 22, t: 1, qty: 1 },
@@ -658,6 +887,7 @@
                 kara: { l: 20, w: 20, t: 1, qty: 2 }
             });
 
+            // --- STATE: Support Runners ---
             const [supps, setSupps] = useState({
                 bottom: { size: '4x2', dim: 22, count: 2 }, 
                 sides: { size: '3x1', dim: 20, count: 4 }, 
@@ -666,9 +896,13 @@
                 karaVert: { size: '3x1', dim: 14, count: 4 } 
             });
 
+            // --- STATE: Extra Supports ---
             const [extras, setExtras] = useState([]);
+            
+            // --- STATE: Global Runner Count ---
             const [globalRunners, setGlobalRunners] = useState(2);
             
+            // --- EFFECT: Sticky Header on Scroll ---
             useEffect(() => {
                 const handleScroll = () => {
                     if (headerRef.current) {
@@ -680,6 +914,7 @@
                 return () => window.removeEventListener('scroll', handleScroll);
             }, []);
 
+            // --- EFFECT: Auto-calculate dimensions based on box size and type ---
             useEffect(() => {
                 const l = parseFloat(dims.l) || 0;
                 const w = parseFloat(dims.w) || 0;
@@ -690,6 +925,7 @@
                 const estimatedCount = globalRunners; 
 
                 if (isSimpleLogic) {
+                    // SIMPLE TYPE: Box sits on runners
                     const baseL = l + 4;
                     const baseW = w + 2;
 
@@ -729,6 +965,7 @@
                     });
 
                 } else {
+                    // BOTTOM TYPE: Runners built into bottom structure
                     const bRunLen = l + 2;
                     const sidePanelL = l + 2;
                     const sidePanelH = h + 1;
@@ -760,7 +997,7 @@
 
             }, [dims.l, dims.w, dims.h, boxType, crateType, globalRunners, runnerConfig, supps.bottom.size, supps.karaHorz.size]);
 
-
+            // --- HANDLERS ---
             const handleGlobalRunnerChange = (val) => {
                 const count = parseInt(val) || 2;
                 setGlobalRunners(count);
@@ -784,6 +1021,7 @@
                 setExtras(p => p.map(x => x.id === id ? { ...x, [field]: val } : x));
             };
 
+            // --- CALCULATIONS ---
             const getRowCFT = (label, data) => {
                 let effL = data.l;
                 let effW = data.w;
@@ -823,9 +1061,11 @@
 
             const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
 
+            // --- RENDER ---
             return (
                 <div className="min-h-screen pb-10 wood-pattern">
                     
+                    {/* Sticky Stats Bar */}
                     {showStickyStats && (
                          <div className="fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 animate-fade-in p-3 px-4">
                             <div className="max-w-2xl mx-auto flex justify-between items-center text-white">
@@ -843,6 +1083,7 @@
                          </div>
                     )}
 
+                    {/* Header */}
                     <div ref={headerRef} className="bg-slate-900 text-white shadow-xl relative z-50 border-b-4 border-amber-600">
                         <div className="max-w-2xl mx-auto p-4 pb-4">
                             <div className="flex flex-col items-center justify-center text-center">
@@ -856,6 +1097,7 @@
 
                     <div className="max-w-2xl mx-auto p-3 space-y-6 mt-4">
 
+                        {/* Total Cost Card */}
                         <div className="bg-slate-800 rounded-2xl p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] border-4 border-amber-600 text-center">
                             <div className="text-sm font-black text-amber-500 uppercase tracking-[0.2em] mb-2">Total Project Cost</div>
                             <div className="text-6xl font-black text-white leading-none mb-6">
@@ -881,6 +1123,7 @@
                             </div>
                         </div>
 
+                        {/* Internal Size Input */}
                         <div className="bg-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black">
                             <div className="flex justify-between items-center mb-4 border-b-2 border-slate-100 pb-2">
                                 <h2 className="text-lg font-black text-black uppercase tracking-widest flex items-center gap-2">
@@ -904,12 +1147,14 @@
                             </div>
                         </div>
 
+                        {/* Box Type Selector */}
                         <BoxTypeSelector 
                             type={boxType} setType={setBoxType} 
                             subType={crateType} setSubType={setCrateType}
                             crateSettings={crateSettings} setCrateSettings={setCrateSettings}
                         />
 
+                        {/* 3D Visualization */}
                         <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden relative" style={{height: '400px'}}>
                             <div className="absolute top-0 left-0 bg-black text-white px-3 py-2 text-xs font-black uppercase rounded-br-lg z-10 flex items-center gap-2">
                                 <Icons.Rotate size={14} /> Tap & Drag to Rotate
@@ -927,6 +1172,7 @@
                             </div>
                         </div>
 
+                        {/* Box Components Table */}
                         <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden">
                             <div className="bg-slate-900 p-3 flex justify-between items-center">
                                 <span className="font-black text-sm text-white uppercase tracking-wide">Box Components</span>
@@ -962,6 +1208,7 @@
                             </div>
                         </div>
 
+                        {/* Runners & Supports Section */}
                         <div className="space-y-4 pt-4 border-t-4 border-dashed border-slate-300">
                             <div className="flex items-center justify-between bg-black text-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)]">
                                 <div>
@@ -979,6 +1226,7 @@
                                 </div>
                             </div>
                             
+                            {/* Support Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <SupportCard 
                                     label="Bottom Supports"
@@ -1043,6 +1291,7 @@
                                 )}
                             </div>
 
+                            {/* Extra Supports */}
                             {extras.map((ex) => (
                                 <div key={ex.id} className="rounded-xl shadow-md border-2 border-blue-600 bg-white overflow-hidden mb-3">
                                     <div className="p-3 border-b border-blue-200 flex justify-between items-center bg-blue-50">
@@ -1082,6 +1331,72 @@
             );
         }
 
+        // ================================================================================
+        // SECTION 6: TESTS & VERIFICATION
+        // Run these in browser console (F12) to verify calculations
+        // ================================================================================
+
+        /**
+         * Test Suite
+         * 
+         * Open browser console (F12) and look for test results.
+         * All tests should show ✅ if calculations are correct.
+         */
+        function runTests() {
+            console.log("🧪 ==================== RUNNING TESTS ====================");
+            console.log("");
+            
+            // TEST 1: Purchased Feet Calculation
+            console.log("📊 TEST 1: Purchased Feet Calculation");
+            const test1a = getPurchasedFeet(12);  // 12" = 1.0 ft
+            const test1b = getPurchasedFeet(15);  // 15" = 1.25 ft → should buy 1.5 ft
+            const test1c = getPurchasedFeet(19);  // 19" = 1.58 ft → should buy 2.0 ft
+            const test1d = getPurchasedFeet(24);  // 24" = 2.0 ft
+            
+            console.log(test1a === 1.0 ? "✅ 12 inches = 1.0 ft" : `❌ FAILED: Expected 1.0, got ${test1a}`);
+            console.log(test1b === 1.5 ? "✅ 15 inches = 1.5 ft" : `❌ FAILED: Expected 1.5, got ${test1b}`);
+            console.log(test1c === 2.0 ? "✅ 19 inches = 2.0 ft" : `❌ FAILED: Expected 2.0, got ${test1c}`);
+            console.log(test1d === 2.0 ? "✅ 24 inches = 2.0 ft" : `❌ FAILED: Expected 2.0, got ${test1d}`);
+            console.log("");
+            
+            // TEST 2: CFT Calculation
+            console.log("📊 TEST 2: CFT Calculation");
+            const test2a = calculateLineCFT(24, 3, 1, 1);  // 2ft × 3" × 1" × 1pc = 0.5 CFT
+            const test2b = calculateLineCFT(24, 3, 1, 2);  // Same but 2 pieces = 1.0 CFT
+            
+            console.log(test2a.toFixed(2) === "0.50" ? "✅ 24×3×1×1 = 0.50 CFT" : `❌ FAILED: Expected 0.50, got ${test2a.toFixed(2)}`);
+            console.log(test2b.toFixed(2) === "1.00" ? "✅ 24×3×1×2 = 1.00 CFT" : `❌ FAILED: Expected 1.00, got ${test2b.toFixed(2)}`);
+            console.log("");
+            
+            // TEST 3: Size Dimensions Lookup
+            console.log("📊 TEST 3: Size Dimensions Lookup");
+            const test3a = getSizeDims('3x1');
+            const test3b = getSizeDims('4x2');
+            
+            console.log(test3a.w === 3 && test3a.t === 1 ? "✅ '3x1' = {w:3, t:1}" : `❌ FAILED: Got ${JSON.stringify(test3a)}`);
+            console.log(test3b.w === 4 && test3b.t === 2 ? "✅ '4x2' = {w:4, t:2}" : `❌ FAILED: Got ${JSON.stringify(test3b)}`);
+            console.log("");
+            
+            // TEST 4: Crate Effective Length (with gaps)
+            console.log("📊 TEST 4: Crate Gap Calculation");
+            const test4a = calculateCrateEffectiveLength(20, 4, 4);  // 20" span, 4" plank, 4" gap
+            // Should need: ceil(20/8) = 3 planks × 4" = 12" of wood
+            
+            console.log(test4a === 12 ? "✅ 20\" span with 4\" planks + 4\" gaps = 12\" wood" : `❌ FAILED: Expected 12, got ${test4a}`);
+            console.log("");
+            
+            console.log("🎯 All basic calculations tested!");
+            console.log("📝 Known Issues:");
+            console.log("   🐛 3D Visualization: Kara runners not showing");
+            console.log("   🐛 3D Visualization: Top lid runners not showing");
+            console.log("");
+            console.log("===============================================================");
+        }
+
+        // Run tests when page loads
+        runTests();
+
+        // Render the app
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
