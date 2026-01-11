@@ -72,10 +72,6 @@
         This is intentionally ONE FILE for easy GitHub Pages hosting.
         Each section is clearly marked for AI collaboration.
         
-        KNOWN ISSUES:
-        - 3D Visualization: Kara (end) runners not showing correctly
-        - 3D Visualization: Top lid runners not showing correctly
-        
         ================================================================================
         */
 
@@ -251,12 +247,6 @@
         // ================================================================================
         // SECTION 3: 3D VISUALIZATION ENGINE
         // Three.js scene - renders the rotating 3D box preview
-        // 
-        // KNOWN BUGS TO FIX:
-        // 🐛 BUG #1: Kara (end) runners not visualizing correctly
-        // 🐛 BUG #2: Top lid runners not visualizing correctly
-        // 
-        // When asking AI to fix: "Work only on SECTION 3 - 3D VISUALIZATION ENGINE"
         // ================================================================================
 
         /**
@@ -268,9 +258,9 @@
          * - Side panels
          * - Kara (end panels)
          * - Side runners
-         * - Kara runners (🐛 BUG: Not showing correctly)
+         * - Kara runners
          * - Top lid
-         * - Top lid runners (🐛 BUG: Not showing correctly)
+         * - Top lid runners
          */
         const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
             const mountRef = useRef(null);
@@ -499,7 +489,7 @@
 
                 // ============================================================
                 // STEP 6: KARA RUNNERS (Support beams on end panels)
-                // 🐛 BUG AREA #1: These runners are not showing correctly
+                // Fixed: Frame now positioned outside panels and with increased visibility
                 // ============================================================
                 
                 if (isBottomType) {
@@ -526,11 +516,11 @@
                     });
                 } else {
                     // SIMPLE TYPE: SQUARE FRAME (top, bottom, left, right beams)
-                    // 🐛 This frame is not very visible - needs improvement
+                    // Fixed: Increased frame thickness and positioned outside panels
                     const kHorzLen = supps.karaHorz.dim;
                     const kVertLen = supps.karaVert.dim;
                     const suppW = getSizeDims(supps.karaHorz.size).w;
-                    const frameThickness = 2.5;
+                    const frameThickness = 4; // Increased from 2.5 for better visibility
 
                     const kY_Top = floorLevel + kH - (suppW/2);
                     const kY_Bot = floorLevel + (suppW/2);
@@ -540,17 +530,17 @@
                     const kZ_Right = -((kL/2) - (suppW/2));
 
                     [1, -1].forEach(dirX => {
-                        const xPos = dirX * (karaX_offset - kThk - 1.5);
+                        const xPos = dirX * (karaX_offset + kThk + 1.5); // Fixed: Changed - to + to position frames outside panel
                         
                         // Top horizontal beam
-                        group.add(createBox(frameThickness, suppW, kHorzLen, woodMatDark, xPos, kY_Top, 0));
+                        group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0));
                         // Bottom horizontal beam
-                        group.add(createBox(frameThickness, suppW, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
+                        group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
                         
                         // Left and right vertical beams
                         if (kVertLen > 0) {
-                            group.add(createBox(frameThickness, kVertLen, suppW, woodMatDark, xPos, kY_Mid, kZ_Left));
-                            group.add(createBox(frameThickness, kVertLen, suppW, woodMatDark, xPos, kY_Mid, kZ_Right));
+                            group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left));
+                            group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Right));
                         }
                     });
                 }
@@ -566,32 +556,57 @@
 
                 // ============================================================
                 // STEP 8: TOP LID RUNNERS
-                // 🐛 BUG AREA #2: These runners are not showing correctly
+                // Fixed: Now renders based on top support config, not bottom runners
                 // ============================================================
                 
-                if (runnerPositions.length > 0) {
-                     const trH = 1.5; // Runner thickness
-                     const trY = topY - (THK/2) - (trH/2); // Position just under the lid
+                // Render based on top support config, not just bottom runner positions
+                if (supps.top.count > 0) {
+                     const trH = 3; // Increased from 1.5 for better visibility
+                     const trY = topY - (THK/2) - trH - 0.5; // Added gap for visibility
+                     
+                     // Determine positions with fallback logic
+                     let topRunnerPositions = [];
+                     
+                     if (runnerPositions.length > 0) {
+                         // Use existing bottom runner positions if available
+                         topRunnerPositions = runnerPositions;
+                     } else {
+                         // Fallback: create positions based on top support count
+                         const count = supps.top.count;
+                         if (isBottomType) {
+                             // For bottom type, distribute along width
+                             const spreadW = tW;
+                             const step = spreadW / (count + 1);
+                             for (let i = 1; i <= count; i++) {
+                                 topRunnerPositions.push(-spreadW/2 + (i * step));
+                             }
+                         } else {
+                             // For simple type, distribute along length
+                             const spreadL = tL;
+                             const step = spreadL / (count + 1);
+                             for (let i = 1; i <= count; i++) {
+                                 topRunnerPositions.push(-spreadL/2 + (i * step));
+                             }
+                         }
+                     }
                      
                      if (isBottomType) {
                          // BOTTOM TYPE: Runners run length-wise, connecting kara posts
-                         // 🐛 These should be visible but may not be showing
-                         const trW = 3; 
+                         const trW = 4; // Increased from 3 for better visibility
                          const trLen = tL;
 
-                         runnerPositions.forEach(zPos => {
+                         topRunnerPositions.forEach(zPos => {
                              // Create runners that span the length of the top
                              group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
                          });
 
                      } else {
                          // SIMPLE TYPE: Runners run width-wise
-                         // 🐛 These should be visible but may not be showing
                          const trLen = tW;
-                         const sideSize = getSizeDims(supps.sides.size);
-                         const trW = sideSize.w; 
+                         const topSize = getSizeDims(supps.top.size); // Fixed: use top size instead of sides
+                         const trW = topSize.w + 0.5; // Slightly larger for visibility
 
-                         runnerPositions.forEach(xPos => {
+                         topRunnerPositions.forEach(xPos => {
                              group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
                          });
                      }
@@ -1386,9 +1401,6 @@
             console.log("");
             
             console.log("🎯 All basic calculations tested!");
-            console.log("📝 Known Issues:");
-            console.log("   🐛 3D Visualization: Kara runners not showing");
-            console.log("   🐛 3D Visualization: Top lid runners not showing");
             console.log("");
             console.log("===============================================================");
         }
