@@ -1808,7 +1808,7 @@
          * Manages all state and coordinates between UI and calculations.
          */
 
-        // Runner thresholds: start with 2 supports, add more as length grows to keep load distribution safe
+        // Runner thresholds (high-to-low order): base 2 supports, >50" ⇒ 3, >60" ⇒ 4, >70" ⇒ 5 to keep long spans from flexing
         const RUNNER_RECOMMENDATIONS = [
             { min: 70, count: 5 },
             { min: 60, count: 4 },
