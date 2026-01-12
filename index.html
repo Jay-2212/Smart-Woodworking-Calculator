@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ambica Wooden Works - Smart CFT Calculator</title>
-    
+
     <!-- 1. STYLE ENGINE (Embedded CSS - No External Dependencies) -->
-    
+
     <!-- 2. THE BRAIN (React & Babel) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -17,20 +18,24 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700;900&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700;900&family=Inter:wght@400;700;900&display=swap"
+        rel="stylesheet">
 
     <style>
         /* ============================================================
            RESET & BASE STYLES
            ============================================================ */
-        *, *::before, *::after {
+        *,
+        *::before,
+        *::after {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
 
-        body { 
-            overscroll-behavior-y: none; 
+        body {
+            overscroll-behavior-y: none;
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
             background-color: #fef3c7;
@@ -41,283 +46,840 @@
         }
 
         /* High Contrast Inputs */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
-        
-        select::-ms-expand { display: none; }
+
+        select::-ms-expand {
+            display: none;
+        }
 
         /* ============================================================
            UTILITY CLASSES - TAILWIND CSS REPLACEMENTS
            ============================================================ */
-        
+
         /* Font Families */
-        .font-brand { font-family: 'Roboto Slab', serif; }
-        .font-sans { font-family: 'Inter', sans-serif; }
-        .font-mono { font-family: ui-monospace, monospace; }
-        
+        .font-brand {
+            font-family: 'Roboto Slab', serif;
+        }
+
+        .font-sans {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .font-mono {
+            font-family: ui-monospace, monospace;
+        }
+
         /* Font Weights */
-        .font-bold { font-weight: 700; }
-        .font-black { font-weight: 900; }
-        
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .font-black {
+            font-weight: 900;
+        }
+
         /* Font Sizes */
-        .text-xs { font-size: 0.75rem; line-height: 1rem; }
-        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-        .text-base { font-size: 1rem; line-height: 1.5rem; }
-        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
-        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
-        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
-        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-        .text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
-        .text-6xl { font-size: 3.75rem; line-height: 1; }
-        .text-\[9px\] { font-size: 9px; }
-        .text-\[10px\] { font-size: 10px; }
-        .text-\[11px\] { font-size: 11px; }
-        
+        .text-xs {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+        }
+
+        .text-base {
+            font-size: 1rem;
+            line-height: 1.5rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+            line-height: 1.75rem;
+        }
+
+        .text-xl {
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+        }
+
+        .text-2xl {
+            font-size: 1.5rem;
+            line-height: 2rem;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem;
+            line-height: 2.25rem;
+        }
+
+        .text-4xl {
+            font-size: 2.25rem;
+            line-height: 2.5rem;
+        }
+
+        .text-6xl {
+            font-size: 3.75rem;
+            line-height: 1;
+        }
+
+        .text-\[9px\] {
+            font-size: 9px;
+        }
+
+        .text-\[10px\] {
+            font-size: 10px;
+        }
+
+        .text-\[11px\] {
+            font-size: 11px;
+        }
+
         /* Text Colors */
-        .text-white { color: #ffffff; }
-        .text-black { color: #000000; }
-        .text-slate-300 { color: #cbd5e1; }
-        .text-slate-400 { color: #94a3b8; }
-        .text-slate-500 { color: #64748b; }
-        .text-slate-600 { color: #475569; }
-        .text-slate-900 { color: #0f172a; }
-        .text-amber-400 { color: #fbbf24; }
-        .text-amber-500 { color: #f59e0b; }
-        .text-amber-600 { color: #d97706; }
-        .text-amber-800 { color: #92400e; }
-        .text-amber-900 { color: #78350f; }
-        .text-blue-600 { color: #2563eb; }
-        .text-blue-800 { color: #1e40af; }
-        .text-red-600 { color: #dc2626; }
-        
+        .text-white {
+            color: #ffffff;
+        }
+
+        .text-black {
+            color: #000000;
+        }
+
+        .text-slate-300 {
+            color: #cbd5e1;
+        }
+
+        .text-slate-400 {
+            color: #94a3b8;
+        }
+
+        .text-slate-500 {
+            color: #64748b;
+        }
+
+        .text-slate-600 {
+            color: #475569;
+        }
+
+        .text-slate-900 {
+            color: #0f172a;
+        }
+
+        .text-amber-400 {
+            color: #fbbf24;
+        }
+
+        .text-amber-500 {
+            color: #f59e0b;
+        }
+
+        .text-amber-600 {
+            color: #d97706;
+        }
+
+        .text-amber-800 {
+            color: #92400e;
+        }
+
+        .text-amber-900 {
+            color: #78350f;
+        }
+
+        .text-blue-600 {
+            color: #2563eb;
+        }
+
+        .text-blue-800 {
+            color: #1e40af;
+        }
+
+        .text-red-600 {
+            color: #dc2626;
+        }
+
         /* Background Colors */
-        .bg-white { background-color: #ffffff; }
-        .bg-black { background-color: #000000; }
-        .bg-slate-100 { background-color: #f1f5f9; }
-        .bg-slate-200 { background-color: #e2e8f0; }
-        .bg-slate-600 { background-color: #475569; }
-        .bg-slate-800 { background-color: #1e293b; }
-        .bg-slate-900 { background-color: #0f172a; }
-        .bg-amber-50 { background-color: #fffbeb; }
-        .bg-amber-100 { background-color: #fef3c7; }
-        .bg-amber-200 { background-color: #fde68a; }
-        .bg-amber-500 { background-color: #f59e0b; }
-        .bg-blue-50 { background-color: #eff6ff; }
-        .bg-red-600 { background-color: #dc2626; }
-        .bg-white\/90 { background-color: rgba(255, 255, 255, 0.9); }
-        
+        .bg-white {
+            background-color: #ffffff;
+        }
+
+        .bg-black {
+            background-color: #000000;
+        }
+
+        .bg-slate-100 {
+            background-color: #f1f5f9;
+        }
+
+        .bg-slate-200 {
+            background-color: #e2e8f0;
+        }
+
+        .bg-slate-600 {
+            background-color: #475569;
+        }
+
+        .bg-slate-800 {
+            background-color: #1e293b;
+        }
+
+        .bg-slate-900 {
+            background-color: #0f172a;
+        }
+
+        .bg-amber-50 {
+            background-color: #fffbeb;
+        }
+
+        .bg-amber-100 {
+            background-color: #fef3c7;
+        }
+
+        .bg-amber-200 {
+            background-color: #fde68a;
+        }
+
+        .bg-amber-500 {
+            background-color: #f59e0b;
+        }
+
+        .bg-blue-50 {
+            background-color: #eff6ff;
+        }
+
+        .bg-red-600 {
+            background-color: #dc2626;
+        }
+
+        .bg-white\/90 {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+
         /* Border Colors */
-        .border-black { border-color: #000000; }
-        .border-white { border-color: #ffffff; }
-        .border-slate-100 { border-color: #f1f5f9; }
-        .border-slate-200 { border-color: #e2e8f0; }
-        .border-slate-300 { border-color: #cbd5e1; }
-        .border-slate-400 { border-color: #94a3b8; }
-        .border-slate-700 { border-color: #334155; }
-        .border-slate-900 { border-color: #0f172a; }
-        .border-amber-200 { border-color: #fde68a; }
-        .border-amber-300 { border-color: #fcd34d; }
-        .border-amber-500 { border-color: #f59e0b; }
-        .border-amber-600 { border-color: #d97706; }
-        .border-amber-800 { border-color: #92400e; }
-        .border-amber-900 { border-color: #78350f; }
-        .border-blue-200 { border-color: #bfdbfe; }
-        .border-blue-300 { border-color: #93c5fd; }
-        .border-blue-600 { border-color: #2563eb; }
-        .border-red-800 { border-color: #991b1b; }
-        
+        .border-black {
+            border-color: #000000;
+        }
+
+        .border-white {
+            border-color: #ffffff;
+        }
+
+        .border-slate-100 {
+            border-color: #f1f5f9;
+        }
+
+        .border-slate-200 {
+            border-color: #e2e8f0;
+        }
+
+        .border-slate-300 {
+            border-color: #cbd5e1;
+        }
+
+        .border-slate-400 {
+            border-color: #94a3b8;
+        }
+
+        .border-slate-700 {
+            border-color: #334155;
+        }
+
+        .border-slate-900 {
+            border-color: #0f172a;
+        }
+
+        .border-amber-200 {
+            border-color: #fde68a;
+        }
+
+        .border-amber-300 {
+            border-color: #fcd34d;
+        }
+
+        .border-amber-500 {
+            border-color: #f59e0b;
+        }
+
+        .border-amber-600 {
+            border-color: #d97706;
+        }
+
+        .border-amber-800 {
+            border-color: #92400e;
+        }
+
+        .border-amber-900 {
+            border-color: #78350f;
+        }
+
+        .border-blue-200 {
+            border-color: #bfdbfe;
+        }
+
+        .border-blue-300 {
+            border-color: #93c5fd;
+        }
+
+        .border-blue-600 {
+            border-color: #2563eb;
+        }
+
+        .border-red-800 {
+            border-color: #991b1b;
+        }
+
         /* Border Widths */
-        .border { border-width: 1px; }
-        .border-2 { border-width: 2px; }
-        .border-4 { border-width: 4px; }
-        .border-b { border-bottom-width: 1px; }
-        .border-b-2 { border-bottom-width: 2px; }
-        .border-b-4 { border-bottom-width: 4px; }
-        .border-t-2 { border-top-width: 2px; }
-        .border-t-4 { border-top-width: 4px; }
-        
+        .border {
+            border-width: 1px;
+        }
+
+        .border-2 {
+            border-width: 2px;
+        }
+
+        .border-4 {
+            border-width: 4px;
+        }
+
+        .border-b {
+            border-bottom-width: 1px;
+        }
+
+        .border-b-2 {
+            border-bottom-width: 2px;
+        }
+
+        .border-b-4 {
+            border-bottom-width: 4px;
+        }
+
+        .border-t-2 {
+            border-top-width: 2px;
+        }
+
+        .border-t-4 {
+            border-top-width: 4px;
+        }
+
         /* Border Styles */
-        .border-dashed { border-style: dashed; }
-        
+        .border-dashed {
+            border-style: dashed;
+        }
+
         /* Border Radius */
-        .rounded { border-radius: 0.25rem; }
-        .rounded-lg { border-radius: 0.5rem; }
-        .rounded-xl { border-radius: 0.75rem; }
-        .rounded-2xl { border-radius: 1rem; }
-        .rounded-b-lg { border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem; }
-        .rounded-br-lg { border-bottom-right-radius: 0.5rem; }
-        
+        .rounded {
+            border-radius: 0.25rem;
+        }
+
+        .rounded-lg {
+            border-radius: 0.5rem;
+        }
+
+        .rounded-xl {
+            border-radius: 0.75rem;
+        }
+
+        .rounded-2xl {
+            border-radius: 1rem;
+        }
+
+        .rounded-b-lg {
+            border-bottom-left-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+        .rounded-br-lg {
+            border-bottom-right-radius: 0.5rem;
+        }
+
         /* Padding */
-        .p-1 { padding: 0.25rem; }
-        .p-2 { padding: 0.5rem; }
-        .p-3 { padding: 0.75rem; }
-        .p-4 { padding: 1rem; }
-        .p-5 { padding: 1.25rem; }
-        .p-6 { padding: 1.5rem; }
-        .px-0 { padding-left: 0; padding-right: 0; }
-        .px-1 { padding-left: 0.25rem; padding-right: 0.25rem; }
-        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-        .px-4 { padding-left: 1rem; padding-right: 1rem; }
-        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-        .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
-        .pt-4 { padding-top: 1rem; }
-        .pb-2 { padding-bottom: 0.5rem; }
-        .pb-4 { padding-bottom: 1rem; }
-        .pb-10 { padding-bottom: 2.5rem; }
-        .pb-40 { padding-bottom: 10rem; }
-        .pl-1 { padding-left: 0.25rem; }
-        
+        .p-1 {
+            padding: 0.25rem;
+        }
+
+        .p-2 {
+            padding: 0.5rem;
+        }
+
+        .p-3 {
+            padding: 0.75rem;
+        }
+
+        .p-4 {
+            padding: 1rem;
+        }
+
+        .p-5 {
+            padding: 1.25rem;
+        }
+
+        .p-6 {
+            padding: 1.5rem;
+        }
+
+        .px-0 {
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .px-1 {
+            padding-left: 0.25rem;
+            padding-right: 0.25rem;
+        }
+
+        .px-2 {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        .px-3 {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        .px-4 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .py-1 {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+        }
+
+        .py-2 {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .py-3 {
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+        }
+
+        .py-4 {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .py-5 {
+            padding-top: 1.25rem;
+            padding-bottom: 1.25rem;
+        }
+
+        .pt-4 {
+            padding-top: 1rem;
+        }
+
+        .pb-2 {
+            padding-bottom: 0.5rem;
+        }
+
+        .pb-4 {
+            padding-bottom: 1rem;
+        }
+
+        .pb-10 {
+            padding-bottom: 2.5rem;
+        }
+
+        .pb-40 {
+            padding-bottom: 10rem;
+        }
+
+        .pl-1 {
+            padding-left: 0.25rem;
+        }
+
         /* Margin */
-        .mt-1 { margin-top: 0.25rem; }
-        .mt-4 { margin-top: 1rem; }
-        .mb-1 { margin-bottom: 0.25rem; }
-        .mb-2 { margin-bottom: 0.5rem; }
-        .mb-3 { margin-bottom: 0.75rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .mb-6 { margin-bottom: 1.5rem; }
-        .ml-1 { margin-left: 0.25rem; }
-        .mr-1 { margin-right: 0.25rem; }
-        .mx-auto { margin-left: auto; margin-right: auto; }
-        .mx-2 { margin-left: 0.5rem; margin-right: 0.5rem; }
-        .-mx-4 { margin-left: -1rem; margin-right: -1rem; }
-        .-bottom-4 { bottom: -1rem; }
-        
+        .mt-1 {
+            margin-top: 0.25rem;
+        }
+
+        .mt-4 {
+            margin-top: 1rem;
+        }
+
+        .mb-1 {
+            margin-bottom: 0.25rem;
+        }
+
+        .mb-2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .mb-3 {
+            margin-bottom: 0.75rem;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem;
+        }
+
+        .mb-6 {
+            margin-bottom: 1.5rem;
+        }
+
+        .ml-1 {
+            margin-left: 0.25rem;
+        }
+
+        .mr-1 {
+            margin-right: 0.25rem;
+        }
+
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .mx-2 {
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
+        }
+
+        .-mx-4 {
+            margin-left: -1rem;
+            margin-right: -1rem;
+        }
+
+        .-bottom-4 {
+            bottom: -1rem;
+        }
+
         /* Width & Height */
-        .w-full { width: 100%; }
-        .w-10 { width: 2.5rem; }
-        .w-12 { width: 3rem; }
-        .w-24 { width: 6rem; }
-        .w-32 { width: 8rem; }
-        .w-0\.5 { width: 0.125rem; }
-        .h-10 { height: 2.5rem; }
-        .h-12 { height: 3rem; }
-        .min-h-screen { min-height: 100vh; }
-        
+        .w-full {
+            width: 100%;
+        }
+
+        .w-10 {
+            width: 2.5rem;
+        }
+
+        .w-12 {
+            width: 3rem;
+        }
+
+        .w-24 {
+            width: 6rem;
+        }
+
+        .w-32 {
+            width: 8rem;
+        }
+
+        .w-0\.5 {
+            width: 0.125rem;
+        }
+
+        .h-10 {
+            height: 2.5rem;
+        }
+
+        .h-12 {
+            height: 3rem;
+        }
+
+        .min-h-screen {
+            min-height: 100vh;
+        }
+
         /* Max Width */
-        .max-w-2xl { max-width: 42rem; }
-        
+        .max-w-2xl {
+            max-width: 42rem;
+        }
+
         /* Display */
-        .block { display: block; }
-        .inline-block { display: inline-block; }
-        .flex { display: flex; }
-        .grid { display: grid; }
-        
+        .block {
+            display: block;
+        }
+
+        .inline-block {
+            display: inline-block;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .grid {
+            display: grid;
+        }
+
         /* Flexbox */
-        .flex-col { flex-direction: column; }
-        .flex-grow { flex-grow: 1; }
-        .flex-1 { flex: 1 1 0%; }
-        .items-center { align-items: center; }
-        .items-end { align-items: flex-end; }
-        .justify-center { justify-content: center; }
-        .justify-between { justify-content: space-between; }
-        
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .flex-grow {
+            flex-grow: 1;
+        }
+
+        .flex-1 {
+            flex: 1 1 0%;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .items-end {
+            align-items: flex-end;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
         /* Grid */
-        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-        .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-        .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-        .col-span-1 { grid-column: span 1 / span 1; }
-        .col-span-2 { grid-column: span 2 / span 2; }
-        .col-span-3 { grid-column: span 3 / span 3; }
-        
+        .grid-cols-1 {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .grid-cols-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .grid-cols-5 {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .grid-cols-12 {
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+        }
+
+        .col-span-1 {
+            grid-column: span 1 / span 1;
+        }
+
+        .col-span-2 {
+            grid-column: span 2 / span 2;
+        }
+
+        .col-span-3 {
+            grid-column: span 3 / span 3;
+        }
+
         /* Gap */
-        .gap-2 { gap: 0.5rem; }
-        .gap-3 { gap: 0.75rem; }
-        .gap-4 { gap: 1rem; }
-        .space-y-3 > * + * { margin-top: 0.75rem; }
-        .space-y-4 > * + * { margin-top: 1rem; }
-        .space-y-6 > * + * { margin-top: 1.5rem; }
-        
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .gap-3 {
+            gap: 0.75rem;
+        }
+
+        .gap-4 {
+            gap: 1rem;
+        }
+
+        .space-y-3>*+* {
+            margin-top: 0.75rem;
+        }
+
+        .space-y-4>*+* {
+            margin-top: 1rem;
+        }
+
+        .space-y-6>*+* {
+            margin-top: 1.5rem;
+        }
+
         /* Position */
-        .relative { position: relative; }
-        .absolute { position: absolute; }
-        .fixed { position: fixed; }
-        .top-0 { top: 0; }
-        .left-0 { left: 0; }
-        .right-2 { right: 0.5rem; }
-        .bottom-2 { bottom: 0.5rem; }
-        
+        .relative {
+            position: relative;
+        }
+
+        .absolute {
+            position: absolute;
+        }
+
+        .fixed {
+            position: fixed;
+        }
+
+        .top-0 {
+            top: 0;
+        }
+
+        .left-0 {
+            left: 0;
+        }
+
+        .right-2 {
+            right: 0.5rem;
+        }
+
+        .bottom-2 {
+            bottom: 0.5rem;
+        }
+
         /* Z-Index */
-        .z-10 { z-index: 10; }
-        .z-50 { z-index: 50; }
-        .z-\[100\] { z-index: 100; }
-        
+        .z-10 {
+            z-index: 10;
+        }
+
+        .z-50 {
+            z-index: 50;
+        }
+
+        .z-\[100\] {
+            z-index: 100;
+        }
+
         /* Text Alignment */
-        .text-left { text-align: left; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        
+        .text-left {
+            text-align: left;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
         /* Text Transform */
-        .uppercase { text-transform: uppercase; }
-        
+        .uppercase {
+            text-transform: uppercase;
+        }
+
         /* Letter Spacing */
-        .tracking-tight { letter-spacing: -0.025em; }
-        .tracking-wide { letter-spacing: 0.025em; }
-        .tracking-wider { letter-spacing: 0.05em; }
-        .tracking-widest { letter-spacing: 0.1em; }
-        .tracking-\[0\.2em\] { letter-spacing: 0.2em; }
-        
+        .tracking-tight {
+            letter-spacing: -0.025em;
+        }
+
+        .tracking-wide {
+            letter-spacing: 0.025em;
+        }
+
+        .tracking-wider {
+            letter-spacing: 0.05em;
+        }
+
+        .tracking-widest {
+            letter-spacing: 0.1em;
+        }
+
+        .tracking-\[0\.2em\] {
+            letter-spacing: 0.2em;
+        }
+
         /* Line Height */
-        .leading-none { line-height: 1; }
-        .leading-tight { line-height: 1.25; }
-        
+        .leading-none {
+            line-height: 1;
+        }
+
+        .leading-tight {
+            line-height: 1.25;
+        }
+
         /* Shadows */
-        .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
-        .shadow-md { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
-        .shadow-xl { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
-        .shadow-inner { box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); }
-        .shadow-\[4px_4px_0px_0px_rgba\(0\,0\,0\,0\.2\)\] { box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.2); }
-        .shadow-\[4px_4px_0px_0px_rgba\(0\,0\,0\,0\.4\)\] { box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.4); }
-        .shadow-\[8px_8px_0px_0px_rgba\(0\,0\,0\,0\.3\)\] { box-shadow: 8px 8px 0px 0px rgba(0,0,0,0.3); }
-        
+        .shadow-sm {
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .shadow-md {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        .shadow-xl {
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        .shadow-inner {
+            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .shadow-\[4px_4px_0px_0px_rgba\(0\,0\,0\,0\.2\)\] {
+            box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.2);
+        }
+
+        .shadow-\[4px_4px_0px_0px_rgba\(0\,0\,0\,0\.4\)\] {
+            box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.4);
+        }
+
+        .shadow-\[8px_8px_0px_0px_rgba\(0\,0\,0\,0\.3\)\] {
+            box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.3);
+        }
+
         /* Overflow */
-        .overflow-hidden { overflow: hidden; }
-        
+        .overflow-hidden {
+            overflow: hidden;
+        }
+
         /* Outline */
-        .outline-none { outline: 2px solid transparent; outline-offset: 2px; }
-        
+        .outline-none {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+        }
+
         /* Appearance */
-        .appearance-none { appearance: none; }
-        
+        .appearance-none {
+            appearance: none;
+        }
+
         /* Pointer Events */
-        .pointer-events-none { pointer-events: none; }
-        
+        .pointer-events-none {
+            pointer-events: none;
+        }
+
         /* User Select */
-        .select-none { user-select: none; -webkit-user-select: none; }
-        
+        .select-none {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
         /* Vertical Align */
-        .align-top { vertical-align: top; }
-        
+        .align-top {
+            vertical-align: top;
+        }
+
         /* Transitions */
-        .transition-all { 
-            transition-property: all; 
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); 
-            transition-duration: 150ms; 
+        .transition-all {
+            transition-property: all;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
         }
-        .transition-colors { 
-            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; 
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); 
-            transition-duration: 150ms; 
+
+        .transition-colors {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
         }
-        
+
         /* Transform */
-        .scale-105 { transform: scale(1.05); }
-        
+        .scale-105 {
+            transform: scale(1.05);
+        }
+
         /* Animations */
         @keyframes fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
-        .animate-fade-in { animation: fade-in 0.3s ease-in-out; }
-        
+
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-in-out;
+        }
+
         /* Wood Pattern Background */
         .wood-pattern {
             background-color: #fcecdb;
@@ -325,43 +887,101 @@
         }
 
         /* Sticky Bar Animations */
-        .sticky-bar-enter { transform: translateY(-100%); opacity: 0; }
-        .sticky-bar-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-in-out; }
-        .sticky-bar-exit { transform: translateY(-100%); opacity: 0; transition: all 0.3s ease-in-out; }
-        
+        .sticky-bar-enter {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .sticky-bar-active {
+            transform: translateY(0);
+            opacity: 1;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .sticky-bar-exit {
+            transform: translateY(-100%);
+            opacity: 0;
+            transition: all 0.3s ease-in-out;
+        }
+
         /* ============================================================
            HOVER, FOCUS, AND ACTIVE STATES
            ============================================================ */
-        .hover\:bg-slate-100:hover { background-color: #f1f5f9; }
-        .hover\:bg-slate-300:hover { background-color: #e2e8f0; }
-        .hover\:bg-blue-50:hover { background-color: #eff6ff; }
-        .hover\:bg-amber-600:hover { background-color: #d97706; }
-        .hover\:bg-red-700:hover { background-color: #b91c1c; }
-        .hover\:border-black:hover { border-color: #000000; }
-        
-        .active\:bg-slate-400:active { background-color: #94a3b8; }
-        
-        .focus\:ring-4:focus { outline: none; }
-        .focus\:ring-amber-200:focus { box-shadow: 0 0 0 4px #fde68a; }
-        .focus\:ring-amber-400:focus { box-shadow: 0 0 0 4px #fbbf24; }
-        .focus\:ring-amber-500\/50:focus { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.5); }
-        .focus\:border-amber-600:focus { border-color: #d97706; }
-        .focus\:border-amber-700:focus { border-color: #b45309; }
-        
+        .hover\:bg-slate-100:hover {
+            background-color: #f1f5f9;
+        }
+
+        .hover\:bg-slate-300:hover {
+            background-color: #e2e8f0;
+        }
+
+        .hover\:bg-blue-50:hover {
+            background-color: #eff6ff;
+        }
+
+        .hover\:bg-amber-600:hover {
+            background-color: #d97706;
+        }
+
+        .hover\:bg-red-700:hover {
+            background-color: #b91c1c;
+        }
+
+        .hover\:border-black:hover {
+            border-color: #000000;
+        }
+
+        .active\:bg-slate-400:active {
+            background-color: #94a3b8;
+        }
+
+        .focus\:ring-4:focus {
+            outline: none;
+        }
+
+        .focus\:ring-amber-200:focus {
+            box-shadow: 0 0 0 4px #fde68a;
+        }
+
+        .focus\:ring-amber-400:focus {
+            box-shadow: 0 0 0 4px #fbbf24;
+        }
+
+        .focus\:ring-amber-500\/50:focus {
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.5);
+        }
+
+        .focus\:border-amber-600:focus {
+            border-color: #d97706;
+        }
+
+        .focus\:border-amber-700:focus {
+            border-color: #b45309;
+        }
+
         /* ============================================================
            RESPONSIVE DESIGN (MEDIA QUERIES)
            ============================================================ */
         @media (min-width: 768px) {
-            .md\:text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-            .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .md\:text-3xl {
+                font-size: 1.875rem;
+                line-height: 2.25rem;
+            }
+
+            .md\:grid-cols-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
-        
+
         /* ============================================================
            LAST CHILD UTILITIES
            ============================================================ */
-        .last\:border-0:last-child { border-width: 0; }
+        .last\:border-0:last-child {
+            border-width: 0;
+        }
     </style>
 </head>
+
 <body class="bg-amber-50 text-slate-900 font-sans pb-40 select-none wood-pattern">
 
     <div id="root"></div>
@@ -396,7 +1016,7 @@
         // ================================================================================
         // SECTION 1: CONSTANTS & ICONS
         // ================================================================================
-        
+
         /**
          * Icon component for rendering SVG icons
          */
@@ -408,10 +1028,10 @@
          * Icon library - all icons used in the app
          */
         const Icons = {
-            Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
-            Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
-            Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />,
-            Rotate: (p) => <Icon {...p} path={<><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></>} />,
+            Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></>} />,
+            Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>} />,
+            Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>} />,
+            Rotate: (p) => <Icon {...p} path={<><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" /></>} />,
         };
 
         // ================================================================================
@@ -438,7 +1058,7 @@
             const feet = inches / 12;
             const whole = Math.floor(feet);
             const fraction = feet - whole;
-            
+
             if (fraction === 0) return whole;
             if (fraction <= 0.5001) return whole + 0.5;
             return whole + 1.0;
@@ -471,16 +1091,16 @@
          */
         const getSizeDims = (sizeStr) => {
             const map = {
-                '3x1': {w:3, t:1}, 
-                '4x1': {w:4, t:1}, 
-                '3x1.5': {w:3, t:1.5}, 
-                '4x1.5': {w:4, t:1.5},
-                '3x2': {w:3, t:2}, 
-                '4x2': {w:4, t:2}, 
-                '4x3': {w:4, t:3}, 
-                '4x4': {w:4, t:4}
+                '3x1': { w: 3, t: 1 },
+                '4x1': { w: 4, t: 1 },
+                '3x1.5': { w: 3, t: 1.5 },
+                '4x1.5': { w: 4, t: 1.5 },
+                '3x2': { w: 3, t: 2 },
+                '4x2': { w: 4, t: 2 },
+                '4x3': { w: 4, t: 3 },
+                '4x4': { w: 4, t: 4 }
             };
-            return map[sizeStr] || {w:3, t:1};
+            return map[sizeStr] || { w: 3, t: 1 };
         };
 
         /**
@@ -491,9 +1111,9 @@
          * @returns {number} Maximum of width or thickness
          */
         const getMaxDim = (sizeStr) => {
-            if(!sizeStr) return 0;
+            if (!sizeStr) return 0;
             const dims = getSizeDims(sizeStr);
-            return Math.max(dims.w, dims.t); 
+            return Math.max(dims.w, dims.t);
         };
 
         /**
@@ -580,15 +1200,15 @@
          */
         const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
             const mountRef = useRef(null);
-            
+
             useEffect(() => {
                 if (!mountRef.current) return;
-                
+
                 // Scene Setup
                 const w = mountRef.current.clientWidth;
                 const h = mountRef.current.clientHeight;
                 const scene = new THREE.Scene();
-                scene.background = new THREE.Color(0xfff8ef); 
+                scene.background = new THREE.Color(0xfff8ef);
 
                 const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
                 camera.position.set(60, 50, 80);
@@ -633,89 +1253,89 @@
                 scene.add(group);
 
                 // --- VISUALIZATION LOGIC STARTS HERE ---
-                
+
                 const THK = 1; // Panel thickness in 3D units
                 const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
-                
+
                 // ============================================================
                 // STEP 1: BOTTOM RUNNERS (Foundation support beams)
                 // ============================================================
-                
+
                 const bSize = getSizeDims(supps.bottom.size);
                 const bH = bSize.w; // Height of runner in 3D
                 const bW = bSize.t; // Width of runner in 3D
                 const bLen = supps.bottom.dim;
                 const bCount = supps.bottom.count;
-                
+
                 let runnerPositions = []; // Store positions for alignment with other parts
 
-                if(bCount > 0) {
-                    if(isBottomType) {
+                if (bCount > 0) {
+                    if (isBottomType) {
                         // BOTTOM TYPE: Runners run horizontally (length-wise)
-                        const spreadW = mainRows.bottom.w; 
-                        
-                        for(let i=0; i<bCount; i++) {
+                        const spreadW = mainRows.bottom.w;
+
+                        for (let i = 0; i < bCount; i++) {
                             let zPos;
                             if (bCount === 1) zPos = 0;
                             else {
-                                const maxOffset = (spreadW/2) - (bW/2);
+                                const maxOffset = (spreadW / 2) - (bW / 2);
                                 const pct = i / (bCount - 1);
                                 zPos = -maxOffset + (pct * 2 * maxOffset);
                             }
-                            
-                            runnerPositions.push(zPos); 
-                            group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH/2, zPos));
+
+                            runnerPositions.push(zPos);
+                            group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
                         }
                     } else {
                         // SIMPLE TYPE: Can run width-wise or horizontally
-                        if(runnerConfig.bottomDir === 'width') {
+                        if (runnerConfig.bottomDir === 'width') {
                             // Standard: Width-wise, spaced along Length
-                            const spreadL = mainRows.bottom.l; 
+                            const spreadL = mainRows.bottom.l;
                             const stepX = spreadL / (bCount + 1);
-                            for(let i=1; i<=bCount; i++) {
-                                const xPos = -spreadL/2 + (i * stepX);
+                            for (let i = 1; i <= bCount; i++) {
+                                const xPos = -spreadL / 2 + (i * stepX);
                                 runnerPositions.push(xPos);
-                                group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH/2, 0));
+                                group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH / 2, 0));
                             }
                         } else {
                             // Horizontal Override
-                            const spreadW = mainRows.bottom.w; 
+                            const spreadW = mainRows.bottom.w;
                             const stepZ = spreadW / (bCount + 1);
-                            for(let i=1; i<=bCount; i++) {
-                                const zPos = -spreadW/2 + (i * stepZ);
+                            for (let i = 1; i <= bCount; i++) {
+                                const zPos = -spreadW / 2 + (i * stepZ);
                                 runnerPositions.push(zPos);
-                                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH/2, zPos));
+                                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
                             }
                         }
                     }
                 }
 
-                const baseY = bH; 
+                const baseY = bH;
 
                 // ============================================================
                 // STEP 2: BOTTOM PANEL
                 // ============================================================
-                
+
                 const botL = mainRows.bottom.l;
                 const botW = mainRows.bottom.w;
-                group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK/2, 0));
-                
+                group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK / 2, 0));
+
                 const floorLevel = baseY + THK;
 
                 // ============================================================
                 // STEP 3: SIDE PANELS (Left and Right walls)
                 // ============================================================
-                
+
                 const sL = mainRows.sides.l;
                 const sH = mainRows.sides.w;
                 let sideY, sideZ_offset;
-                
+
                 if (isBottomType) {
-                    sideY = baseY + sH/2;
-                    sideZ_offset = (mainRows.bottom.w / 2) + (THK/2);
+                    sideY = baseY + sH / 2;
+                    sideZ_offset = (mainRows.bottom.w / 2) + (THK / 2);
                 } else {
-                    sideY = floorLevel + sH/2;
-                    sideZ_offset = (botW / 2) - (THK/2); 
+                    sideY = floorLevel + sH / 2;
+                    sideZ_offset = (botW / 2) - (THK / 2);
                 }
 
                 group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset));
@@ -724,7 +1344,7 @@
                 // ============================================================
                 // STEP 4: KARA PANELS (Front and Back end walls)
                 // ============================================================
-                
+
                 const kL = mainRows.kara.l;
                 const kH = mainRows.kara.w;
                 const kThk = THK;
@@ -732,11 +1352,11 @@
                 let karaY, karaX_offset;
 
                 if (isBottomType) {
-                    karaY = baseY + kH/2;
-                    karaX_offset = (mainRows.bottom.l / 2) + (kThk/2); 
+                    karaY = baseY + kH / 2;
+                    karaX_offset = (mainRows.bottom.l / 2) + (kThk / 2);
                 } else {
-                    karaY = floorLevel + kH/2;
-                    karaX_offset = (parseFloat(dims.l) / 2) + (kThk/2);
+                    karaY = floorLevel + kH / 2;
+                    karaX_offset = (parseFloat(dims.l) / 2) + (kThk / 2);
                 }
 
                 group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0));
@@ -745,10 +1365,10 @@
                 // ============================================================
                 // STEP 5: SIDE RUNNERS (Support beams on side panels)
                 // ============================================================
-                
+
                 const srLen = supps.sides.dim;
                 const srCount = Math.round(supps.sides.count / 2); // Divide by 2 for each side
-                
+
                 /**
                  * Draws runners on one side panel
                  * @param {number} sideMultiplier - 1 for right side, -1 for left side
@@ -762,11 +1382,11 @@
                             // Bottom Type: One runner at top, rest distributed
                             const topY = baseY + sH - 1.5;
                             group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel));
-                            
+
                             if (srCount > 1) {
                                 const remainingSpace = sH - 3;
                                 const step = remainingSpace / srCount;
-                                for(let i=1; i<srCount; i++) {
+                                for (let i = 1; i < srCount; i++) {
                                     const yPos = baseY + (i * step);
                                     group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
                                 }
@@ -774,7 +1394,7 @@
                         } else {
                             // Simple type horizontal
                             const stepY = sH / (srCount + 1);
-                            for(let i=1; i<=srCount; i++) {
+                            for (let i = 1; i <= srCount; i++) {
                                 const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
                                 group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
                             }
@@ -787,17 +1407,17 @@
                         } else {
                             const totalL = mainRows.sides.l;
                             const step = totalL / (srCount + 1);
-                            for(let i=1; i<=srCount; i++) positions.push(-totalL/2 + i*step);
+                            for (let i = 1; i <= srCount; i++) positions.push(-totalL / 2 + i * step);
                         }
 
-                        const vCenterY = srLen / 2; 
-                        
+                        const vCenterY = srLen / 2;
+
                         positions.forEach(xPos => {
-                             group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
+                            group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
                         });
                     }
                 };
-                
+
                 if (supps.sides.count > 0) {
                     drawSideRunners(1);  // Right side
                     drawSideRunners(-1); // Left side
@@ -807,28 +1427,28 @@
                 // STEP 6: KARA RUNNERS (Support beams on end panels)
                 // Fixed: Frame now positioned outside panels and with increased visibility
                 // ============================================================
-                
+
                 if (isBottomType) {
                     // Bottom Type: Vertical Posts at corners
                     const kVertLen = supps.karaVert.dim;
                     const kVertSize = getSizeDims(supps.karaVert.size);
                     const kVertW = kVertSize.w;
-                    const kV_Y = baseY + (kVertLen / 2); 
-                    
-                    [1, -1].forEach(dirX => { 
-                         const xPos = dirX * (karaX_offset + kThk + 1.5); 
-                         
-                         if(runnerPositions.length > 0) {
-                             // Place posts at bottom runner positions
-                             runnerPositions.forEach(zPos => {
-                                 group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
-                             });
-                         } else {
-                             // Default: posts at corners
-                             const kPostZ = (kL/2) - 1.5;
-                             group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
-                             group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
-                         }
+                    const kV_Y = baseY + (kVertLen / 2);
+
+                    [1, -1].forEach(dirX => {
+                        const xPos = dirX * (karaX_offset + kThk + 1.5);
+
+                        if (runnerPositions.length > 0) {
+                            // Place posts at bottom runner positions
+                            runnerPositions.forEach(zPos => {
+                                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
+                            });
+                        } else {
+                            // Default: posts at corners
+                            const kPostZ = (kL / 2) - 1.5;
+                            group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
+                            group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
+                        }
                     });
                 } else {
                     // SIMPLE TYPE: SQUARE FRAME (top, bottom, left, right beams)
@@ -838,21 +1458,21 @@
                     const suppW = getSizeDims(supps.karaHorz.size).w;
                     const frameThickness = 4; // Increased from 2.5 for better visibility
 
-                    const kY_Top = floorLevel + kH - (suppW/2);
-                    const kY_Bot = floorLevel + (suppW/2);
-                    const kY_Mid = floorLevel + (kH/2);
+                    const kY_Top = floorLevel + kH - (suppW / 2);
+                    const kY_Bot = floorLevel + (suppW / 2);
+                    const kY_Mid = floorLevel + (kH / 2);
 
-                    const kZ_Left = (kL/2) - (suppW/2);
-                    const kZ_Right = -((kL/2) - (suppW/2));
+                    const kZ_Left = (kL / 2) - (suppW / 2);
+                    const kZ_Right = -((kL / 2) - (suppW / 2));
 
                     [1, -1].forEach(dirX => {
                         const xPos = dirX * (karaX_offset + kThk + 1.5); // Fixed: Changed - to + to position frames outside panel
-                        
+
                         // Top horizontal beam
                         group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0));
                         // Bottom horizontal beam
                         group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
-                        
+
                         // Left and right vertical beams
                         if (kVertLen > 0) {
                             group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left));
@@ -864,68 +1484,68 @@
                 // ============================================================
                 // STEP 7: TOP LID PANEL
                 // ============================================================
-                
+
                 const tL = mainRows.top.l;
                 const tW = mainRows.top.w;
-                const topY = (isBottomType ? baseY : floorLevel) + sH + THK/2;
+                const topY = (isBottomType ? baseY : floorLevel) + sH + THK / 2;
                 group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0));
 
                 // ============================================================
                 // STEP 8: TOP LID RUNNERS
                 // Fixed: Now renders based on top support config, not bottom runners
                 // ============================================================
-                
+
                 // Render based on top support config, not just bottom runner positions
                 if (supps.top.count > 0) {
-                     const trH = 3; // Increased from 1.5 for better visibility
-                     const trY = topY - (THK/2) - trH - 0.5; // Added gap for visibility
-                     
-                     // Determine positions with fallback logic
-                     let topRunnerPositions = [];
-                     
-                     if (runnerPositions.length > 0) {
-                         // Use existing bottom runner positions if available
-                         topRunnerPositions = runnerPositions;
-                     } else {
-                         // Fallback: create positions based on top support count
-                         const count = supps.top.count;
-                         if (isBottomType) {
-                             // For bottom type, distribute along width
-                             const spreadW = tW;
-                             const step = spreadW / (count + 1);
-                             for (let i = 1; i <= count; i++) {
-                                 topRunnerPositions.push(-spreadW/2 + (i * step));
-                             }
-                         } else {
-                             // For simple type, distribute along length
-                             const spreadL = tL;
-                             const step = spreadL / (count + 1);
-                             for (let i = 1; i <= count; i++) {
-                                 topRunnerPositions.push(-spreadL/2 + (i * step));
-                             }
-                         }
-                     }
-                     
-                     if (isBottomType) {
-                         // BOTTOM TYPE: Runners run length-wise, connecting kara posts
-                         const trW = 4; // Increased from 3 for better visibility
-                         const trLen = tL;
+                    const trH = 3; // Increased from 1.5 for better visibility
+                    const trY = topY + (THK / 2) + trH / 2 + 0.5; // Position ON TOP of the lid (not inside the box)
 
-                         topRunnerPositions.forEach(zPos => {
-                             // Create runners that span the length of the top
-                             group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
-                         });
+                    // Determine positions with fallback logic
+                    let topRunnerPositions = [];
 
-                     } else {
-                         // SIMPLE TYPE: Runners run width-wise
-                         const trLen = tW;
-                         const topSize = getSizeDims(supps.top.size); // Fixed: use top size instead of sides
-                         const trW = topSize.w + 0.5; // Slightly larger for visibility
+                    if (runnerPositions.length > 0) {
+                        // Use existing bottom runner positions if available
+                        topRunnerPositions = runnerPositions;
+                    } else {
+                        // Fallback: create positions based on top support count
+                        const count = supps.top.count;
+                        if (isBottomType) {
+                            // For bottom type, distribute along width
+                            const spreadW = tW;
+                            const step = spreadW / (count + 1);
+                            for (let i = 1; i <= count; i++) {
+                                topRunnerPositions.push(-spreadW / 2 + (i * step));
+                            }
+                        } else {
+                            // For simple type, distribute along length
+                            const spreadL = tL;
+                            const step = spreadL / (count + 1);
+                            for (let i = 1; i <= count; i++) {
+                                topRunnerPositions.push(-spreadL / 2 + (i * step));
+                            }
+                        }
+                    }
 
-                         topRunnerPositions.forEach(xPos => {
-                             group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
-                         });
-                     }
+                    if (isBottomType) {
+                        // BOTTOM TYPE: Runners run length-wise, connecting kara posts
+                        const trW = 4; // Increased from 3 for better visibility
+                        const trLen = tL;
+
+                        topRunnerPositions.forEach(zPos => {
+                            // Create runners that span the length of the top
+                            group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
+                        });
+
+                    } else {
+                        // SIMPLE TYPE: Runners run width-wise
+                        const trLen = tW;
+                        const topSize = getSizeDims(supps.top.size); // Fixed: use top size instead of sides
+                        const trW = topSize.w + 0.5; // Slightly larger for visibility
+
+                        topRunnerPositions.forEach(xPos => {
+                            group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
+                        });
+                    }
                 }
 
                 // Animation loop
@@ -938,7 +1558,7 @@
 
                 // Cleanup
                 return () => {
-                    if(mountRef.current && renderer.domElement) {
+                    if (mountRef.current && renderer.domElement) {
                         mountRef.current.removeChild(renderer.domElement);
                     }
                     renderer.dispose();
@@ -960,13 +1580,13 @@
          * Used throughout the app for dimension inputs.
          */
         const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
-            <input 
-                type="number" 
-                value={value} 
-                onChange={(e) => { 
-                    const val = e.target.value; 
-                    onChange(val === '' ? '' : parseFloat(val)); 
-                }} 
+            <input
+                type="number"
+                value={value}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    onChange(val === '' ? '' : parseFloat(val));
+                }}
                 step={step}
                 className={`w-full bg-white border-2 border-slate-900 rounded-lg px-2 py-3 text-center font-mono font-black text-xl text-black focus:ring-4 focus:ring-amber-400 focus:border-amber-700 outline-none transition-all shadow-sm ${className}`}
             />
@@ -1029,7 +1649,7 @@
          * Displays a card for one type of support runner.
          * Shows size selector, length, quantity controls, and calculated CFT.
          */
-        const SupportCard = ({ label, sizeOptions, dimValue, settings, onUpdate, colorClass="bg-white", configKey, runnerConfig, onConfigChange, fixedDir }) => {
+        const SupportCard = ({ label, sizeOptions, dimValue, settings, onUpdate, colorClass = "bg-white", configKey, runnerConfig, onConfigChange, fixedDir }) => {
             const sDims = getSizeDims(settings.size);
             const feet = getPurchasedFeet(settings.dim);
             const cft = ((feet * sDims.w * sDims.t) / 144) * settings.count;
@@ -1042,17 +1662,17 @@
                     </div>
                     <div className="p-4 space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                             <div>
+                            <div>
                                 <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Size</label>
-                                <select 
-                                    value={settings.size} 
+                                <select
+                                    value={settings.size}
                                     onChange={(e) => onUpdate('size', e.target.value)}
                                     className="w-full bg-white border-2 border-slate-900 rounded-lg py-2 px-2 text-xl font-black text-black focus:ring-4 focus:ring-amber-400 outline-none appearance-none"
                                 >
                                     {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
-                             <div>
+                            <div>
                                 <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Length</label>
                                 <div className="w-full bg-slate-100 border-2 border-slate-400 rounded-lg py-2 px-2 text-xl font-black text-slate-600 text-center">
                                     {settings.dim}"
@@ -1062,13 +1682,13 @@
 
                         {!fixedDir && configKey && (
                             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-300">
-                                <button 
+                                <button
                                     onClick={() => onConfigChange(configKey, configKey === 'bottomDir' ? 'width' : 'vertical')}
                                     className={`flex-1 py-1 text-xs font-black uppercase rounded ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') ? 'bg-white shadow text-black' : 'text-slate-400'}`}
                                 >
                                     {configKey === 'bottomDir' ? 'Width-wise' : 'Vertical'}
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => onConfigChange(configKey, configKey === 'bottomDir' ? 'length' : 'horizontal')}
                                     className={`flex-1 py-1 text-xs font-black uppercase rounded ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') ? 'bg-white shadow text-black' : 'text-slate-400'}`}
                                 >
@@ -1077,13 +1697,13 @@
                             </div>
                         )}
                         {fixedDir && (
-                             <div className="text-[10px] text-center font-black uppercase text-slate-400 bg-slate-100 py-1 rounded border border-slate-200">
+                            <div className="text-[10px] text-center font-black uppercase text-slate-400 bg-slate-100 py-1 rounded border border-slate-200">
                                 Fixed: {fixedDir}
                             </div>
                         )}
 
                         <div className="flex items-center gap-4">
-                             <div className="flex-grow">
+                            <div className="flex-grow">
                                 <label className="text-xs text-black font-black mb-1 uppercase block tracking-wider">Quantity</label>
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => onUpdate('count', Math.max(0, settings.count - 1))} className="bg-slate-200 w-12 h-12 flex items-center justify-center rounded-lg border-2 border-slate-900 font-bold hover:bg-slate-300 active:bg-slate-400 text-xl">-</button>
@@ -1116,31 +1736,30 @@
                     <label className="text-sm text-black font-black uppercase tracking-wide block mb-3 border-b-2 border-slate-100 pb-2">Select Box Type</label>
                     <div className="grid grid-cols-3 gap-3">
                         {['simple', 'bottom', 'crate'].map(t => (
-                            <button 
+                            <button
                                 key={t}
                                 onClick={() => setType(t)}
-                                className={`py-4 px-2 rounded-xl text-base font-black uppercase tracking-wider transition-all border-2 ${
-                                    type === t 
-                                    ? 'bg-amber-600 border-black text-white shadow-inner transform scale-105' 
+                                className={`py-4 px-2 rounded-xl text-base font-black uppercase tracking-wider transition-all border-2 ${type === t
+                                    ? 'bg-amber-600 border-black text-white shadow-inner transform scale-105'
                                     : 'bg-white border-slate-300 text-slate-900 hover:border-black hover:bg-slate-100'
-                                }`}
+                                    }`}
                             >
                                 {t}
                             </button>
                         ))}
                     </div>
-                    
+
                     {type === 'crate' && (
                         <div className="mt-4 pt-4 border-t-2 border-slate-200 animate-fade-in bg-amber-50 -mx-4 px-4 pb-4 rounded-b-lg">
                             <label className="text-xs text-amber-900 font-black uppercase mb-2 block">Crate Configuration</label>
                             <div className="grid grid-cols-2 gap-3 mb-4">
-                                <button 
+                                <button
                                     onClick={() => setSubType('simple')}
                                     className={`py-3 text-sm font-black uppercase rounded-lg border-2 shadow-sm ${subType === 'simple' ? 'bg-blue-600 border-black text-white' : 'bg-white border-slate-400 text-slate-800'}`}
                                 >
                                     Simple Crate
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setSubType('bottom')}
                                     className={`py-3 text-sm font-black uppercase rounded-lg border-2 shadow-sm ${subType === 'bottom' ? 'bg-blue-600 border-black text-white' : 'bg-white border-slate-400 text-slate-800'}`}
                                 >
@@ -1152,10 +1771,10 @@
                                 <div>
                                     <label className="text-[11px] text-amber-900 font-black uppercase block mb-1">Plank Width (Inch)</label>
                                     <div className="flex items-center bg-white border-2 border-amber-300 rounded-lg overflow-hidden">
-                                        <input 
-                                            type="number" 
-                                            value={crateSettings.plank} 
-                                            onChange={(e) => setCrateSettings({...crateSettings, plank: parseFloat(e.target.value) || 0})} 
+                                        <input
+                                            type="number"
+                                            value={crateSettings.plank}
+                                            onChange={(e) => setCrateSettings({ ...crateSettings, plank: parseFloat(e.target.value) || 0 })}
                                             className="w-full py-2 text-center font-black text-xl text-black outline-none"
                                         />
                                     </div>
@@ -1163,10 +1782,10 @@
                                 <div>
                                     <label className="text-[11px] text-amber-900 font-black uppercase block mb-1">Gap Size (Inch)</label>
                                     <div className="flex items-center bg-white border-2 border-amber-300 rounded-lg overflow-hidden">
-                                        <input 
-                                            type="number" 
-                                            value={crateSettings.gap} 
-                                            onChange={(e) => setCrateSettings({...crateSettings, gap: parseFloat(e.target.value) || 0})} 
+                                        <input
+                                            type="number"
+                                            value={crateSettings.gap}
+                                            onChange={(e) => setCrateSettings({ ...crateSettings, gap: parseFloat(e.target.value) || 0 })}
                                             className="w-full py-2 text-center font-black text-xl text-black outline-none"
                                         />
                                     </div>
@@ -1191,23 +1810,23 @@
         function App() {
             // --- STATE: Box Dimensions ---
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
-            
+
             // --- STATE: Box Type ---
-            const [boxType, setBoxType] = useState('simple'); 
-            const [crateType, setCrateType] = useState('simple'); 
+            const [boxType, setBoxType] = useState('simple');
+            const [crateType, setCrateType] = useState('simple');
             const [crateSettings, setCrateSettings] = useState({ plank: 4, gap: 4 });
-            
+
             // --- STATE: Pricing ---
             const [costPerCFT, setCostPerCFT] = useState(625);
-            
+
             // --- STATE: UI ---
             const [showStickyStats, setShowStickyStats] = useState(false);
             const headerRef = useRef(null);
 
             // --- STATE: Runner Configuration ---
             const [runnerConfig, setRunnerConfig] = useState({
-                bottomDir: 'width', 
-                sideDir: 'vertical' 
+                bottomDir: 'width',
+                sideDir: 'vertical'
             });
 
             // --- STATE: Main Panel Dimensions ---
@@ -1220,19 +1839,19 @@
 
             // --- STATE: Support Runners ---
             const [supps, setSupps] = useState({
-                bottom: { size: '4x2', dim: 22, count: 2 }, 
-                sides: { size: '3x1', dim: 20, count: 4 }, 
+                bottom: { size: '4x2', dim: 22, count: 2 },
+                sides: { size: '3x1', dim: 20, count: 4 },
                 top: { size: '3x1', dim: 22, count: 2 },
-                karaHorz: { size: '3x1', dim: 20, count: 4 }, 
-                karaVert: { size: '3x1', dim: 14, count: 4 } 
+                karaHorz: { size: '3x1', dim: 20, count: 4 },
+                karaVert: { size: '3x1', dim: 14, count: 4 }
             });
 
             // --- STATE: Extra Supports ---
             const [extras, setExtras] = useState([]);
-            
+
             // --- STATE: Global Runner Count ---
             const [globalRunners, setGlobalRunners] = useState(2);
-            
+
             // --- EFFECT: Sticky Header on Scroll ---
             useEffect(() => {
                 const handleScroll = () => {
@@ -1250,10 +1869,10 @@
                 const l = parseFloat(dims.l) || 0;
                 const w = parseFloat(dims.w) || 0;
                 const h = parseFloat(dims.h) || 0;
-                
+
                 const isBottomLogic = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
                 const isSimpleLogic = !isBottomLogic;
-                const estimatedCount = globalRunners; 
+                const estimatedCount = globalRunners;
 
                 if (isSimpleLogic) {
                     // SIMPLE TYPE: Box sits on runners
@@ -1263,19 +1882,19 @@
                     setMainRows({
                         top: { l: baseL, w: baseW, t: 1, qty: 1 },
                         bottom: { l: baseL, w: baseW, t: 1, qty: 1 },
-                        sides: { l: baseL, w: h, t: 1, qty: 2 }, 
-                        kara: { l: w, w: h, t: 1, qty: 2 }       
+                        sides: { l: baseL, w: h, t: 1, qty: 2 },
+                        kara: { l: w, w: h, t: 1, qty: 2 }
                     });
 
                     setSupps(prev => {
                         const bSize = getMaxDim(prev.bottom.size);
                         let bRunLen;
-                        if (runnerConfig.bottomDir === 'width') bRunLen = baseW; 
-                        else bRunLen = baseL; 
+                        if (runnerConfig.bottomDir === 'width') bRunLen = baseW;
+                        else bRunLen = baseL;
 
                         let sRunLen;
                         if (runnerConfig.sideDir === 'horizontal') {
-                            sRunLen = baseL; 
+                            sRunLen = baseL;
                         } else {
                             const bottomAdd = (runnerConfig.bottomDir === 'width') ? bSize : 0;
                             sRunLen = h + bottomAdd + 2;
@@ -1300,15 +1919,15 @@
                     const bRunLen = l + 2;
                     const sidePanelL = l + 2;
                     const sidePanelH = h + 1;
-                    const sideRunLen = l + 4; 
+                    const sideRunLen = l + 4;
                     const topL = l + 4;
                     const topW = w + 4;
-                    
+
                     setMainRows({
                         top: { l: topL, w: topW, t: 1, qty: 1 },
-                        bottom: { l: l, w: w, t: 1, qty: 1 }, 
+                        bottom: { l: l, w: w, t: 1, qty: 1 },
                         sides: { l: sidePanelL, w: sidePanelH, t: 1, qty: 2 },
-                        kara: { l: w, w: h + 1, t: 1, qty: 2 } 
+                        kara: { l: w, w: h + 1, t: 1, qty: 2 }
                     });
 
                     setSupps(prev => {
@@ -1320,8 +1939,8 @@
                             bottom: { ...prev.bottom, dim: bRunLen, count: estimatedCount },
                             sides: { ...prev.sides, dim: sideRunLen, count: estimatedCount * 2 },
                             top: { ...prev.top, dim: topL, count: estimatedCount },
-                            karaHorz: { ...prev.karaHorz, count: 0 }, 
-                            karaVert: { ...prev.karaVert, dim: kVertLen, count: estimatedCount * 2 } 
+                            karaHorz: { ...prev.karaHorz, count: 0 },
+                            karaVert: { ...prev.karaVert, dim: kVertLen, count: estimatedCount * 2 }
                         };
                     });
                 }
@@ -1341,9 +1960,9 @@
             const updateSupp = (key, field, val) => {
                 setSupps(p => ({ ...p, [key]: { ...p[key], [field]: val } }));
             };
-            
+
             const handleConfigChange = (key, val) => {
-                setRunnerConfig(prev => ({...prev, [key]: val}));
+                setRunnerConfig(prev => ({ ...prev, [key]: val }));
             };
 
             const addExtra = () => setExtras(p => [...p, { id: Date.now(), l: 12, w: 3, t: 1, qty: 1, size: '3x1' }]);
@@ -1357,36 +1976,36 @@
                 let effL = data.l;
                 let effW = data.w;
                 if (boxType === 'crate') {
-                     let partName = '';
-                     if (label.includes('Sides')) partName = 'Sides';
-                     else if (label.includes('Kara')) partName = 'Kara';
-                     else if (label.includes('Top')) partName = 'Top';
-                     
-                     if (partName) {
-                         const specificBoxType = (crateType === 'simple') ? 'crateSimple' : 'crateBottom';
-                         const res = getEffectiveCrateDims(partName, data.l, data.w, specificBoxType, crateSettings);
-                         effL = res.l;
-                         effW = res.w;
-                     }
+                    let partName = '';
+                    if (label.includes('Sides')) partName = 'Sides';
+                    else if (label.includes('Kara')) partName = 'Kara';
+                    else if (label.includes('Top')) partName = 'Top';
+
+                    if (partName) {
+                        const specificBoxType = (crateType === 'simple') ? 'crateSimple' : 'crateBottom';
+                        const res = getEffectiveCrateDims(partName, data.l, data.w, specificBoxType, crateSettings);
+                        effL = res.l;
+                        effW = res.w;
+                    }
                 }
                 return calculateLineCFT(effL, effW, data.t, data.qty);
             };
 
-            const totalBoard = getRowCFT("Top", mainRows.top) + 
-                               getRowCFT("Bottom", mainRows.bottom) + 
-                               getRowCFT("Sides", mainRows.sides) + 
-                               getRowCFT("Kara", mainRows.kara);
+            const totalBoard = getRowCFT("Top", mainRows.top) +
+                getRowCFT("Bottom", mainRows.bottom) +
+                getRowCFT("Sides", mainRows.sides) +
+                getRowCFT("Kara", mainRows.kara);
 
             const sumSupp = (s) => {
                 const d = getSizeDims(s.size);
                 const feet = getPurchasedFeet(s.dim);
                 return ((feet * d.w * d.t) / 144) * s.count;
             };
-            
-            const totalSupp = sumSupp(supps.bottom) + sumSupp(supps.sides) + sumSupp(supps.top) + 
-                              sumSupp(supps.karaHorz) + sumSupp(supps.karaVert) + 
-                              extras.reduce((acc,e) => acc + calculateLineCFT(e.l, e.w, e.t, e.qty), 0);
-            
+
+            const totalSupp = sumSupp(supps.bottom) + sumSupp(supps.sides) + sumSupp(supps.top) +
+                sumSupp(supps.karaHorz) + sumSupp(supps.karaVert) +
+                extras.reduce((acc, e) => acc + calculateLineCFT(e.l, e.w, e.t, e.qty), 0);
+
             const grandTotalCFT = totalBoard + totalSupp;
             const grandTotalCost = grandTotalCFT * costPerCFT;
 
@@ -1395,10 +2014,10 @@
             // --- RENDER ---
             return (
                 <div className="min-h-screen pb-10 wood-pattern">
-                    
+
                     {/* Sticky Stats Bar */}
                     {showStickyStats && (
-                         <div className="fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 animate-fade-in p-3 px-4">
+                        <div className="fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 animate-fade-in p-3 px-4">
                             <div className="max-w-2xl mx-auto flex justify-between items-center text-white">
                                 <div>
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Internal Size</div>
@@ -1407,18 +2026,18 @@
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</div>
-                                     <div className="text-lg font-black text-white uppercase">{boxType}</div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</div>
+                                    <div className="text-lg font-black text-white uppercase">{boxType}</div>
                                 </div>
                             </div>
-                         </div>
+                        </div>
                     )}
 
                     {/* Header */}
                     <div ref={headerRef} className="bg-slate-900 text-white shadow-xl relative z-50 border-b-4 border-amber-600">
                         <div className="max-w-2xl mx-auto p-4 pb-4">
                             <div className="flex flex-col items-center justify-center text-center">
-                                <h1 className="font-brand font-black text-2xl md:text-3xl text-amber-500 tracking-wide uppercase" style={{textShadow: '2px 2px 0px #000'}}>
+                                <h1 className="font-brand font-black text-2xl md:text-3xl text-amber-500 tracking-wide uppercase" style={{ textShadow: '2px 2px 0px #000' }}>
                                     Ambica Wooden Works
                                 </h1>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Smart CFT Calculator</p>
@@ -1435,15 +2054,15 @@
                                 <span className="text-3xl text-amber-600 align-top mr-1">₹</span>
                                 {Math.round(grandTotalCost).toLocaleString()}
                             </div>
-                            
+
                             <div className="flex items-center justify-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
                                 <div className="flex flex-col items-center">
                                     <label className="text-xs font-bold text-slate-400 uppercase mb-1">Rate (₹/CFT)</label>
-                                    <input 
-                                        type="number" 
-                                        value={costPerCFT} 
-                                        onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)} 
-                                        className="bg-white text-slate-900 font-black text-3xl w-32 p-2 rounded-lg text-center outline-none border-4 border-amber-500 focus:ring-4 focus:ring-amber-500/50" 
+                                    <input
+                                        type="number"
+                                        value={costPerCFT}
+                                        onChange={(e) => setCostPerCFT(parseFloat(e.target.value) || 0)}
+                                        className="bg-white text-slate-900 font-black text-3xl w-32 p-2 rounded-lg text-center outline-none border-4 border-amber-500 focus:ring-4 focus:ring-amber-500/50"
                                     />
                                 </div>
                                 <div className="h-12 w-0.5 bg-slate-600 mx-2"></div>
@@ -1462,16 +2081,16 @@
                                 </h2>
                             </div>
                             <div className="grid grid-cols-3 gap-4">
-                                {['l','w','h'].map(k => (
+                                {['l', 'w', 'h'].map(k => (
                                     <div key={k} className="flex flex-col">
                                         <label className="text-xs text-black font-black mb-2 uppercase tracking-wide bg-amber-100 w-full text-center py-1 rounded border border-amber-200">
                                             {k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'}
                                         </label>
-                                        <input 
-                                            type="number" 
-                                            value={dims[k]} 
-                                            onChange={(e) => setDims({...dims, [k]:e.target.value})} 
-                                            className="bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all" 
+                                        <input
+                                            type="number"
+                                            value={dims[k]}
+                                            onChange={(e) => setDims({ ...dims, [k]: e.target.value })}
+                                            className="bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all"
                                         />
                                     </div>
                                 ))}
@@ -1479,21 +2098,21 @@
                         </div>
 
                         {/* Box Type Selector */}
-                        <BoxTypeSelector 
-                            type={boxType} setType={setBoxType} 
+                        <BoxTypeSelector
+                            type={boxType} setType={setBoxType}
                             subType={crateType} setSubType={setCrateType}
                             crateSettings={crateSettings} setCrateSettings={setCrateSettings}
                         />
 
                         {/* 3D Visualization */}
-                        <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden relative" style={{height: '400px'}}>
+                        <div className="bg-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black overflow-hidden relative" style={{ height: '400px' }}>
                             <div className="absolute top-0 left-0 bg-black text-white px-3 py-2 text-xs font-black uppercase rounded-br-lg z-10 flex items-center gap-2">
                                 <Icons.Rotate size={14} /> Tap & Drag to Rotate
                             </div>
-                            <ThreeScene 
-                                dims={dims} 
-                                boxType={boxType} 
-                                crateType={crateType} 
+                            <ThreeScene
+                                dims={dims}
+                                boxType={boxType}
+                                crateType={crateType}
                                 mainRows={mainRows}
                                 supps={supps}
                                 runnerConfig={runnerConfig}
@@ -1509,7 +2128,7 @@
                                 <span className="font-black text-sm text-white uppercase tracking-wide">Box Components</span>
                                 <span className="font-black text-xl text-amber-400">{totalBoard.toFixed(3)} <span className="text-xs text-slate-400">CFT</span></span>
                             </div>
-                            
+
                             <div className="bg-slate-100 border-b-2 border-slate-300 p-2 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-600 uppercase text-center tracking-widest">
                                 <div className="col-span-3 text-left pl-1">Part</div>
                                 <div className="col-span-2">Len</div>
@@ -1522,18 +2141,18 @@
                             <div className="p-3">
                                 {!isBottomType && (
                                     <>
-                                        <CalculationRow label="Top & Bottom" data={mainRows.top} onChange={(f,v) => {updateMainRow('top', f, v); updateMainRow('bottom', f, v);}} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
-                                        <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
-                                        <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
+                                        <CalculationRow label="Top & Bottom" data={mainRows.top} onChange={(f, v) => { updateMainRow('top', f, v); updateMainRow('bottom', f, v); }} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
+                                        <CalculationRow label="Sides" data={mainRows.sides} onChange={(f, v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
+                                        <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f, v) => updateMainRow('kara', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateSimple" />
                                     </>
                                 )}
 
                                 {isBottomType && (
                                     <>
-                                        <CalculationRow label="Bottom" data={mainRows.bottom} onChange={(f,v) => updateMainRow('bottom', f, v)} isCrate={false} crateSettings={crateSettings} boxType="crateBottom" />
-                                        <CalculationRow label="Top Lid" data={mainRows.top} onChange={(f,v) => updateMainRow('top', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
-                                        <CalculationRow label="Sides" data={mainRows.sides} onChange={(f,v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
-                                        <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f,v) => updateMainRow('kara', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Bottom" data={mainRows.bottom} onChange={(f, v) => updateMainRow('bottom', f, v)} isCrate={false} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Top Lid" data={mainRows.top} onChange={(f, v) => updateMainRow('top', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Sides" data={mainRows.sides} onChange={(f, v) => updateMainRow('sides', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
+                                        <CalculationRow label="Kara (Ends)" data={mainRows.kara} onChange={(f, v) => updateMainRow('kara', f, v)} isCrate={boxType === 'crate'} crateSettings={crateSettings} boxType="crateBottom" />
                                     </>
                                 )}
                             </div>
@@ -1546,7 +2165,7 @@
                                     <h3 className="font-black text-xl uppercase tracking-wide text-amber-500">Runners & Supports</h3>
                                     <p className="text-sm text-slate-300 font-bold mt-1">Total: {totalSupp.toFixed(3)} CFT</p>
                                 </div>
-                                
+
                                 <div className="flex flex-col items-end">
                                     <span className="text-[10px] font-bold uppercase text-slate-400 mb-1">Global Override</span>
                                     <div className="flex items-center bg-white rounded-lg p-1">
@@ -1556,15 +2175,15 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Support Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <SupportCard 
+                                <SupportCard
                                     label="Bottom Supports"
                                     sizeOptions={['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1']}
-                                    dimValue={supps.bottom.dim} 
+                                    dimValue={supps.bottom.dim}
                                     settings={supps.bottom}
-                                    onUpdate={(f,v) => updateSupp('bottom', f, v)}
+                                    onUpdate={(f, v) => updateSupp('bottom', f, v)}
                                     colorClass="bg-amber-50 border-amber-900"
                                     configKey="bottomDir"
                                     runnerConfig={runnerConfig}
@@ -1572,51 +2191,51 @@
                                     fixedDir={isBottomType ? 'Horizontal' : null}
                                 />
 
-                                <SupportCard 
+                                <SupportCard
                                     label="Side Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5', '4x1.5']}
                                     dimValue={supps.sides.dim}
                                     settings={supps.sides}
-                                    onUpdate={(f,v) => updateSupp('sides', f, v)}
+                                    onUpdate={(f, v) => updateSupp('sides', f, v)}
                                     configKey="sideDir"
                                     runnerConfig={runnerConfig}
                                     onConfigChange={handleConfigChange}
                                     fixedDir={isBottomType ? 'Horizontal' : null}
                                 />
 
-                                <SupportCard 
+                                <SupportCard
                                     label="Top Lid Supports"
                                     sizeOptions={['3x1', '4x1', '3x1.5']}
                                     dimValue={supps.top.dim}
                                     settings={supps.top}
-                                    onUpdate={(f,v) => updateSupp('top', f, v)}
+                                    onUpdate={(f, v) => updateSupp('top', f, v)}
                                 />
 
                                 {!isBottomType && (
                                     <>
-                                        <SupportCard 
+                                        <SupportCard
                                             label="Kara Horizontal"
                                             sizeOptions={['3x1', '4x1']}
                                             dimValue={supps.karaHorz.dim}
                                             settings={supps.karaHorz}
-                                            onUpdate={(f,v) => updateSupp('karaHorz', f, v)}
+                                            onUpdate={(f, v) => updateSupp('karaHorz', f, v)}
                                         />
-                                        <SupportCard 
+                                        <SupportCard
                                             label="Kara Vertical (Gap)"
                                             sizeOptions={['3x1', '4x1']}
                                             dimValue={supps.karaVert.dim}
                                             settings={supps.karaVert}
-                                            onUpdate={(f,v) => updateSupp('karaVert', f, v)}
+                                            onUpdate={(f, v) => updateSupp('karaVert', f, v)}
                                         />
                                     </>
                                 )}
                                 {isBottomType && (
-                                    <SupportCard 
+                                    <SupportCard
                                         label="Kara Vertical (Ends)"
                                         sizeOptions={['3x1', '4x1']}
                                         dimValue={supps.karaVert.dim}
                                         settings={supps.karaVert}
-                                        onUpdate={(f,v) => updateSupp('karaVert', f, v)}
+                                        onUpdate={(f, v) => updateSupp('karaVert', f, v)}
                                         fixedDir="Vertical"
                                     />
                                 )}
@@ -1629,7 +2248,7 @@
                                         <span className="text-sm font-black text-blue-800 uppercase tracking-wide">Extra Support</span>
                                         <div className="flex items-center gap-3">
                                             <span className="font-mono font-black text-xl text-amber-800">{calculateLineCFT(ex.l, ex.w, ex.t, ex.qty).toFixed(2)}</span>
-                                            <button onClick={() => removeExtra(ex.id)} className="text-white bg-red-600 p-2 rounded-lg border-2 border-red-800 hover:bg-red-700 shadow-sm"><Icons.Trash size={20}/></button>
+                                            <button onClick={() => removeExtra(ex.id)} className="text-white bg-red-600 p-2 rounded-lg border-2 border-red-800 hover:bg-red-700 shadow-sm"><Icons.Trash size={20} /></button>
                                         </div>
                                     </div>
                                     <div className="p-4 space-y-3">
@@ -1642,19 +2261,19 @@
                                                     <option value="4x1">4 x 1</option>
                                                 </select>
                                             </div>
-                                            <div className="col-span-1"><label className="text-xs text-black font-black uppercase mb-1 block">W</label><NumberInput value={ex.w} onChange={(v)=>updateExtra(ex.id,'w',v)} /></div>
-                                            <div className="col-span-1"><label className="text-xs text-black font-black uppercase mb-1 block">T</label><NumberInput value={ex.t} onChange={(v)=>updateExtra(ex.id,'t',v)} step={0.25} /></div>
+                                            <div className="col-span-1"><label className="text-xs text-black font-black uppercase mb-1 block">W</label><NumberInput value={ex.w} onChange={(v) => updateExtra(ex.id, 'w', v)} /></div>
+                                            <div className="col-span-1"><label className="text-xs text-black font-black uppercase mb-1 block">T</label><NumberInput value={ex.t} onChange={(v) => updateExtra(ex.id, 't', v)} step={0.25} /></div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <div><label className="text-xs text-black font-black uppercase mb-1 block">Length</label><NumberInput value={ex.l} onChange={(v)=>updateExtra(ex.id,'l',v)} /></div>
-                                            <div><label className="text-xs text-black font-black uppercase mb-1 block">Qty</label><NumberInput value={ex.qty} onChange={(v)=>updateExtra(ex.id,'qty',v)} step={1} className="bg-blue-50" /></div>
+                                            <div><label className="text-xs text-black font-black uppercase mb-1 block">Length</label><NumberInput value={ex.l} onChange={(v) => updateExtra(ex.id, 'l', v)} /></div>
+                                            <div><label className="text-xs text-black font-black uppercase mb-1 block">Qty</label><NumberInput value={ex.qty} onChange={(v) => updateExtra(ex.id, 'qty', v)} step={1} className="bg-blue-50" /></div>
                                         </div>
                                     </div>
                                 </div>
                             ))}
 
                             <button onClick={addExtra} className="w-full py-5 bg-white border-4 border-dashed border-blue-300 text-blue-600 rounded-xl font-black hover:bg-blue-50 mt-4 flex justify-center items-center gap-2 shadow-sm uppercase tracking-wide text-lg transition-colors">
-                                <Icons.Plus size={28}/> Add Extra Support
+                                <Icons.Plus size={28} /> Add Extra Support
                             </button>
                         </div>
                     </div>
@@ -1676,46 +2295,46 @@
         function runTests() {
             console.log("🧪 ==================== RUNNING TESTS ====================");
             console.log("");
-            
+
             // TEST 1: Purchased Feet Calculation
             console.log("📊 TEST 1: Purchased Feet Calculation");
             const test1a = getPurchasedFeet(12);  // 12" = 1.0 ft
             const test1b = getPurchasedFeet(15);  // 15" = 1.25 ft → should buy 1.5 ft
             const test1c = getPurchasedFeet(19);  // 19" = 1.58 ft → should buy 2.0 ft
             const test1d = getPurchasedFeet(24);  // 24" = 2.0 ft
-            
+
             console.log(test1a === 1.0 ? "✅ 12 inches = 1.0 ft" : `❌ FAILED: Expected 1.0, got ${test1a}`);
             console.log(test1b === 1.5 ? "✅ 15 inches = 1.5 ft" : `❌ FAILED: Expected 1.5, got ${test1b}`);
             console.log(test1c === 2.0 ? "✅ 19 inches = 2.0 ft" : `❌ FAILED: Expected 2.0, got ${test1c}`);
             console.log(test1d === 2.0 ? "✅ 24 inches = 2.0 ft" : `❌ FAILED: Expected 2.0, got ${test1d}`);
             console.log("");
-            
+
             // TEST 2: CFT Calculation
             console.log("📊 TEST 2: CFT Calculation");
             const test2a = calculateLineCFT(24, 3, 1, 1);  // 2ft × 3" × 1" × 1pc = 0.5 CFT
             const test2b = calculateLineCFT(24, 3, 1, 2);  // Same but 2 pieces = 1.0 CFT
-            
+
             console.log(test2a.toFixed(2) === "0.50" ? "✅ 24×3×1×1 = 0.50 CFT" : `❌ FAILED: Expected 0.50, got ${test2a.toFixed(2)}`);
             console.log(test2b.toFixed(2) === "1.00" ? "✅ 24×3×1×2 = 1.00 CFT" : `❌ FAILED: Expected 1.00, got ${test2b.toFixed(2)}`);
             console.log("");
-            
+
             // TEST 3: Size Dimensions Lookup
             console.log("📊 TEST 3: Size Dimensions Lookup");
             const test3a = getSizeDims('3x1');
             const test3b = getSizeDims('4x2');
-            
+
             console.log(test3a.w === 3 && test3a.t === 1 ? "✅ '3x1' = {w:3, t:1}" : `❌ FAILED: Got ${JSON.stringify(test3a)}`);
             console.log(test3b.w === 4 && test3b.t === 2 ? "✅ '4x2' = {w:4, t:2}" : `❌ FAILED: Got ${JSON.stringify(test3b)}`);
             console.log("");
-            
+
             // TEST 4: Crate Effective Length (with gaps)
             console.log("📊 TEST 4: Crate Gap Calculation");
             const test4a = calculateCrateEffectiveLength(20, 4, 4);  // 20" span, 4" plank, 4" gap
             // Should need: ceil(20/8) = 3 planks × 4" = 12" of wood
-            
+
             console.log(test4a === 12 ? "✅ 20\" span with 4\" planks + 4\" gaps = 12\" wood" : `❌ FAILED: Expected 12, got ${test4a}`);
             console.log("");
-            
+
             console.log("🎯 All basic calculations tested!");
             console.log("");
             console.log("===============================================================");
@@ -1729,4 +2348,5 @@
         root.render(<App />);
     </script>
 </body>
+
 </html>
