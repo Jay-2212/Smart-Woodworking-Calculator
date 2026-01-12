@@ -1860,6 +1860,8 @@
                 return 2;
             };
 
+            const recommendedRunners = useMemo(() => getRecommendedRunnerCount(dims.l), [dims.l]);
+
             // --- EFFECT: Sticky Header on Scroll ---
             useEffect(() => {
                 const handleScroll = () => {
@@ -1874,9 +1876,8 @@
 
             // --- EFFECT: Auto-adjust global runners based on length (minimum thresholds) ---
             useEffect(() => {
-                const recommended = getRecommendedRunnerCount(dims.l);
-                setGlobalRunners(prev => (prev < recommended ? recommended : prev));
-            }, [dims.l]);
+                setGlobalRunners(prev => (prev < recommendedRunners ? recommendedRunners : prev));
+            }, [recommendedRunners]);
 
             // --- EFFECT: Auto-calculate dimensions based on box size and type ---
             useEffect(() => {
@@ -1963,10 +1964,9 @@
 
             // --- HANDLERS ---
             const handleGlobalRunnerChange = (val) => {
-                const recommended = getRecommendedRunnerCount(dims.l);
                 const parsed = parseInt(val);
-                const count = Number.isNaN(parsed) ? 2 : parsed;
-                const clamped = Math.max(recommended, count);
+                const count = Number.isNaN(parsed) ? recommendedRunners : parsed;
+                const clamped = Math.max(recommendedRunners, count);
                 setGlobalRunners(clamped);
             };
 
