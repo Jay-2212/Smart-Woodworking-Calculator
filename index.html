@@ -1807,6 +1807,15 @@
          * 
          * Manages all state and coordinates between UI and calculations.
          */
+
+        // Runner thresholds (high-to-low order): base 2 supports, >50" ⇒ 3, >60" ⇒ 4, >70" ⇒ 5 to keep long spans from flexing
+        const RUNNER_RECOMMENDATIONS = [
+            { min: 70, count: 5 },
+            { min: 60, count: 4 },
+            { min: 50, count: 3 }
+        ];
+        const MIN_RUNNER_COUNT = 2;
+
         function App() {
             // --- STATE: Box Dimensions ---
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
@@ -1852,6 +1861,16 @@
             // --- STATE: Global Runner Count ---
             const [globalRunners, setGlobalRunners] = useState(2);
 
+            const getRecommendedRunnerCount = (len) => {
+                const l = parseFloat(len) || 0;
+                for (const { min, count } of RUNNER_RECOMMENDATIONS) {
+                    if (l > min) return count;
+                }
+                return MIN_RUNNER_COUNT;
+            };
+
+            const recommendedRunners = useMemo(() => getRecommendedRunnerCount(dims.l), [dims.l]);
+
             // --- EFFECT: Sticky Header on Scroll ---
             useEffect(() => {
                 const handleScroll = () => {
@@ -1863,6 +1882,11 @@
                 window.addEventListener('scroll', handleScroll);
                 return () => window.removeEventListener('scroll', handleScroll);
             }, []);
+
+            // --- EFFECT: Auto-adjust global runners based on length (minimum thresholds) ---
+            useEffect(() => {
+                setGlobalRunners(prev => (prev < recommendedRunners ? recommendedRunners : prev));
+            }, [recommendedRunners]);
 
             // --- EFFECT: Auto-calculate dimensions based on box size and type ---
             useEffect(() => {
@@ -1949,8 +1973,10 @@
 
             // --- HANDLERS ---
             const handleGlobalRunnerChange = (val) => {
-                const count = parseInt(val) || 2;
-                setGlobalRunners(count);
+                const parsedValue = parseInt(val);
+                const validatedCount = Number.isNaN(parsedValue) ? recommendedRunners : parsedValue;
+                const clamped = Math.max(recommendedRunners, validatedCount);
+                setGlobalRunners(clamped);
             };
 
             const updateMainRow = (key, field, val) => {
