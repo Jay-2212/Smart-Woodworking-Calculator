@@ -1864,6 +1864,15 @@
                 return () => window.removeEventListener('scroll', handleScroll);
             }, []);
 
+            // --- EFFECT: Auto-adjust global runners based on length (minimum thresholds) ---
+            useEffect(() => {
+                const len = parseFloat(dims.l) || 0;
+                const recommended = len > 70 ? 5 : len > 60 ? 4 : len > 50 ? 3 : 2;
+                if (globalRunners < recommended) {
+                    setGlobalRunners(recommended);
+                }
+            }, [dims.l, globalRunners]);
+
             // --- EFFECT: Auto-calculate dimensions based on box size and type ---
             useEffect(() => {
                 const l = parseFloat(dims.l) || 0;
