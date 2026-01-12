@@ -1965,7 +1965,7 @@
             const handleGlobalRunnerChange = (val) => {
                 const recommended = getRecommendedRunnerCount(dims.l);
                 const count = parseInt(val) || 0;
-                const clamped = Math.max(2, recommended, count);
+                const clamped = Math.max(recommended, count);
                 setGlobalRunners(clamped);
             };
 
