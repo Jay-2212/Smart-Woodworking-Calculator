@@ -1807,6 +1807,14 @@
          * 
          * Manages all state and coordinates between UI and calculations.
          */
+
+        const RUNNER_RECOMMENDATIONS = [
+            { min: 70, count: 5 },
+            { min: 60, count: 4 },
+            { min: 50, count: 3 }
+        ];
+        const MIN_RUNNER_COUNT = 2;
+
         function App() {
             // --- STATE: Box Dimensions ---
             const [dims, setDims] = useState({ l: 40, w: 20, h: 20 });
@@ -1854,10 +1862,10 @@
 
             const getRecommendedRunnerCount = (len) => {
                 const l = parseFloat(len) || 0;
-                if (l > 70) return 5;
-                if (l > 60) return 4;
-                if (l > 50) return 3;
-                return 2;
+                for (const { min, count } of RUNNER_RECOMMENDATIONS) {
+                    if (l > min) return count;
+                }
+                return MIN_RUNNER_COUNT;
             };
 
             const recommendedRunners = useMemo(() => getRecommendedRunnerCount(dims.l), [dims.l]);
@@ -1964,9 +1972,9 @@
 
             // --- HANDLERS ---
             const handleGlobalRunnerChange = (val) => {
-                const parsed = parseInt(val);
-                const count = Number.isNaN(parsed) ? recommendedRunners : parsed;
-                const clamped = Math.max(recommendedRunners, count);
+                const parsedValue = parseInt(val);
+                const validatedCount = Number.isNaN(parsedValue) ? recommendedRunners : parsedValue;
+                const clamped = Math.max(recommendedRunners, validatedCount);
                 setGlobalRunners(clamped);
             };
 
