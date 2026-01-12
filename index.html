@@ -1875,10 +1875,8 @@
             // --- EFFECT: Auto-adjust global runners based on length (minimum thresholds) ---
             useEffect(() => {
                 const recommended = getRecommendedRunnerCount(dims.l);
-                if (globalRunners < recommended) {
-                    setGlobalRunners(recommended);
-                }
-            }, [dims.l, globalRunners]);
+                setGlobalRunners(prev => (prev < recommended ? recommended : prev));
+            }, [dims.l]);
 
             // --- EFFECT: Auto-calculate dimensions based on box size and type ---
             useEffect(() => {
