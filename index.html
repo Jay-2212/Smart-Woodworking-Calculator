@@ -1018,7 +1018,7 @@
         // ================================================================================
 
         // Named constants for magic numbers
-        const HALF_FOOT_THRESHOLD = 0.5001;  // Tolerance for floating point comparison
+        const HALF_FOOT_THRESHOLD = 0.5001;  // Business threshold for half-foot rounding in wood purchasing (includes tiny tolerance)
         const CUBIC_INCH_TO_CFT_DIVISOR = 144;  // 12" × 12"
         const INCHES_PER_FOOT = 12;
 
@@ -2450,8 +2450,9 @@
             console.log(test5c === 0 ? "✅ NaN input = 0 CFT" : `❌ FAILED: Expected 0, got ${test5c}`);
             
             // Large dimension test
-            const test5d = calculateLineCFT(120, 4, 2, 1);  // 10 ft × 4" × 2" = 0.556 CFT
-            const expected5d = ((10 * 4 * 2) / CUBIC_INCH_TO_CFT_DIVISOR);
+            const test5d = calculateLineCFT(120, 4, 2, 1);  // 120" = 10 ft × 4" × 2" = 0.556 CFT
+            const expectedFeet = 120 / INCHES_PER_FOOT;  // 10 feet
+            const expected5d = ((expectedFeet * 4 * 2) / CUBIC_INCH_TO_CFT_DIVISOR);
             console.log(Math.abs(test5d - expected5d) < 0.01 ? "✅ Large dimension (10ft) works" : `❌ FAILED: Expected ${expected5d}, got ${test5d}`);
             
             // getPurchasedFeet with invalid inputs
