@@ -1,0 +1,213 @@
+🔴 1. Missing Input Validation (HIGH PRIORITY)
+Problem: Your functions don't validate inputs, which can cause crashes.
+
+Example from index.html:1080-1083:
+
+const calculateLineCFT = (l, w, t, qty) => {
+    const feet = getPurchasedFeet(l);
+    return ((feet * w * t) / 144) * qty;
+};
+
+What happens if user enters:
+
+Negative numbers? → Wrong results
+Zero? → Returns 0 (okay)
+Non-numbers? → NaN breaks everything
+Empty string? → NaN
+Fix: Add validation:
+
+const calculateLineCFT = (l, w, t, qty) => {
+    // Validate inputs
+    if (l <= 0 || w <= 0 || t <= 0 || qty <= 0) return 0;
+    if (isNaN(l) || isNaN(w) || isNaN(t) || isNaN(qty)) return 0;
+    
+    const feet = getPurchasedFeet(l);
+    return ((feet * w * t) / 144) * qty;
+};
+
+🔴 2. No Error Handling (HIGH PRIORITY)
+The 3D visualization (Three.js) could crash and break the entire app. Add error boundaries:
+
+// Wrap your main app
+class ErrorBoundary extends React.Component {
+    state = { hasError: false };
+    
+    static getDerivedStateFromError(error) {
+        return { hasError: true };
+    }
+    
+    componentDidCatch(error, info) {
+        console.error('App crashed:', error, info);
+    }
+    
+    render() {
+        if (this.state.hasError) {
+            return <div>Something went wrong. Please refresh.</div>;
+        }
+        return this.props.children;
+    }
+}
+
+🟡 Test Improvements (MEDIUM PRIORITY)
+Current Tests (Lines 2325-2367)
+You have 4 basic tests that run on page load:
+
+✅ Purchased feet calculation (12", 15", 19", 24")
+✅ CFT calculation (24×3×1×1, 24×3×1×2)
+✅ Size lookup ('3x1', '4x2')
+✅ Crate gap calculation (20" span with 4" planks)
+What's Missing:
+A. Edge Case Tests
+Add tests for unusual inputs:
+
+// TEST 5: Edge Cases
+console.log("📊 TEST 5: Edge Cases");
+
+// Zero inputs
+const test5a = calculateLineCFT(0, 3, 1, 1);
+console.log(test5a === 0 ? "✅ Zero length = 0 CFT" : `❌ Got ${test5a}`);
+
+// Very small inputs (< 0.5 inch)
+const test5b = getPurchasedFeet(0.25);
+console.log(test5b === 0.5 ? "✅ 0.25\" rounds to 0.5 ft" : `❌ Got ${test5b}`);
+
+// Very large inputs (10 feet box)
+const test5c = calculateLineCFT(120, 4, 2, 1);
+const expected = ((10 * 4 * 2) / 144);
+console.log(Math.abs(test5c - expected) < 0.01 ? "✅ Large dimension works" : `❌ Got ${test5c}, expected ${expected}`);
+
+// Invalid inputs (should handle gracefully)
+const test5d = calculateLineCFT(-10, 3, 1, 1);
+console.log(test5d === 0 ? "✅ Negative input = 0" : `❌ Got ${test5d}`);
+
+B. Crate Gap Tests
+Your crate gap test is good, but add more:
+
+// TEST 6: More Crate Scenarios
+console.log("📊 TEST 6: Crate Gap Scenarios");
+
+// Gap = 0 (no gaps)
+const test6a = calculateCrateEffectiveLength(20, 4, 0);
+console.log(test6a === 20 ? "✅ No gap = full length" : `❌ Got ${test6a}`);
+
+// Gap larger than plank
+const test6b = calculateCrateEffectiveLength(30, 4, 8);  // 4" plank, 8" gap
+const expected6b = Math.ceil(30/12) * 4;  // ceil(30/12)=3 planks × 4" = 12"
+console.log(test6b === expected6b ? "✅ Large gap works" : `❌ Got ${test6b}, expected ${expected6b}`);
+
+// Exact fit scenario
+const test6c = calculateCrateEffectiveLength(24, 4, 4);  // 24" exactly fits 3 units
+const expected6c = 3 * 4;  // Exactly 3 planks
+console.log(test6c === expected6c ? "✅ Exact fit works" : `❌ Got ${test6c}`);
+
+C. Runner Recommendation Tests
+You refactored the runner logic recently - test it!
+
+// TEST 7: Runner Recommendations
+console.log("📊 TEST 7: Runner Recommendations");
+
+const test7a = getRecommendedRunnerCount(45);  // < 50" → 2 runners
+const test7b = getRecommendedRunnerCount(55);  // 50-60" → 3 runners
+const test7c = getRecommendedRunnerCount(65);  // 60-70" → 4 runners
+const test7d = getRecommendedRunnerCount(75);  // > 70" → 5 runners
+
+console.log(test7a === 2 ? "✅ 45\" = 2 runners" : `❌ Got ${test7a}`);
+console.log(test7b === 3 ? "✅ 55\" = 3 runners" : `❌ Got ${test7b}`);
+console.log(test7c === 4 ? "✅ 65\" = 4 runners" : `❌ Got ${test7c}`);
+console.log(test7d === 5 ? "✅ 75\" = 5 runners" : `❌ Got ${test7d}`);
+
+🟡 Code Quality Improvements (MEDIUM PRIORITY)
+1. Replace Magic Numbers with Constants
+Problem: Line 1063 has mysterious 0.5001
+
+if (fraction <= 0.5001) return whole + 0.5;
+
+Fix:
+
+// At top of file with constants
+const HALF_FOOT_THRESHOLD = 0.5001;  // Tolerance for floating point comparison
+const CUBIC_INCH_TO_CFT_DIVISOR = 144;  // 12" × 12"
+
+// Then use:
+if (fraction <= HALF_FOOT_THRESHOLD) return whole + 0.5;
+
+2. Inconsistent Null Checks
+Problem: Different styles throughout code
+
+// Line 1115
+if (!sizeStr) return 0;
+
+// Line 1135
+if (!span || span <= 0) return 0;
+
+Fix: Choose one consistent pattern:
+
+// Preferred pattern - checks both null and invalid values
+const isInvalid = (value) => !value || value <= 0 || isNaN(value);
+
+if (isInvalid(span)) return 0;
+
+3. Line 2359 Has Syntax Error
+/ Should need: ceil(20/8) = 3 planks × 4" = 12" of wood
+
+Missing the second / - should be //
+
+🟢 Nice-to-Have Improvements (LOW PRIORITY)
+1. Add TypeScript-style JSDoc
+You can add better type hints without TypeScript:
+
+/**
+ * Calculates CFT for a wood piece
+ * @param {number} l - Length in inches (must be > 0)
+ * @param {number} w - Width in inches (must be > 0)
+ * @param {number} t - Thickness in inches (must be > 0)
+ * @param {number} qty - Quantity (must be >= 1)
+ * @returns {number} Cubic feet (CFT)
+ * @throws {Error} If any parameter is invalid
+ */
+
+2. Extract Test Suite
+Your tests run on every page load. Consider adding a "Run Tests" button instead:
+
+// Add button in UI
+<button onClick={runTests}>🧪 Run Tests</button>
+
+3. Visual Test Results
+Instead of console-only, show in UI:
+
+const [testResults, setTestResults] = useState([]);
+
+const runTests = () => {
+    const results = [];
+    
+    // TEST 1
+    const test1a = getPurchasedFeet(12);
+    results.push({
+        name: "12 inches = 1.0 ft",
+        passed: test1a === 1.0,
+        expected: 1.0,
+        actual: test1a
+    });
+    
+    setTestResults(results);
+};
+
+// Then render:
+{testResults.map(r => (
+    <div>{r.passed ? "✅" : "❌"} {r.name}</div>
+))}
+
+📋 Summary & Action Plan
+Fix Immediately:
+✅ Add input validation to all calculation functions
+✅ Add error boundary for 3D visualization
+✅ Fix syntax error on line 2359
+Add This Week:
+✅ Add edge case tests (zero, negative, large numbers)
+✅ Add runner recommendation tests
+✅ Replace magic numbers with named constants
+✅ Standardize null/validation checks
+Consider Later:
+⭐ Add visual test results in UI
+⭐ Extract test suite to separate section
+⭐ Add performance monitoring for 3D rendering
