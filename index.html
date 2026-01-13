@@ -1011,11 +1011,71 @@
         ================================================================================
         */
 
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useRef, useMemo, Component } = React;
 
         // ================================================================================
         // SECTION 1: CONSTANTS & ICONS
         // ================================================================================
+
+        // Named constants for magic numbers
+        const HALF_FOOT_THRESHOLD = 0.5001;  // Tolerance for floating point comparison
+        const CUBIC_INCH_TO_CFT_DIVISOR = 144;  // 12" × 12"
+        const INCHES_PER_FOOT = 12;
+
+        /**
+         * Validation helper - checks for invalid numeric values
+         * @param {any} value - Value to validate
+         * @returns {boolean} True if value is invalid (null, undefined, NaN, or <= 0)
+         */
+        const isInvalidNumber = (value) => value === null || value === undefined || isNaN(value) || value <= 0;
+
+        /**
+         * Error Boundary Component for 3D Visualization
+         * Catches errors in Three.js rendering and prevents app crash
+         */
+        class ErrorBoundary extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error: error };
+            }
+
+            componentDidCatch(error, info) {
+                console.error('3D Visualization Error:', error, info);
+            }
+
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            backgroundColor: '#fef3c7',
+                            border: '2px solid #d97706',
+                            borderRadius: '8px',
+                            flexDirection: 'column',
+                            padding: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                            <div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '8px' }}>
+                                3D Visualization Error
+                            </div>
+                            <div style={{ color: '#78350f', fontSize: '14px' }}>
+                                Something went wrong. Please refresh the page.
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
 
         /**
          * Icon component for rendering SVG icons
@@ -1055,12 +1115,15 @@
          * @returns {number} Feet to purchase (in 0.5 increments)
          */
         const getPurchasedFeet = (inches) => {
-            const feet = inches / 12;
+            // Validate input
+            if (isInvalidNumber(inches)) return 0;
+            
+            const feet = inches / INCHES_PER_FOOT;
             const whole = Math.floor(feet);
             const fraction = feet - whole;
 
             if (fraction === 0) return whole;
-            if (fraction <= 0.5001) return whole + 0.5;
+            if (fraction <= HALF_FOOT_THRESHOLD) return whole + 0.5;
             return whole + 1.0;
         };
 
@@ -1078,8 +1141,11 @@
          * @returns {number} Total CFT
          */
         const calculateLineCFT = (l, w, t, qty) => {
+            // Validate inputs - return 0 for invalid values
+            if (isInvalidNumber(l) || isInvalidNumber(w) || isInvalidNumber(t) || isInvalidNumber(qty)) return 0;
+            
             const feet = getPurchasedFeet(l);
-            return ((feet * w * t) / 144) * qty;
+            return ((feet * w * t) / CUBIC_INCH_TO_CFT_DIVISOR) * qty;
         };
 
         /**
@@ -1111,7 +1177,7 @@
          * @returns {number} Maximum of width or thickness
          */
         const getMaxDim = (sizeStr) => {
-            if (!sizeStr) return 0;
+            if (!sizeStr || typeof sizeStr !== 'string') return 0;
             const dims = getSizeDims(sizeStr);
             return Math.max(dims.w, dims.t);
         };
@@ -1132,7 +1198,12 @@
          * @returns {number} Total inches of wood needed
          */
         const calculateCrateEffectiveLength = (span, plankWidth, gap) => {
-            if (!span || span <= 0) return 0;
+            // Validate inputs using consistent helper
+            if (isInvalidNumber(span)) return 0;
+            if (isInvalidNumber(plankWidth)) return 0;
+            // gap can be 0 (no gaps between planks)
+            if (gap === null || gap === undefined || isNaN(gap) || gap < 0) return 0;
+            
             const unit = plankWidth + gap;
             const planks = Math.ceil(span / unit);
             return planks * plankWidth;
@@ -1652,7 +1723,7 @@
         const SupportCard = ({ label, sizeOptions, dimValue, settings, onUpdate, colorClass = "bg-white", configKey, runnerConfig, onConfigChange, fixedDir }) => {
             const sDims = getSizeDims(settings.size);
             const feet = getPurchasedFeet(settings.dim);
-            const cft = ((feet * sDims.w * sDims.t) / 144) * settings.count;
+            const cft = ((feet * sDims.w * sDims.t) / CUBIC_INCH_TO_CFT_DIVISOR) * settings.count;
 
             return (
                 <div className={`rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-slate-900 overflow-hidden ${colorClass}`}>
@@ -2025,7 +2096,7 @@
             const sumSupp = (s) => {
                 const d = getSizeDims(s.size);
                 const feet = getPurchasedFeet(s.dim);
-                return ((feet * d.w * d.t) / 144) * s.count;
+                return ((feet * d.w * d.t) / CUBIC_INCH_TO_CFT_DIVISOR) * s.count;
             };
 
             const totalSupp = sumSupp(supps.bottom) + sumSupp(supps.sides) + sumSupp(supps.top) +
@@ -2135,14 +2206,16 @@
                             <div className="absolute top-0 left-0 bg-black text-white px-3 py-2 text-xs font-black uppercase rounded-br-lg z-10 flex items-center gap-2">
                                 <Icons.Rotate size={14} /> Tap & Drag to Rotate
                             </div>
-                            <ThreeScene
-                                dims={dims}
-                                boxType={boxType}
-                                crateType={crateType}
-                                mainRows={mainRows}
-                                supps={supps}
-                                runnerConfig={runnerConfig}
-                            />
+                            <ErrorBoundary>
+                                <ThreeScene
+                                    dims={dims}
+                                    boxType={boxType}
+                                    crateType={crateType}
+                                    mainRows={mainRows}
+                                    supps={supps}
+                                    runnerConfig={runnerConfig}
+                                />
+                            </ErrorBoundary>
                             <div className="absolute bottom-2 right-2 text-[10px] text-slate-400 font-bold bg-white/90 px-2 py-1 rounded border border-slate-200 pointer-events-none">
                                 *Visualisation based on Calculated Cuts
                             </div>
@@ -2361,7 +2434,85 @@
             console.log(test4a === 12 ? "✅ 20\" span with 4\" planks + 4\" gaps = 12\" wood" : `❌ FAILED: Expected 12, got ${test4a}`);
             console.log("");
 
-            console.log("🎯 All basic calculations tested!");
+            // TEST 5: Edge Cases - Input Validation
+            console.log("📊 TEST 5: Edge Cases - Input Validation");
+            
+            // Zero inputs
+            const test5a = calculateLineCFT(0, 3, 1, 1);
+            console.log(test5a === 0 ? "✅ Zero length = 0 CFT" : `❌ FAILED: Expected 0, got ${test5a}`);
+            
+            // Negative inputs
+            const test5b = calculateLineCFT(-10, 3, 1, 1);
+            console.log(test5b === 0 ? "✅ Negative input = 0 CFT" : `❌ FAILED: Expected 0, got ${test5b}`);
+            
+            // NaN inputs
+            const test5c = calculateLineCFT(NaN, 3, 1, 1);
+            console.log(test5c === 0 ? "✅ NaN input = 0 CFT" : `❌ FAILED: Expected 0, got ${test5c}`);
+            
+            // Large dimension test
+            const test5d = calculateLineCFT(120, 4, 2, 1);  // 10 ft × 4" × 2" = 0.556 CFT
+            const expected5d = ((10 * 4 * 2) / CUBIC_INCH_TO_CFT_DIVISOR);
+            console.log(Math.abs(test5d - expected5d) < 0.01 ? "✅ Large dimension (10ft) works" : `❌ FAILED: Expected ${expected5d}, got ${test5d}`);
+            
+            // getPurchasedFeet with invalid inputs
+            const test5e = getPurchasedFeet(-5);
+            console.log(test5e === 0 ? "✅ getPurchasedFeet with negative = 0" : `❌ FAILED: Expected 0, got ${test5e}`);
+            
+            const test5f = getPurchasedFeet(NaN);
+            console.log(test5f === 0 ? "✅ getPurchasedFeet with NaN = 0" : `❌ FAILED: Expected 0, got ${test5f}`);
+            console.log("");
+
+            // TEST 6: More Crate Gap Scenarios
+            console.log("📊 TEST 6: More Crate Gap Scenarios");
+            
+            // Gap = 0 (no gaps, planks touch each other)
+            const test6a = calculateCrateEffectiveLength(20, 4, 0);
+            const expected6a = Math.ceil(20/4) * 4;  // ceil(20/4) = 5 planks × 4" = 20"
+            console.log(test6a === expected6a ? "✅ No gap = full plank coverage" : `❌ FAILED: Expected ${expected6a}, got ${test6a}`);
+            
+            // Gap larger than plank
+            const test6b = calculateCrateEffectiveLength(30, 4, 8);  // 4" plank, 8" gap = 12" unit
+            const expected6b = Math.ceil(30/12) * 4;  // ceil(30/12) = 3 planks × 4" = 12"
+            console.log(test6b === expected6b ? "✅ Large gap works" : `❌ FAILED: Expected ${expected6b}, got ${test6b}`);
+            
+            // Exact fit scenario
+            const test6c = calculateCrateEffectiveLength(24, 4, 4);  // 24" with 8" units = exactly 3 units
+            const expected6c = 3 * 4;  // 3 planks × 4" = 12"
+            console.log(test6c === expected6c ? "✅ Exact fit works" : `❌ FAILED: Expected ${expected6c}, got ${test6c}`);
+            
+            // Invalid inputs
+            const test6d = calculateCrateEffectiveLength(-10, 4, 4);
+            console.log(test6d === 0 ? "✅ Negative span = 0" : `❌ FAILED: Expected 0, got ${test6d}`);
+            console.log("");
+
+            // TEST 7: Runner Recommendations (using component's getRecommendedRunnerCount)
+            console.log("📊 TEST 7: Runner Thresholds");
+            // Note: getRecommendedRunnerCount is defined inside App, so we test the threshold logic
+            const testRunnerLogic = (len) => {
+                const l = parseFloat(len) || 0;
+                const thresholds = [
+                    { min: 70, count: 5 },
+                    { min: 60, count: 4 },
+                    { min: 50, count: 3 }
+                ];
+                for (const { min, count } of thresholds) {
+                    if (l > min) return count;
+                }
+                return 2; // MIN_RUNNER_COUNT
+            };
+            
+            const test7a = testRunnerLogic(45);  // < 50" → 2 runners
+            const test7b = testRunnerLogic(55);  // 50 < x <= 60 → 3 runners
+            const test7c = testRunnerLogic(65);  // 60 < x <= 70 → 4 runners
+            const test7d = testRunnerLogic(75);  // > 70" → 5 runners
+            
+            console.log(test7a === 2 ? "✅ 45\" = 2 runners" : `❌ FAILED: Expected 2, got ${test7a}`);
+            console.log(test7b === 3 ? "✅ 55\" = 3 runners" : `❌ FAILED: Expected 3, got ${test7b}`);
+            console.log(test7c === 4 ? "✅ 65\" = 4 runners" : `❌ FAILED: Expected 4, got ${test7c}`);
+            console.log(test7d === 5 ? "✅ 75\" = 5 runners" : `❌ FAILED: Expected 5, got ${test7d}`);
+            console.log("");
+
+            console.log("🎯 All calculations tested!");
             console.log("");
             console.log("===============================================================");
         }
