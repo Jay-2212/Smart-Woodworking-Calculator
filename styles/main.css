@@ -1,0 +1,1032 @@
+/**
+ * ================================================================================
+ * AMBICA WOODEN WORKS - SMART CFT CALCULATOR
+ * STYLE ENGINE (CSS)
+ * ================================================================================
+ * 
+ * PURPOSE:
+ * Contains all CSS utility classes and styles for the calculator application.
+ * These are Tailwind CSS-like utilities for consistent styling without a build step.
+ * 
+ * FILE LOCATION: styles/main.css
+ * 
+ * DEPENDENCIES:
+ * - Google Fonts (loaded in index.html): 'Roboto Slab' for headings, 'Inter' for body text
+ * 
+ * USED BY:
+ * - index.html (main entry point)
+ * - All React components in js/components.js
+ * - js/app.js (main application)
+ * 
+ * SECTIONS:
+ * 1. Reset & Base Styles
+ * 2. Font Families, Weights, and Sizes
+ * 3. Text Colors
+ * 4. Background Colors
+ * 5. Border Colors, Widths, and Styles
+ * 6. Border Radius
+ * 7. Padding & Margin
+ * 8. Width, Height, and Max Width
+ * 9. Display & Flexbox
+ * 10. Grid System
+ * 11. Gap & Spacing
+ * 12. Position & Z-Index
+ * 13. Text Alignment & Transform
+ * 14. Shadows
+ * 15. Overflow & Outline
+ * 16. Transitions & Animations
+ * 17. Custom Patterns (Wood Pattern)
+ * 18. Hover, Focus, and Active States
+ * 19. Responsive Design (Media Queries)
+ * 
+ * ================================================================================
+ */
+
+/* ============================================================
+   SECTION 1: RESET & BASE STYLES
+   ============================================================ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    overscroll-behavior-y: none;
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    background-color: #fef3c7;
+    color: #0f172a;
+    padding-bottom: 10rem;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* High Contrast Inputs - Remove default spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+select::-ms-expand {
+    display: none;
+}
+
+/* ============================================================
+   SECTION 2: FONT FAMILIES, WEIGHTS, AND SIZES
+   ============================================================ */
+
+/* Font Families */
+.font-brand {
+    font-family: 'Roboto Slab', serif;
+}
+
+.font-sans {
+    font-family: 'Inter', sans-serif;
+}
+
+.font-mono {
+    font-family: ui-monospace, monospace;
+}
+
+/* Font Weights */
+.font-bold {
+    font-weight: 700;
+}
+
+.font-black {
+    font-weight: 900;
+}
+
+/* Font Sizes */
+.text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.text-base {
+    font-size: 1rem;
+    line-height: 1.5rem;
+}
+
+.text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+
+.text-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+}
+
+.text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+}
+
+.text-3xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+}
+
+.text-4xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+}
+
+.text-6xl {
+    font-size: 3.75rem;
+    line-height: 1;
+}
+
+.text-\[9px\] {
+    font-size: 9px;
+}
+
+.text-\[10px\] {
+    font-size: 10px;
+}
+
+.text-\[11px\] {
+    font-size: 11px;
+}
+
+/* ============================================================
+   SECTION 3: TEXT COLORS
+   ============================================================ */
+.text-white {
+    color: #ffffff;
+}
+
+.text-black {
+    color: #000000;
+}
+
+.text-slate-300 {
+    color: #cbd5e1;
+}
+
+.text-slate-400 {
+    color: #94a3b8;
+}
+
+.text-slate-500 {
+    color: #64748b;
+}
+
+.text-slate-600 {
+    color: #475569;
+}
+
+.text-slate-900 {
+    color: #0f172a;
+}
+
+.text-amber-400 {
+    color: #fbbf24;
+}
+
+.text-amber-500 {
+    color: #f59e0b;
+}
+
+.text-amber-600 {
+    color: #d97706;
+}
+
+.text-amber-800 {
+    color: #92400e;
+}
+
+.text-amber-900 {
+    color: #78350f;
+}
+
+.text-blue-600 {
+    color: #2563eb;
+}
+
+.text-blue-800 {
+    color: #1e40af;
+}
+
+.text-red-600 {
+    color: #dc2626;
+}
+
+/* ============================================================
+   SECTION 4: BACKGROUND COLORS
+   ============================================================ */
+.bg-white {
+    background-color: #ffffff;
+}
+
+.bg-black {
+    background-color: #000000;
+}
+
+.bg-slate-100 {
+    background-color: #f1f5f9;
+}
+
+.bg-slate-200 {
+    background-color: #e2e8f0;
+}
+
+.bg-slate-600 {
+    background-color: #475569;
+}
+
+.bg-slate-800 {
+    background-color: #1e293b;
+}
+
+.bg-slate-900 {
+    background-color: #0f172a;
+}
+
+.bg-amber-50 {
+    background-color: #fffbeb;
+}
+
+.bg-amber-100 {
+    background-color: #fef3c7;
+}
+
+.bg-amber-200 {
+    background-color: #fde68a;
+}
+
+.bg-amber-500 {
+    background-color: #f59e0b;
+}
+
+.bg-blue-50 {
+    background-color: #eff6ff;
+}
+
+.bg-red-600 {
+    background-color: #dc2626;
+}
+
+.bg-white\/90 {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* ============================================================
+   SECTION 5: BORDER COLORS
+   ============================================================ */
+.border-black {
+    border-color: #000000;
+}
+
+.border-white {
+    border-color: #ffffff;
+}
+
+.border-slate-100 {
+    border-color: #f1f5f9;
+}
+
+.border-slate-200 {
+    border-color: #e2e8f0;
+}
+
+.border-slate-300 {
+    border-color: #cbd5e1;
+}
+
+.border-slate-400 {
+    border-color: #94a3b8;
+}
+
+.border-slate-700 {
+    border-color: #334155;
+}
+
+.border-slate-900 {
+    border-color: #0f172a;
+}
+
+.border-amber-200 {
+    border-color: #fde68a;
+}
+
+.border-amber-300 {
+    border-color: #fcd34d;
+}
+
+.border-amber-500 {
+    border-color: #f59e0b;
+}
+
+.border-amber-600 {
+    border-color: #d97706;
+}
+
+.border-amber-800 {
+    border-color: #92400e;
+}
+
+.border-amber-900 {
+    border-color: #78350f;
+}
+
+.border-blue-200 {
+    border-color: #bfdbfe;
+}
+
+.border-blue-300 {
+    border-color: #93c5fd;
+}
+
+.border-blue-600 {
+    border-color: #2563eb;
+}
+
+.border-red-800 {
+    border-color: #991b1b;
+}
+
+/* Border Widths */
+.border {
+    border-width: 1px;
+}
+
+.border-2 {
+    border-width: 2px;
+}
+
+.border-4 {
+    border-width: 4px;
+}
+
+.border-b {
+    border-bottom-width: 1px;
+}
+
+.border-b-2 {
+    border-bottom-width: 2px;
+}
+
+.border-b-4 {
+    border-bottom-width: 4px;
+}
+
+.border-t-2 {
+    border-top-width: 2px;
+}
+
+.border-t-4 {
+    border-top-width: 4px;
+}
+
+/* Border Styles */
+.border-dashed {
+    border-style: dashed;
+}
+
+/* ============================================================
+   SECTION 6: BORDER RADIUS
+   ============================================================ */
+.rounded {
+    border-radius: 0.25rem;
+}
+
+.rounded-lg {
+    border-radius: 0.5rem;
+}
+
+.rounded-xl {
+    border-radius: 0.75rem;
+}
+
+.rounded-2xl {
+    border-radius: 1rem;
+}
+
+.rounded-b-lg {
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+
+.rounded-br-lg {
+    border-bottom-right-radius: 0.5rem;
+}
+
+/* ============================================================
+   SECTION 7: PADDING & MARGIN
+   ============================================================ */
+
+/* Padding */
+.p-1 {
+    padding: 0.25rem;
+}
+
+.p-2 {
+    padding: 0.5rem;
+}
+
+.p-3 {
+    padding: 0.75rem;
+}
+
+.p-4 {
+    padding: 1rem;
+}
+
+.p-5 {
+    padding: 1.25rem;
+}
+
+.p-6 {
+    padding: 1.5rem;
+}
+
+.px-0 {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.px-1 {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+.px-2 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.px-4 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.py-1 {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.py-4 {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.py-5 {
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+}
+
+.pt-4 {
+    padding-top: 1rem;
+}
+
+.pb-2 {
+    padding-bottom: 0.5rem;
+}
+
+.pb-4 {
+    padding-bottom: 1rem;
+}
+
+.pb-10 {
+    padding-bottom: 2.5rem;
+}
+
+.pb-40 {
+    padding-bottom: 10rem;
+}
+
+.pl-1 {
+    padding-left: 0.25rem;
+}
+
+/* Margin */
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.mt-4 {
+    margin-top: 1rem;
+}
+
+.mb-1 {
+    margin-bottom: 0.25rem;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+
+.mb-3 {
+    margin-bottom: 0.75rem;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+.mb-6 {
+    margin-bottom: 1.5rem;
+}
+
+.ml-1 {
+    margin-left: 0.25rem;
+}
+
+.mr-1 {
+    margin-right: 0.25rem;
+}
+
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.mx-2 {
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+}
+
+.-mx-4 {
+    margin-left: -1rem;
+    margin-right: -1rem;
+}
+
+.-bottom-4 {
+    bottom: -1rem;
+}
+
+/* ============================================================
+   SECTION 8: WIDTH, HEIGHT, AND MAX WIDTH
+   ============================================================ */
+.w-full {
+    width: 100%;
+}
+
+.w-10 {
+    width: 2.5rem;
+}
+
+.w-12 {
+    width: 3rem;
+}
+
+.w-24 {
+    width: 6rem;
+}
+
+.w-32 {
+    width: 8rem;
+}
+
+.w-0\.5 {
+    width: 0.125rem;
+}
+
+.h-10 {
+    height: 2.5rem;
+}
+
+.h-12 {
+    height: 3rem;
+}
+
+.min-h-screen {
+    min-height: 100vh;
+}
+
+/* Max Width */
+.max-w-2xl {
+    max-width: 42rem;
+}
+
+/* ============================================================
+   SECTION 9: DISPLAY & FLEXBOX
+   ============================================================ */
+.block {
+    display: block;
+}
+
+.inline-block {
+    display: inline-block;
+}
+
+.flex {
+    display: flex;
+}
+
+.grid {
+    display: grid;
+}
+
+/* Flexbox */
+.flex-col {
+    flex-direction: column;
+}
+
+.flex-grow {
+    flex-grow: 1;
+}
+
+.flex-1 {
+    flex: 1 1 0%;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.items-end {
+    align-items: flex-end;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+/* ============================================================
+   SECTION 10: GRID SYSTEM
+   ============================================================ */
+.grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.grid-cols-12 {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.col-span-1 {
+    grid-column: span 1 / span 1;
+}
+
+.col-span-2 {
+    grid-column: span 2 / span 2;
+}
+
+.col-span-3 {
+    grid-column: span 3 / span 3;
+}
+
+/* ============================================================
+   SECTION 11: GAP & SPACING
+   ============================================================ */
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 0.75rem;
+}
+
+.gap-4 {
+    gap: 1rem;
+}
+
+.space-y-3>*+* {
+    margin-top: 0.75rem;
+}
+
+.space-y-4>*+* {
+    margin-top: 1rem;
+}
+
+.space-y-6>*+* {
+    margin-top: 1.5rem;
+}
+
+/* ============================================================
+   SECTION 12: POSITION & Z-INDEX
+   ============================================================ */
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.fixed {
+    position: fixed;
+}
+
+.top-0 {
+    top: 0;
+}
+
+.left-0 {
+    left: 0;
+}
+
+.right-2 {
+    right: 0.5rem;
+}
+
+.bottom-2 {
+    bottom: 0.5rem;
+}
+
+/* Z-Index */
+.z-10 {
+    z-index: 10;
+}
+
+.z-50 {
+    z-index: 50;
+}
+
+.z-\[100\] {
+    z-index: 100;
+}
+
+/* ============================================================
+   SECTION 13: TEXT ALIGNMENT & TRANSFORM
+   ============================================================ */
+.text-left {
+    text-align: left;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Text Transform */
+.uppercase {
+    text-transform: uppercase;
+}
+
+/* Letter Spacing */
+.tracking-tight {
+    letter-spacing: -0.025em;
+}
+
+.tracking-wide {
+    letter-spacing: 0.025em;
+}
+
+.tracking-wider {
+    letter-spacing: 0.05em;
+}
+
+.tracking-widest {
+    letter-spacing: 0.1em;
+}
+
+.tracking-\[0\.2em\] {
+    letter-spacing: 0.2em;
+}
+
+/* Line Height */
+.leading-none {
+    line-height: 1;
+}
+
+.leading-tight {
+    line-height: 1.25;
+}
+
+/* ============================================================
+   SECTION 14: SHADOWS
+   ============================================================ */
+.shadow-sm {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.shadow-md {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.shadow-xl {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.shadow-inner {
+    box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+}
+
+.shadow-\[4px_4px_0px_0px_rgba\(0\,0\,0\,0\.2\)\] {
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.2);
+}
+
+.shadow-\[4px_4px_0px_0px_rgba\(0\,0\,0\,0\.4\)\] {
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.4);
+}
+
+.shadow-\[8px_8px_0px_0px_rgba\(0\,0\,0\,0\.3\)\] {
+    box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================
+   SECTION 15: OVERFLOW & OUTLINE
+   ============================================================ */
+.overflow-hidden {
+    overflow: hidden;
+}
+
+/* Outline */
+.outline-none {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+
+/* Appearance */
+.appearance-none {
+    appearance: none;
+}
+
+/* Pointer Events */
+.pointer-events-none {
+    pointer-events: none;
+}
+
+/* User Select */
+.select-none {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Vertical Align */
+.align-top {
+    vertical-align: top;
+}
+
+/* ============================================================
+   SECTION 16: TRANSITIONS & ANIMATIONS
+   ============================================================ */
+.transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+.transition-colors {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Transform */
+.scale-105 {
+    transform: scale(1.05);
+}
+
+/* Animations */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-in-out;
+}
+
+/* ============================================================
+   SECTION 17: CUSTOM PATTERNS (WOOD PATTERN)
+   ============================================================ */
+.wood-pattern {
+    background-color: #fcecdb;
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z' fill='%23d97706' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Sticky Bar Animations */
+.sticky-bar-enter {
+    transform: translateY(-100%);
+    opacity: 0;
+}
+
+.sticky-bar-active {
+    transform: translateY(0);
+    opacity: 1;
+    transition: all 0.3s ease-in-out;
+}
+
+.sticky-bar-exit {
+    transform: translateY(-100%);
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+}
+
+/* ============================================================
+   SECTION 18: HOVER, FOCUS, AND ACTIVE STATES
+   ============================================================ */
+.hover\:bg-slate-100:hover {
+    background-color: #f1f5f9;
+}
+
+.hover\:bg-slate-300:hover {
+    background-color: #e2e8f0;
+}
+
+.hover\:bg-blue-50:hover {
+    background-color: #eff6ff;
+}
+
+.hover\:bg-amber-600:hover {
+    background-color: #d97706;
+}
+
+.hover\:bg-red-700:hover {
+    background-color: #b91c1c;
+}
+
+.hover\:border-black:hover {
+    border-color: #000000;
+}
+
+.active\:bg-slate-400:active {
+    background-color: #94a3b8;
+}
+
+.focus\:ring-4:focus {
+    outline: none;
+}
+
+.focus\:ring-amber-200:focus {
+    box-shadow: 0 0 0 4px #fde68a;
+}
+
+.focus\:ring-amber-400:focus {
+    box-shadow: 0 0 0 4px #fbbf24;
+}
+
+.focus\:ring-amber-500\/50:focus {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.5);
+}
+
+.focus\:border-amber-600:focus {
+    border-color: #d97706;
+}
+
+.focus\:border-amber-700:focus {
+    border-color: #b45309;
+}
+
+/* ============================================================
+   SECTION 19: RESPONSIVE DESIGN (MEDIA QUERIES)
+   ============================================================ */
+@media (min-width: 768px) {
+    .md\:text-3xl {
+        font-size: 1.875rem;
+        line-height: 2.25rem;
+    }
+
+    .md\:grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ============================================================
+   SECTION 20: LAST CHILD UTILITIES
+   ============================================================ */
+.last\:border-0:last-child {
+    border-width: 0;
+}
