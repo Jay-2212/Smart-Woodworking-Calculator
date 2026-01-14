@@ -1954,10 +1954,13 @@
                 return () => window.removeEventListener('scroll', handleScroll);
             }, []);
 
-            // --- EFFECT: Auto-adjust global runners based on length (minimum thresholds) ---
+            // --- EFFECT: Auto-adjust global runners based on length (only for simple box type) ---
             useEffect(() => {
-                setGlobalRunners(prev => (prev < recommendedRunners ? recommendedRunners : prev));
-            }, [recommendedRunners]);
+                // Only apply prediction for simple box type
+                if (boxType === 'simple') {
+                    setGlobalRunners(prev => (prev < recommendedRunners ? recommendedRunners : prev));
+                }
+            }, [recommendedRunners, boxType]);
 
             // --- EFFECT: Auto-calculate dimensions based on box size and type ---
             useEffect(() => {
@@ -2045,9 +2048,9 @@
             // --- HANDLERS ---
             const handleGlobalRunnerChange = (val) => {
                 const parsedValue = parseInt(val);
-                const validatedCount = Number.isNaN(parsedValue) ? recommendedRunners : parsedValue;
-                const clamped = Math.max(recommendedRunners, validatedCount);
-                setGlobalRunners(clamped);
+                // Allow any positive value, no minimum restriction
+                const validatedCount = Number.isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
+                setGlobalRunners(validatedCount);
             };
 
             const updateMainRow = (key, field, val) => {
