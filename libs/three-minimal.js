@@ -241,7 +241,7 @@
                 const r = Math.min(255, Math.max(0, parseInt(match[1]) + amount));
                 const g = Math.min(255, Math.max(0, parseInt(match[2]) + amount));
                 const b = Math.min(255, Math.max(0, parseInt(match[3]) + amount));
-                return `rgb(${r}, ${g}, ${g})`;
+                return `rgb(${r}, ${g}, ${b})`;
             }
             return color;
         }
