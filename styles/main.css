@@ -993,6 +993,10 @@ select::-ms-expand {
     border-color: #000000;
 }
 
+.hover\:text-slate-700:hover {
+    color: #334155;
+}
+
 .active\:bg-slate-400:active {
     background-color: #94a3b8;
 }

@@ -186,6 +186,9 @@
             this.collectMeshes(scene, meshes);
 
             // Sort by depth for proper rendering order (painter's algorithm)
+            // For isometric projection, depth = x + z - y ensures objects further back
+            // (higher x, higher z) are drawn first, while objects higher up (higher y) 
+            // are drawn later to appear on top
             meshes.sort((a, b) => {
                 const depthA = a.position.x + a.position.z - a.position.y;
                 const depthB = b.position.x + b.position.z - b.position.y;
@@ -288,18 +291,6 @@
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
-        }
-
-        renderObject(object, ctx, camera) {
-            // Legacy method - now using collectMeshes and renderMesh
-            if (object instanceof Mesh && object.geometry instanceof BoxGeometry) {
-                this.renderMesh(object, ctx);
-            }
-
-            // Render children
-            object.children.forEach(child => {
-                this.renderObject(child, ctx, camera);
-            });
         }
 
         adjustBrightness(color, amount) {
