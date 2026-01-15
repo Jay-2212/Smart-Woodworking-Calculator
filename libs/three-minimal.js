@@ -65,6 +65,7 @@
     class MeshStandardMaterial extends Material {
         constructor(params = {}) {
             super(params);
+            this.roughness = params.roughness !== undefined ? params.roughness : 0.5;
         }
     }
 
@@ -103,6 +104,8 @@
             super();
             this.geometry = geometry;
             this.material = material;
+            this.castShadow = false;
+            this.receiveShadow = false;
         }
     }
 
@@ -139,6 +142,7 @@
     class DirectionalLight extends Light {
         constructor(color, intensity) {
             super(color, intensity);
+            this.castShadow = false;
         }
     }
 
@@ -158,6 +162,7 @@
         constructor(params = {}) {
             this.domElement = document.createElement('canvas');
             this.context = this.domElement.getContext('2d');
+            this.shadowMap = { enabled: false };
         }
 
         setSize(width, height) {
@@ -176,62 +181,116 @@
             ctx.fillStyle = scene.background.getStyle();
             ctx.fillRect(0, 0, width, height);
 
+            // Collect all meshes with their positions
+            const meshes = [];
+            this.collectMeshes(scene, meshes);
+
+            // Sort by depth for proper rendering order (painter's algorithm)
+            // For isometric projection, depth = x + z - y ensures objects further back
+            // (higher x, higher z) are drawn first, while objects higher up (higher y) 
+            // are drawn later to appear on top
+            meshes.sort((a, b) => {
+                const depthA = a.position.x + a.position.z - a.position.y;
+                const depthB = b.position.x + b.position.z - b.position.y;
+                return depthA - depthB;
+            });
+
             // Draw a simple 3D representation
             ctx.save();
-            ctx.translate(width / 2, height / 2);
+            ctx.translate(width / 2, height / 2 + 50);
 
-            // Draw all meshes in the scene
-            this.renderObject(scene, ctx, camera);
+            // Render each mesh
+            meshes.forEach(mesh => {
+                this.renderMesh(mesh, ctx);
+            });
 
             ctx.restore();
         }
 
-        renderObject(object, ctx, camera) {
+        collectMeshes(object, meshes) {
             if (object instanceof Mesh && object.geometry instanceof BoxGeometry) {
-                const geo = object.geometry;
-                const mat = object.material;
-
-                // Simple isometric projection
-                const x = object.position.x * 8;
-                const y = object.position.y * 8;
-                const z = object.position.z * 8;
-
-                const w = geo.width * 8;
-                const h = geo.height * 8;
-                const d = geo.depth * 8;
-
-                // Draw box in isometric view
-                ctx.fillStyle = mat.color.getStyle();
-                ctx.globalAlpha = 0.8;
-
-                // Front face
-                ctx.fillRect(x - w/2, y - h/2 - z, w, h);
-                
-                // Top face (darker)
-                ctx.fillStyle = this.adjustBrightness(mat.color.getStyle(), -20);
-                ctx.beginPath();
-                ctx.moveTo(x - w/2, y - h/2 - z);
-                ctx.lineTo(x, y - h/2 - z - d/2);
-                ctx.lineTo(x + w/2, y - h/2 - z);
-                ctx.lineTo(x - w/2, y - h/2 - z);
-                ctx.fill();
-
-                // Right face (lighter)
-                ctx.fillStyle = this.adjustBrightness(mat.color.getStyle(), 10);
-                ctx.beginPath();
-                ctx.moveTo(x + w/2, y - h/2 - z);
-                ctx.lineTo(x + w/2, y + h/2 - z);
-                ctx.lineTo(x + w/2 + d/3, y + h/2 - z + d/3);
-                ctx.lineTo(x + w/2 + d/3, y - h/2 - z + d/3);
-                ctx.fill();
-
-                ctx.globalAlpha = 1.0;
+                meshes.push(object);
             }
-
-            // Render children
             object.children.forEach(child => {
-                this.renderObject(child, ctx, camera);
+                this.collectMeshes(child, meshes);
             });
+        }
+
+        renderMesh(mesh, ctx) {
+            const geo = mesh.geometry;
+            const mat = mesh.material;
+
+            // Scale factor for visualization
+            const scale = 3;
+
+            // Isometric projection angles
+            const isoAngle = Math.PI / 6; // 30 degrees
+
+            // Get position and dimensions
+            const px = mesh.position.x * scale;
+            const py = mesh.position.y * scale;
+            const pz = mesh.position.z * scale;
+
+            const w = geo.width * scale;
+            const h = geo.height * scale;
+            const d = geo.depth * scale;
+
+            // Convert 3D coordinates to 2D isometric
+            const toIso = (x, y, z) => {
+                return {
+                    x: (x - z) * Math.cos(isoAngle),
+                    y: (x + z) * Math.sin(isoAngle) - y
+                };
+            };
+
+            // Calculate the 8 corners of the box
+            const corners = [
+                toIso(px - w/2, py - h/2, pz - d/2), // 0: front-bottom-left
+                toIso(px + w/2, py - h/2, pz - d/2), // 1: front-bottom-right
+                toIso(px + w/2, py + h/2, pz - d/2), // 2: front-top-right
+                toIso(px - w/2, py + h/2, pz - d/2), // 3: front-top-left
+                toIso(px - w/2, py - h/2, pz + d/2), // 4: back-bottom-left
+                toIso(px + w/2, py - h/2, pz + d/2), // 5: back-bottom-right
+                toIso(px + w/2, py + h/2, pz + d/2), // 6: back-top-right
+                toIso(px - w/2, py + h/2, pz + d/2)  // 7: back-top-left
+            ];
+
+            const baseColor = mat.color.getStyle();
+
+            // Draw top face (lighter)
+            ctx.fillStyle = this.adjustBrightness(baseColor, 30);
+            ctx.beginPath();
+            ctx.moveTo(corners[3].x, corners[3].y);
+            ctx.lineTo(corners[2].x, corners[2].y);
+            ctx.lineTo(corners[6].x, corners[6].y);
+            ctx.lineTo(corners[7].x, corners[7].y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = this.adjustBrightness(baseColor, -40);
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            // Draw left face (medium)
+            ctx.fillStyle = this.adjustBrightness(baseColor, -10);
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            ctx.lineTo(corners[3].x, corners[3].y);
+            ctx.lineTo(corners[7].x, corners[7].y);
+            ctx.lineTo(corners[4].x, corners[4].y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw right face (darker)
+            ctx.fillStyle = this.adjustBrightness(baseColor, -30);
+            ctx.beginPath();
+            ctx.moveTo(corners[1].x, corners[1].y);
+            ctx.lineTo(corners[2].x, corners[2].y);
+            ctx.lineTo(corners[6].x, corners[6].y);
+            ctx.lineTo(corners[5].x, corners[5].y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
         }
 
         adjustBrightness(color, amount) {
@@ -244,6 +303,11 @@
                 return `rgb(${r}, ${g}, ${b})`;
             }
             return color;
+        }
+
+        dispose() {
+            // Clean up resources
+            this.context = null;
         }
     }
 

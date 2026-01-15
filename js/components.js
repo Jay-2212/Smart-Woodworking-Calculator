@@ -328,17 +328,17 @@ const SupportCard = ({
             },
                 React.createElement('button', {
                     onClick: () => onConfigChange(configKey, configKey === 'bottomDir' ? 'width' : 'vertical'),
-                    className: `flex-1 py-1 text-xs font-black uppercase rounded ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') ? 'bg-white shadow text-black' : 'text-slate-400'}`
+                    className: `flex-1 py-1 text-xs font-black uppercase rounded transition-all ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') ? 'bg-white shadow text-black border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`
                 }, configKey === 'bottomDir' ? 'Width-wise' : 'Vertical'),
                 React.createElement('button', {
                     onClick: () => onConfigChange(configKey, configKey === 'bottomDir' ? 'length' : 'horizontal'),
-                    className: `flex-1 py-1 text-xs font-black uppercase rounded ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') ? 'bg-white shadow text-black' : 'text-slate-400'}`
+                    className: `flex-1 py-1 text-xs font-black uppercase rounded transition-all ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') ? 'bg-white shadow text-black border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`
                 }, 'Horizontal')
             ),
             
             // Fixed direction indicator
             fixedDir && React.createElement('div', {
-                className: "text-[10px] text-center font-black uppercase text-slate-400 bg-slate-100 py-1 rounded border border-slate-200"
+                className: "text-[10px] text-center font-black uppercase text-slate-500 bg-slate-100 py-1 rounded border border-slate-200"
             }, `Fixed: ${fixedDir}`),
 
             // Quantity controls and Purchase display

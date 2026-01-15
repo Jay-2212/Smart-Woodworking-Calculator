@@ -112,8 +112,16 @@
         try {
             const vnode = createElement(rootComponent);
             const newDOM = createDOMElement(vnode);
-            rootContainer.innerHTML = '';
-            rootContainer.appendChild(newDOM);
+            
+            // Use replaceChildren for smoother update (less flash)
+            // Supported in Chrome 86+, Firefox 78+, Safari 14+ (2020-2021)
+            if (rootContainer.replaceChildren) {
+                rootContainer.replaceChildren(newDOM);
+            } else {
+                // Fallback for older browsers (IE, older Safari/Chrome)
+                rootContainer.innerHTML = '';
+                rootContainer.appendChild(newDOM);
+            }
             
             // Run effects
             effectsQueue.forEach(effect => effect());
