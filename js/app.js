@@ -59,6 +59,9 @@ if (!window.AppComponents) {
     console.error('ERROR: js/components.js must be loaded before js/app.js');
 }
 
+// Guard against multiple loads
+if (!window.App) {
+
 // ================================================================================
 // IMPORTS FROM OTHER MODULES
 // ================================================================================
@@ -933,13 +936,16 @@ function App() {
     );
 }
 
+} // End guard
+
 // ================================================================================
 // EXPORTS AND INITIALIZATION
 // ================================================================================
 
 // Export App component
-window.AppMain = { App };
+window.App = App;
 
 // Render the app
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
+if (typeof ReactDOM !== 'undefined' && document.getElementById('root')) {
+    ReactDOM.render(React.createElement(App), document.getElementById('root'));
+}
