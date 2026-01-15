@@ -112,8 +112,15 @@
         try {
             const vnode = createElement(rootComponent);
             const newDOM = createDOMElement(vnode);
-            rootContainer.innerHTML = '';
-            rootContainer.appendChild(newDOM);
+            
+            // Use replaceChildren for smoother update (less flash)
+            if (rootContainer.replaceChildren) {
+                rootContainer.replaceChildren(newDOM);
+            } else {
+                // Fallback for older browsers
+                rootContainer.innerHTML = '';
+                rootContainer.appendChild(newDOM);
+            }
             
             // Run effects
             effectsQueue.forEach(effect => effect());
