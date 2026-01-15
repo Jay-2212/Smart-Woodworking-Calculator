@@ -47,6 +47,9 @@ if (!window.AppCalculations) {
     console.error('ERROR: js/calculations.js must be loaded before js/tests.js');
 }
 
+// Guard against multiple loads
+if (!window.AppTests) {
+
 // Get constants and calculation functions
 const { INCHES_PER_FOOT, CUBIC_INCH_TO_CFT_DIVISOR } = window.AppConstants;
 const { 
@@ -291,3 +294,5 @@ window.AppTests = {
 
 // Auto-run tests when this script loads
 runTests();
+
+} // End guard

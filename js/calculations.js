@@ -40,6 +40,9 @@ if (!window.AppConstants) {
     console.error('ERROR: js/constants.js must be loaded before js/calculations.js');
 }
 
+// Guard against multiple loads
+if (!window.AppCalculations) {
+
 // Destructure needed constants for cleaner code
 const { HALF_FOOT_THRESHOLD, CUBIC_INCH_TO_CFT_DIVISOR, INCHES_PER_FOOT, isInvalidNumber } = window.AppConstants;
 
@@ -274,3 +277,5 @@ window.AppCalculations = {
     calculateCrateEffectiveLength,
     getEffectiveCrateDims
 };
+
+} // End guard

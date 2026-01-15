@@ -52,6 +52,9 @@ if (!window.AppCalculations) {
     console.error('ERROR: js/calculations.js must be loaded before js/components.js');
 }
 
+// Guard against multiple loads
+if (!window.AppComponents) {
+
 // Get needed functions and components from other modules
 const { Icons } = window.AppConstants;
 const { 
@@ -523,3 +526,5 @@ window.AppComponents = {
     SupportCard,
     BoxTypeSelector
 };
+
+} // End guard

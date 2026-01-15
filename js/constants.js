@@ -33,6 +33,9 @@
  * ================================================================================
  */
 
+// Guard against multiple loads
+if (!window.AppConstants) {
+
 // ================================================================================
 // MAGIC NUMBERS - CALCULATION CONSTANTS
 // These values are used in wood purchasing and CFT calculations
@@ -251,3 +254,5 @@ window.AppConstants = {
     Icons,
     ErrorBoundary
 };
+
+} // End guard

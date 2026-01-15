@@ -44,21 +44,14 @@ JavaScript files MUST be loaded in this exact order:
     <title>Ambica Wooden Works - Smart CFT Calculator</title>
 
     <!-- ====================================================================
-         EXTERNAL DEPENDENCIES
+         LOCAL DEPENDENCIES (Native Implementations)
          ==================================================================== -->
     
-    <!-- React 18 - UI Framework -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- React-like Framework - Simple implementation -->
+    <script src="libs/react-simple.js"></script>
     
-    <!-- Three.js - 3D Visualization -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
-    <!-- Google Fonts - Typography -->
-    <link
-        href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700;900&family=Inter:wght@400;700;900&display=swap"
-        rel="stylesheet">
+    <!-- Three.js-like 3D Visualization - Minimal implementation -->
+    <script src="libs/three-minimal.js"></script>
 
     <!-- ====================================================================
          APPLICATION STYLES
@@ -74,7 +67,7 @@ JavaScript files MUST be loaded in this exact order:
     <style>
         /* Critical reset */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background-color: #fef3c7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fef3c7; }
         #root { max-width: 42rem; margin: 0 auto; padding: 1rem; }
     </style>
 </head>
@@ -88,7 +81,7 @@ JavaScript files MUST be loaded in this exact order:
     <div id="root">
         <!-- Loading indicator shown while scripts load -->
         <div style="text-align: center; padding: 4rem 1rem;">
-            <h1 style="font-family: 'Roboto Slab', serif; font-size: 1.5rem; color: #f59e0b; margin-bottom: 1rem;">
+            <h1 style="font-family: Georgia, serif; font-size: 1.5rem; color: #f59e0b; margin-bottom: 1rem;">
                 Ambica Wooden Works
             </h1>
             <p style="color: #64748b;">Loading Smart CFT Calculator...</p>

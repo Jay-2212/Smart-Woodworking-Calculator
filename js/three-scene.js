@@ -57,6 +57,9 @@ if (typeof THREE === 'undefined') {
     console.error('ERROR: Three.js must be loaded before js/three-scene.js');
 }
 
+// Guard against multiple loads
+if (!window.AppThreeScene) {
+
 // Get calculation functions
 const { getSizeDims } = window.AppCalculations;
 
@@ -536,3 +539,5 @@ const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig })
 window.AppThreeScene = {
     ThreeScene
 };
+
+} // End guard

@@ -11,7 +11,7 @@
  * FILE LOCATION: styles/main.css
  * 
  * DEPENDENCIES:
- * - Google Fonts (loaded in index.html): 'Roboto Slab' for headings, 'Inter' for body text
+ * - System fonts: Georgia/serif for headings, system-ui/sans-serif for body text
  * 
  * USED BY:
  * - index.html (main entry point)
@@ -55,7 +55,7 @@
 
 body {
     overscroll-behavior-y: none;
-    font-family: 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     -webkit-tap-highlight-color: transparent;
     background-color: #fef3c7;
     color: #0f172a;
@@ -81,11 +81,11 @@ select::-ms-expand {
 
 /* Font Families */
 .font-brand {
-    font-family: 'Roboto Slab', serif;
+    font-family: Georgia, 'Times New Roman', Times, serif;
 }
 
 .font-sans {
-    font-family: 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .font-mono {
