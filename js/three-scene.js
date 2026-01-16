@@ -89,447 +89,448 @@ const { useRef, useEffect } = React;
  * @param {object} props.supps - Support runner settings
  * @param {object} props.runnerConfig - Runner orientation config
  */
-const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
-    // Reference to the DOM container for the 3D canvas
-    const mountRef = useRef(null);
+// ================================================================================
+// GLOBAL SCENE STATE
+// We store scene objects globally to persist across React re-renders
+// This is necessary because our simple React implementation does full DOM replacement
+// ================================================================================
 
-    useEffect(() => {
-        if (!mountRef.current) return;
+let globalSceneState = null;
+let sceneInitialized = false;
+let lastProps = null;
 
-        // ============================================================
-        // SCENE SETUP
-        // ============================================================
-        
-        const w = mountRef.current.clientWidth;
-        const h = mountRef.current.clientHeight;
-        
-        // Create scene with warm background
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xfff8ef);
-
-        // Setup camera (perspective view)
-        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-        camera.position.set(60, 50, 80); // Positioned to see the box at an angle
-
-        // Setup WebGL renderer with antialiasing
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(w, h);
-        renderer.shadowMap.enabled = true; // Enable shadows
-        
-        // Clear and add canvas to container
-        mountRef.current.innerHTML = '';
-        mountRef.current.appendChild(renderer.domElement);
-
-        // ============================================================
-        // LIGHTING SETUP
-        // ============================================================
-        
-        // Ambient light for overall illumination
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        
-        // Directional light for shadows and depth
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-        dirLight.position.set(50, 60, 50);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
-
-        // ============================================================
-        // CAMERA CONTROLS (Orbit)
-        // Allows user to rotate and zoom the view
-        // ============================================================
-        
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;  // Smooth rotation
-        controls.dampingFactor = 0.05;
-
-        // ============================================================
-        // MATERIALS (Wood Colors)
-        // ============================================================
-        
-        const woodMat = new THREE.MeshStandardMaterial({ 
-            color: 0xfcd34d,   // Light wood (amber-300)
-            roughness: 0.8 
-        });
-        
-        const woodMatSide = new THREE.MeshStandardMaterial({ 
-            color: 0xf59e0b,   // Medium wood (amber-500)
-            roughness: 0.8 
-        });
-        
-        const woodMatDark = new THREE.MeshStandardMaterial({ 
-            color: 0x78350f,   // Dark wood (amber-900) - for runners
-            roughness: 0.9 
-        });
-
-        // ============================================================
-        // HELPER FUNCTION: Create a box mesh
-        // ============================================================
-        
-        /**
-         * Creates a Three.js box mesh with specified dimensions and position.
-         * 
-         * @param {number} w - Width (X axis)
-         * @param {number} h - Height (Y axis)
-         * @param {number} d - Depth (Z axis)
-         * @param {THREE.Material} colorMat - Material to apply
-         * @param {number} x - X position
-         * @param {number} y - Y position
-         * @param {number} z - Z position
-         * @returns {THREE.Mesh} The created mesh
-         */
-        const createBox = (w, h, d, colorMat, x, y, z) => {
-            const geo = new THREE.BoxGeometry(w, h, d);
-            const mesh = new THREE.Mesh(geo, colorMat);
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            return mesh;
-        };
-
-        // Create a group to hold all box parts
-        const group = new THREE.Group();
-        scene.add(group);
-
-        // ============================================================
-        // VISUALIZATION PARAMETERS
-        // ============================================================
-        
-        const THK = 1; // Panel thickness in 3D units
-        const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
-
-        // ============================================================
-        // STEP 1: BOTTOM RUNNERS (Foundation support beams)
-        // These are the beams the box sits on
-        // ============================================================
-
-        const bSize = getSizeDims(supps.bottom.size);
-        const bH = bSize.w;  // Height of runner in 3D (width becomes height when laid)
-        const bW = bSize.t;  // Width of runner in 3D
-        const bLen = supps.bottom.dim;
-        const bCount = supps.bottom.count;
-
-        let runnerPositions = []; // Store positions for alignment with other parts
-
-        if (bCount > 0) {
-            if (isBottomType) {
-                // BOTTOM TYPE: Runners run horizontally (length-wise)
-                // Distributed along the width of the box
-                const spreadW = mainRows.bottom.w;
-
-                for (let i = 0; i < bCount; i++) {
-                    let zPos;
-                    if (bCount === 1) {
-                        zPos = 0; // Single runner at center
-                    } else {
-                        // Distribute runners evenly, with first and last near edges
-                        const maxOffset = (spreadW / 2) - (bW / 2);
-                        const pct = i / (bCount - 1);
-                        zPos = -maxOffset + (pct * 2 * maxOffset);
-                    }
-
-                    runnerPositions.push(zPos);
-                    group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
-                }
-            } else {
-                // SIMPLE TYPE: Can run width-wise or horizontally based on config
-                if (runnerConfig.bottomDir === 'width') {
-                    // Standard: Width-wise runners, spaced along Length
-                    const spreadL = mainRows.bottom.l;
-                    const stepX = spreadL / (bCount + 1);
-                    
-                    for (let i = 1; i <= bCount; i++) {
-                        const xPos = -spreadL / 2 + (i * stepX);
-                        runnerPositions.push(xPos);
-                        group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH / 2, 0));
-                    }
-                } else {
-                    // Horizontal Override: Length-wise runners
-                    const spreadW = mainRows.bottom.w;
-                    const stepZ = spreadW / (bCount + 1);
-                    
-                    for (let i = 1; i <= bCount; i++) {
-                        const zPos = -spreadW / 2 + (i * stepZ);
-                        runnerPositions.push(zPos);
-                        group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
-                    }
+// Watch for container changes and re-attach canvas when needed
+function setupContainerWatcher() {
+    // Check periodically if the container exists and needs the canvas
+    setInterval(() => {
+        const container = document.getElementById('three-scene-container');
+        if (container && globalSceneState && globalSceneState.renderer) {
+            if (!container.contains(globalSceneState.renderer.domElement)) {
+                container.innerHTML = '';
+                container.appendChild(globalSceneState.renderer.domElement);
+                // Re-apply last known props
+                if (lastProps) {
+                    updateSceneGeometry(globalSceneState, lastProps.dims, lastProps.boxType, 
+                        lastProps.crateType, lastProps.mainRows, lastProps.supps, lastProps.runnerConfig);
                 }
             }
         }
+    }, 100);
+}
 
-        const baseY = bH; // Y position after bottom runners
+// Start the watcher when the script loads
+setupContainerWatcher();
 
-        // ============================================================
-        // STEP 2: BOTTOM PANEL
-        // The base/floor of the box
-        // ============================================================
+// Initialize the scene once the container is available in the DOM
+function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig) {
+    // Store props for later use
+    lastProps = { dims, boxType, crateType, mainRows, supps, runnerConfig };
+    
+    // Find the container div by a unique attribute we'll set
+    const container = document.getElementById('three-scene-container');
+    if (!container) {
+        // Container not ready yet, try again on next frame
+        requestAnimationFrame(() => initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig));
+        return;
+    }
 
-        const botL = mainRows.bottom.l;
-        const botW = mainRows.bottom.w;
-        group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK / 2, 0));
+    // Get container dimensions
+    const w = container.clientWidth || 400;
+    const h = container.clientHeight || 400;
 
-        const floorLevel = baseY + THK;
-
-        // ============================================================
-        // STEP 3: SIDE PANELS (Left and Right walls)
-        // ============================================================
-
-        const sL = mainRows.sides.l;
-        const sH = mainRows.sides.w;
-        let sideY, sideZ_offset;
-
-        if (isBottomType) {
-            // Bottom type: Sides sit at base level, outside the bottom panel
-            sideY = baseY + sH / 2;
-            sideZ_offset = (mainRows.bottom.w / 2) + (THK / 2);
-        } else {
-            // Simple type: Sides sit on top of floor, inside the base dimensions
-            sideY = floorLevel + sH / 2;
-            sideZ_offset = (botW / 2) - (THK / 2);
+    // If we have an existing scene, just re-attach the canvas and update
+    if (globalSceneState && globalSceneState.renderer) {
+        // Check if canvas is not already in this container
+        if (!container.contains(globalSceneState.renderer.domElement)) {
+            container.innerHTML = '';
+            container.appendChild(globalSceneState.renderer.domElement);
         }
+        // Update the scene geometry
+        updateSceneGeometry(globalSceneState, dims, boxType, crateType, mainRows, supps, runnerConfig);
+        return;
+    }
 
-        // Add left and right side panels
-        group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset));
-        group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset));
+    // ============================================================
+    // SCENE SETUP (only runs once)
+    // ============================================================
+    
+    // Create scene with warm background
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xfff8ef);
 
-        // ============================================================
-        // STEP 4: KARA PANELS (Front and Back end walls)
-        // ============================================================
+    // Setup camera (perspective view)
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+    camera.position.set(60, 50, 80);
 
-        const kL = mainRows.kara.l;
-        const kH = mainRows.kara.w;
-        const kThk = THK;
+    // Setup WebGL renderer with antialiasing
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(w, h);
+    renderer.shadowMap.enabled = true;
+    
+    // Add canvas to container
+    container.innerHTML = '';
+    container.appendChild(renderer.domElement);
 
-        let karaY, karaX_offset;
+    // ============================================================
+    // LIGHTING SETUP
+    // ============================================================
+    
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(50, 60, 50);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
 
+    // ============================================================
+    // CAMERA CONTROLS (Orbit)
+    // ============================================================
+    
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Create group for box parts
+    const group = new THREE.Group();
+    scene.add(group);
+
+    // Store global state
+    globalSceneState = {
+        scene,
+        camera,
+        renderer,
+        controls,
+        group
+    };
+    sceneInitialized = true;
+
+    // Build initial geometry
+    updateSceneGeometry(globalSceneState, dims, boxType, crateType, mainRows, supps, runnerConfig);
+
+    // ============================================================
+    // ANIMATION LOOP
+    // ============================================================
+
+    const animate = () => {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    };
+    animate();
+}
+
+const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
+    useEffect(() => {
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+            initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig);
+        });
+    }, [dims, boxType, crateType, mainRows, supps, runnerConfig]);
+
+    // Return the container div with an ID so we can find it later
+    return React.createElement('div', { 
+        id: 'three-scene-container',
+        style: { width: '100%', height: '100%' } 
+    });
+};
+
+/**
+ * Update the scene geometry based on current props
+ */
+function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, runnerConfig) {
+    const { group } = state;
+    
+    // Clear existing geometry
+    while (group.children.length > 0) {
+        group.remove(group.children[0]);
+    }
+    
+    // ============================================================
+    // MATERIALS (Wood Colors)
+    // ============================================================
+    
+    const woodMat = new THREE.MeshStandardMaterial({ 
+        color: 0xfcd34d,  // Light yellow for panels
+        roughness: 0.8 
+    });
+    const woodMatSide = new THREE.MeshStandardMaterial({ 
+        color: 0xf59e0b,  // Orange for sides
+        roughness: 0.8 
+    });
+    const woodMatDark = new THREE.MeshStandardMaterial({ 
+        color: 0x78350f,  // Dark brown for runners
+        roughness: 0.9 
+    });
+
+    // ============================================================
+    // HELPER FUNCTION: Create Box Geometry
+    // ============================================================
+    
+    const createBox = (w, h, d, colorMat, x, y, z) => {
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mesh = new THREE.Mesh(geo, colorMat);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+    };
+
+    // ============================================================
+    // CONSTANTS
+    // ============================================================
+    
+    const THK = 1;  // Panel thickness
+    const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+
+    // ============================================================
+    // BOTTOM RUNNERS (Foundation)
+    // ============================================================
+    
+    const bSize = getSizeDims(supps.bottom.size);
+    const bH = bSize.w;
+    const bW = bSize.t;
+    const bLen = supps.bottom.dim;
+    const bCount = supps.bottom.count;
+    let runnerPositions = [];
+
+    if (bCount > 0) {
         if (isBottomType) {
-            // Bottom type: Kara sits at base level, outside bottom panel
-            karaY = baseY + kH / 2;
-            karaX_offset = (mainRows.bottom.l / 2) + (kThk / 2);
-        } else {
-            // Simple type: Kara sits on floor, at box length edges
-            karaY = floorLevel + kH / 2;
-            karaX_offset = (parseFloat(dims.l) / 2) + (kThk / 2);
-        }
-
-        // Add front and back kara panels
-        group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0));
-        group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0));
-
-        // ============================================================
-        // STEP 5: SIDE RUNNERS (Support beams on side panels)
-        // ============================================================
-
-        const srLen = supps.sides.dim;
-        const srCount = Math.round(supps.sides.count / 2); // Divide by 2 for each side
-
-        /**
-         * Draws runners on one side panel.
-         * @param {number} sideMultiplier - 1 for right side, -1 for left side
-         */
-        const drawSideRunners = (sideMultiplier) => {
-            const zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5);
-
-            if (isBottomType || runnerConfig.sideDir === 'horizontal') {
-                // HORIZONTAL RUNNERS (run along length of box)
-                if (isBottomType && srCount > 0) {
-                    // Bottom Type: One runner at top, rest distributed
-                    const topY = baseY + sH - 1.5;
-                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel));
-
-                    if (srCount > 1) {
-                        const remainingSpace = sH - 3;
-                        const step = remainingSpace / srCount;
-                        for (let i = 1; i < srCount; i++) {
-                            const yPos = baseY + (i * step);
-                            group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
-                        }
-                    }
+            const spreadW = mainRows.bottom.w;
+            for (let i = 0; i < bCount; i++) {
+                let zPos;
+                if (bCount === 1) {
+                    zPos = 0;
                 } else {
-                    // Simple type horizontal
-                    const stepY = sH / (srCount + 1);
-                    for (let i = 1; i <= srCount; i++) {
-                        const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
+                    const maxOffset = (spreadW / 2) - (bW / 2);
+                    const pct = i / (bCount - 1);
+                    zPos = -maxOffset + (pct * 2 * maxOffset);
+                }
+                runnerPositions.push(zPos);
+                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
+            }
+        } else {
+            if (runnerConfig.bottomDir === 'width') {
+                const spreadL = mainRows.bottom.l;
+                const stepX = spreadL / (bCount + 1);
+                for (let i = 1; i <= bCount; i++) {
+                    const xPos = -spreadL / 2 + (i * stepX);
+                    runnerPositions.push(xPos);
+                    group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH / 2, 0));
+                }
+            } else {
+                const spreadW = mainRows.bottom.w;
+                const stepZ = spreadW / (bCount + 1);
+                for (let i = 1; i <= bCount; i++) {
+                    const zPos = -spreadW / 2 + (i * stepZ);
+                    runnerPositions.push(zPos);
+                    group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
+                }
+            }
+        }
+    }
+
+    const baseY = bH;
+
+    // ============================================================
+    // BOTTOM PANEL
+    // ============================================================
+    
+    const botL = mainRows.bottom.l;
+    const botW = mainRows.bottom.w;
+    group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK / 2, 0));
+
+    const floorLevel = baseY + THK;
+
+    // ============================================================
+    // SIDE PANELS
+    // ============================================================
+    
+    const sL = mainRows.sides.l;
+    const sH = mainRows.sides.w;
+    let sideY, sideZ_offset;
+
+    if (isBottomType) {
+        sideY = baseY + sH / 2;
+        sideZ_offset = (mainRows.bottom.w / 2) + (THK / 2);
+    } else {
+        sideY = floorLevel + sH / 2;
+        sideZ_offset = (botW / 2) - (THK / 2);
+    }
+
+    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset));
+    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset));
+
+    // ============================================================
+    // KARA PANELS (End Panels)
+    // ============================================================
+    
+    const kL = mainRows.kara.l;
+    const kH = mainRows.kara.w;
+    const kThk = THK;
+    let karaY, karaX_offset;
+
+    if (isBottomType) {
+        karaY = baseY + kH / 2;
+        karaX_offset = (mainRows.bottom.l / 2) + (kThk / 2);
+    } else {
+        karaY = floorLevel + kH / 2;
+        karaX_offset = (parseFloat(dims.l) / 2) + (kThk / 2);
+    }
+
+    group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0));
+    group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0));
+
+    // ============================================================
+    // SIDE RUNNERS
+    // ============================================================
+    
+    const srLen = supps.sides.dim;
+    const srCount = Math.round(supps.sides.count / 2);
+
+    const drawSideRunners = (sideMultiplier) => {
+        const zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5);
+
+        if (isBottomType || runnerConfig.sideDir === 'horizontal') {
+            if (isBottomType && srCount > 0) {
+                const topY = baseY + sH - 1.5;
+                group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel));
+                if (srCount > 1) {
+                    const remainingSpace = sH - 3;
+                    const step = remainingSpace / srCount;
+                    for (let i = 1; i < srCount; i++) {
+                        const yPos = baseY + (i * step);
                         group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
                     }
                 }
             } else {
-                // VERTICAL RUNNERS (run up/down) - ALIGNED with Bottom Runners
-                let positions = [];
-                if (runnerConfig.bottomDir === 'width' && runnerPositions.length > 0) {
-                    positions = runnerPositions; // Align with bottom runners
-                } else {
-                    // Create evenly distributed positions
-                    const totalL = mainRows.sides.l;
-                    const step = totalL / (srCount + 1);
-                    for (let i = 1; i <= srCount; i++) {
-                        positions.push(-totalL / 2 + i * step);
-                    }
+                const stepY = sH / (srCount + 1);
+                for (let i = 1; i <= srCount; i++) {
+                    const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
+                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
                 }
-
-                const vCenterY = srLen / 2;
-
-                positions.forEach(xPos => {
-                    group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
-                });
             }
-        };
-
-        if (supps.sides.count > 0) {
-            drawSideRunners(1);   // Right side
-            drawSideRunners(-1);  // Left side
+        } else {
+            let positions = [];
+            if (runnerConfig.bottomDir === 'width' && runnerPositions.length > 0) {
+                positions = runnerPositions;
+            } else {
+                const totalL = mainRows.sides.l;
+                const step = totalL / (srCount + 1);
+                for (let i = 1; i <= srCount; i++) {
+                    positions.push(-totalL / 2 + i * step);
+                }
+            }
+            const vCenterY = srLen / 2;
+            positions.forEach(xPos => {
+                group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
+            });
         }
+    };
 
-        // ============================================================
-        // STEP 6: KARA RUNNERS (Support beams on end panels)
-        // Different structure for Simple vs Bottom types
-        // ============================================================
+    if (supps.sides.count > 0) {
+        drawSideRunners(1);
+        drawSideRunners(-1);
+    }
+
+    // ============================================================
+    // KARA RUNNERS
+    // ============================================================
+    
+    if (isBottomType) {
+        const kVertLen = supps.karaVert.dim;
+        const kVertSize = getSizeDims(supps.karaVert.size);
+        const kVertW = kVertSize.w;
+        const kV_Y = baseY + (kVertLen / 2);
+
+        [1, -1].forEach(dirX => {
+            const xPos = dirX * (karaX_offset + kThk + 1.5);
+            if (runnerPositions.length > 0) {
+                runnerPositions.forEach(zPos => {
+                    group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
+                });
+            } else {
+                const kPostZ = (kL / 2) - 1.5;
+                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
+                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
+            }
+        });
+    } else {
+        const kHorzLen = supps.karaHorz.dim;
+        const kVertLen = supps.karaVert.dim;
+        const suppW = getSizeDims(supps.karaHorz.size).w;
+        const frameThickness = 4;
+
+        const kY_Top = floorLevel + kH - (suppW / 2);
+        const kY_Bot = floorLevel + (suppW / 2);
+        const kY_Mid = floorLevel + (kH / 2);
+        const kZ_Left = (kL / 2) - (suppW / 2);
+        const kZ_Right = -((kL / 2) - (suppW / 2));
+
+        [1, -1].forEach(dirX => {
+            const xPos = dirX * (karaX_offset + kThk + 1.5);
+            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0));
+            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
+            if (kVertLen > 0) {
+                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left));
+                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Right));
+            }
+        });
+    }
+
+    // ============================================================
+    // TOP LID
+    // ============================================================
+    
+    const tL = mainRows.top.l;
+    const tW = mainRows.top.w;
+    const topY = (isBottomType ? baseY : floorLevel) + sH + THK / 2;
+    group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0));
+
+    // ============================================================
+    // TOP LID RUNNERS
+    // ============================================================
+    
+    if (supps.top.count > 0) {
+        const trH = 3;
+        const trY = topY + (THK / 2) + trH / 2 + 0.5;
+
+        let topRunnerPositions = [];
+        if (runnerPositions.length > 0) {
+            topRunnerPositions = runnerPositions;
+        } else {
+            const count = supps.top.count;
+            if (isBottomType) {
+                const spreadW = tW;
+                const step = spreadW / (count + 1);
+                for (let i = 1; i <= count; i++) {
+                    topRunnerPositions.push(-spreadW / 2 + (i * step));
+                }
+            } else {
+                const spreadL = tL;
+                const step = spreadL / (count + 1);
+                for (let i = 1; i <= count; i++) {
+                    topRunnerPositions.push(-spreadL / 2 + (i * step));
+                }
+            }
+        }
 
         if (isBottomType) {
-            // BOTTOM TYPE: Vertical Posts at corners
-            const kVertLen = supps.karaVert.dim;
-            const kVertSize = getSizeDims(supps.karaVert.size);
-            const kVertW = kVertSize.w;
-            const kV_Y = baseY + (kVertLen / 2);
-
-            [1, -1].forEach(dirX => {
-                const xPos = dirX * (karaX_offset + kThk + 1.5);
-
-                if (runnerPositions.length > 0) {
-                    // Place posts at bottom runner positions
-                    runnerPositions.forEach(zPos => {
-                        group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
-                    });
-                } else {
-                    // Default: posts at corners
-                    const kPostZ = (kL / 2) - 1.5;
-                    group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
-                    group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
-                }
+            const trW = 4;
+            const trLen = tL;
+            topRunnerPositions.forEach(zPos => {
+                group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
             });
         } else {
-            // SIMPLE TYPE: SQUARE FRAME (top, bottom, left, right beams)
-            const kHorzLen = supps.karaHorz.dim;
-            const kVertLen = supps.karaVert.dim;
-            const suppW = getSizeDims(supps.karaHorz.size).w;
-            const frameThickness = 4; // Frame beam thickness
-
-            const kY_Top = floorLevel + kH - (suppW / 2);
-            const kY_Bot = floorLevel + (suppW / 2);
-            const kY_Mid = floorLevel + (kH / 2);
-
-            const kZ_Left = (kL / 2) - (suppW / 2);
-            const kZ_Right = -((kL / 2) - (suppW / 2));
-
-            [1, -1].forEach(dirX => {
-                const xPos = dirX * (karaX_offset + kThk + 1.5);
-
-                // Top horizontal beam
-                group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0));
-                // Bottom horizontal beam
-                group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
-
-                // Left and right vertical beams
-                if (kVertLen > 0) {
-                    group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left));
-                    group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Right));
-                }
+            const trLen = tW;
+            const topSize = getSizeDims(supps.top.size);
+            const trW = topSize.w + 0.5;
+            topRunnerPositions.forEach(xPos => {
+                group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
             });
         }
-
-        // ============================================================
-        // STEP 7: TOP LID PANEL
-        // ============================================================
-
-        const tL = mainRows.top.l;
-        const tW = mainRows.top.w;
-        const topY = (isBottomType ? baseY : floorLevel) + sH + THK / 2;
-        group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0));
-
-        // ============================================================
-        // STEP 8: TOP LID RUNNERS
-        // ============================================================
-
-        if (supps.top.count > 0) {
-            const trH = 3; // Runner height
-            const trY = topY + (THK / 2) + trH / 2 + 0.5; // Position on top of lid
-
-            // Determine positions with fallback logic
-            let topRunnerPositions = [];
-
-            if (runnerPositions.length > 0) {
-                // Use existing bottom runner positions if available
-                topRunnerPositions = runnerPositions;
-            } else {
-                // Fallback: create positions based on top support count
-                const count = supps.top.count;
-                if (isBottomType) {
-                    // For bottom type, distribute along width
-                    const spreadW = tW;
-                    const step = spreadW / (count + 1);
-                    for (let i = 1; i <= count; i++) {
-                        topRunnerPositions.push(-spreadW / 2 + (i * step));
-                    }
-                } else {
-                    // For simple type, distribute along length
-                    const spreadL = tL;
-                    const step = spreadL / (count + 1);
-                    for (let i = 1; i <= count; i++) {
-                        topRunnerPositions.push(-spreadL / 2 + (i * step));
-                    }
-                }
-            }
-
-            if (isBottomType) {
-                // BOTTOM TYPE: Runners run length-wise
-                const trW = 4;
-                const trLen = tL;
-
-                topRunnerPositions.forEach(zPos => {
-                    group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
-                });
-            } else {
-                // SIMPLE TYPE: Runners run width-wise
-                const trLen = tW;
-                const topSize = getSizeDims(supps.top.size);
-                const trW = topSize.w + 0.5;
-
-                topRunnerPositions.forEach(xPos => {
-                    group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
-                });
-            }
-        }
-
-        // ============================================================
-        // ANIMATION LOOP
-        // ============================================================
-
-        const animate = () => {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        };
-        animate();
-
-        // ============================================================
-        // CLEANUP
-        // Runs when component unmounts or props change
-        // ============================================================
-
-        return () => {
-            if (mountRef.current && renderer.domElement) {
-                mountRef.current.removeChild(renderer.domElement);
-            }
-            renderer.dispose();
-        };
-    }, [dims, boxType, crateType, mainRows, supps, runnerConfig]);
-
-    // Return the container div that will hold the 3D canvas
-    return React.createElement('div', { 
-        ref: mountRef, 
-        style: { width: '100%', height: '100%' } 
-    });
-};
+    }
+}
 
 // ================================================================================
 // EXPORTS
