@@ -98,30 +98,60 @@ const { useRef, useEffect } = React;
 let globalSceneState = null;
 let sceneInitialized = false;
 let lastProps = null;
+let containerWatcherInterval = null;
 
 // Watch for container changes and re-attach canvas when needed
+// Uses MutationObserver for efficiency, with setInterval as fallback
 function setupContainerWatcher() {
-    // Check periodically if the container exists and needs the canvas
-    setInterval(() => {
-        const container = document.getElementById('three-scene-container');
-        if (container && globalSceneState && globalSceneState.renderer) {
-            if (!container.contains(globalSceneState.renderer.domElement)) {
-                container.innerHTML = '';
-                container.appendChild(globalSceneState.renderer.domElement);
-                // Re-apply last known props
-                if (lastProps) {
-                    updateSceneGeometry(globalSceneState, lastProps.dims, lastProps.boxType, 
-                        lastProps.crateType, lastProps.mainRows, lastProps.supps, lastProps.runnerConfig);
+    // Use MutationObserver if available for better performance
+    if (typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver(() => {
+            const container = document.getElementById('three-scene-container');
+            if (container && globalSceneState && globalSceneState.renderer) {
+                if (!container.contains(globalSceneState.renderer.domElement)) {
+                    container.innerHTML = '';
+                    container.appendChild(globalSceneState.renderer.domElement);
+                    if (lastProps) {
+                        updateSceneGeometry(globalSceneState, lastProps.dims, lastProps.boxType, 
+                            lastProps.crateType, lastProps.mainRows, lastProps.supps, lastProps.runnerConfig);
+                    }
                 }
             }
+        });
+        
+        // Start observing once DOM is ready
+        if (document.body) {
+            observer.observe(document.body, { childList: true, subtree: true });
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                observer.observe(document.body, { childList: true, subtree: true });
+            });
         }
-    }, 100);
+    } else {
+        // Fallback to setInterval for older browsers
+        containerWatcherInterval = setInterval(() => {
+            const container = document.getElementById('three-scene-container');
+            if (container && globalSceneState && globalSceneState.renderer) {
+                if (!container.contains(globalSceneState.renderer.domElement)) {
+                    container.innerHTML = '';
+                    container.appendChild(globalSceneState.renderer.domElement);
+                    if (lastProps) {
+                        updateSceneGeometry(globalSceneState, lastProps.dims, lastProps.boxType, 
+                            lastProps.crateType, lastProps.mainRows, lastProps.supps, lastProps.runnerConfig);
+                    }
+                }
+            }
+        }, 100);
+    }
 }
 
 // Start the watcher when the script loads
 setupContainerWatcher();
 
 // Initialize the scene once the container is available in the DOM
+const MAX_INIT_RETRIES = 100; // Maximum retries (~1.6 seconds at 60fps)
+let initRetryCount = 0;
+
 function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig) {
     // Store props for later use
     lastProps = { dims, boxType, crateType, mainRows, supps, runnerConfig };
@@ -129,10 +159,16 @@ function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerC
     // Find the container div by a unique attribute we'll set
     const container = document.getElementById('three-scene-container');
     if (!container) {
-        // Container not ready yet, try again on next frame
-        requestAnimationFrame(() => initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig));
+        // Container not ready yet, try again on next frame (with retry limit)
+        initRetryCount++;
+        if (initRetryCount < MAX_INIT_RETRIES) {
+            requestAnimationFrame(() => initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig));
+        }
         return;
     }
+    
+    // Reset retry count on success
+    initRetryCount = 0;
 
     // Get container dimensions
     const w = container.clientWidth || 400;

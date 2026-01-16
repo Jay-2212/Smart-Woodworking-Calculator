@@ -11,7 +11,7 @@
     
     // Component-scoped hook storage
     let componentStack = [];      // Stack of component IDs during render
-    let hookStates = {};          // Map: componentId -> { states: [], refs: [], effectDeps: [] }
+    let hookStates = {};          // Map: componentId -> { states: [], refs: [], effectDeps: [], memos: [] }
     let hookIndex = 0;            // Current hook index within a component
     let componentCounter = 0;     // Counter to generate unique component IDs
     let componentIdMap = new WeakMap(); // Map function -> stable ID
