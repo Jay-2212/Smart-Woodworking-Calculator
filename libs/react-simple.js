@@ -8,10 +8,34 @@
     // Store the root component and container
     let rootContainer = null;
     let rootComponent = null;
-    let componentState = {};
-    let stateIndex = 0;
+    
+    // Component-scoped hook storage
+    let componentStack = [];      // Stack of component IDs during render
+    let hookStates = {};          // Map: componentId -> { states: [], refs: [], effectDeps: [], memos: [] }
+    let hookIndex = 0;            // Current hook index within a component
+    let componentCounter = 0;     // Counter to generate unique component IDs
+    let componentIdMap = new WeakMap(); // Map function -> stable ID
+    
     let effectsQueue = [];
     let isRendering = false;
+
+    // Get or create a stable ID for a component function
+    function getComponentId(type) {
+        if (!componentIdMap.has(type)) {
+            componentIdMap.set(type, `comp_${componentCounter++}`);
+        }
+        return componentIdMap.get(type);
+    }
+    
+    // Get current component's hook storage
+    function getCurrentHookStorage() {
+        const componentId = componentStack[componentStack.length - 1];
+        if (!componentId) return null;
+        if (!hookStates[componentId]) {
+            hookStates[componentId] = { states: [], refs: [], effectDeps: [], memos: [] };
+        }
+        return hookStates[componentId];
+    }
 
     // Create a simple VNode structure
     function createElement(type, props, ...children) {
@@ -46,18 +70,26 @@
 
         // Handle component functions
         if (typeof type === 'function') {
-            stateIndex = 0;
-            const componentProps = { ...props, children };
+            const componentId = getComponentId(type);
+            componentStack.push(componentId);
+            hookIndex = 0;
             
-            // Handle class components
-            if (type.prototype && type.prototype.render) {
-                const instance = new type(componentProps);
-                const componentVNode = instance.render();
-                return createDOMElement(componentVNode);
+            const componentProps = { ...props, children };
+            let componentVNode;
+            
+            try {
+                // Handle class components
+                if (type.prototype && type.prototype.render) {
+                    const instance = new type(componentProps);
+                    componentVNode = instance.render();
+                } else {
+                    // Handle function components
+                    componentVNode = type(componentProps);
+                }
+            } finally {
+                componentStack.pop();
             }
             
-            // Handle function components
-            const componentVNode = type(componentProps);
             return createDOMElement(componentVNode);
         }
 
@@ -106,7 +138,6 @@
         if (isRendering || !rootContainer || !rootComponent) return;
         
         isRendering = true;
-        stateIndex = 0;
         effectsQueue = [];
         
         try {
@@ -123,81 +154,99 @@
                 rootContainer.appendChild(newDOM);
             }
             
-            // Run effects
+            // Run effects after DOM is updated
             effectsQueue.forEach(effect => effect());
         } finally {
             isRendering = false;
         }
     }
 
-    // useState implementation
+    // useState implementation - component scoped
     function useState(initialValue) {
-        const currentIndex = stateIndex++;
-        const key = `state_${currentIndex}`;
+        const storage = getCurrentHookStorage();
+        if (!storage) {
+            console.error('useState called outside of component render');
+            return [initialValue, () => {}];
+        }
         
-        if (!(key in componentState)) {
-            componentState[key] = typeof initialValue === 'function' ? initialValue() : initialValue;
+        const currentIndex = hookIndex++;
+        
+        if (storage.states[currentIndex] === undefined) {
+            storage.states[currentIndex] = typeof initialValue === 'function' ? initialValue() : initialValue;
         }
 
         const setState = (newValue) => {
             const nextValue = typeof newValue === 'function' 
-                ? newValue(componentState[key]) 
+                ? newValue(storage.states[currentIndex]) 
                 : newValue;
             
-            if (componentState[key] !== nextValue) {
-                componentState[key] = nextValue;
+            if (storage.states[currentIndex] !== nextValue) {
+                storage.states[currentIndex] = nextValue;
                 setTimeout(rerender, 0);
             }
         };
 
-        return [componentState[key], setState];
+        return [storage.states[currentIndex], setState];
     }
 
-    // useEffect implementation
-    let effectDeps = {};
+    // useEffect implementation - component scoped
     function useEffect(callback, deps) {
-        const currentIndex = stateIndex++;
-        const key = `effect_${currentIndex}`;
+        const storage = getCurrentHookStorage();
+        if (!storage) {
+            console.error('useEffect called outside of component render');
+            return;
+        }
         
-        const hasChanged = !effectDeps[key] || !deps || 
-            deps.some((dep, i) => dep !== effectDeps[key][i]);
+        const currentIndex = hookIndex++;
+        const prevDeps = storage.effectDeps[currentIndex];
+        
+        const hasChanged = !prevDeps || !deps || 
+            deps.some((dep, i) => dep !== prevDeps[i]);
 
         if (hasChanged) {
-            effectDeps[key] = deps;
+            storage.effectDeps[currentIndex] = deps ? [...deps] : undefined;
             effectsQueue.push(callback);
         }
     }
 
-    // useRef implementation
-    let refs = {};
+    // useRef implementation - component scoped
     function useRef(initialValue) {
-        const currentIndex = stateIndex++;
-        const key = `ref_${currentIndex}`;
-        
-        if (!refs[key]) {
-            refs[key] = { current: initialValue };
+        const storage = getCurrentHookStorage();
+        if (!storage) {
+            console.error('useRef called outside of component render');
+            return { current: initialValue };
         }
         
-        return refs[key];
+        const currentIndex = hookIndex++;
+        
+        if (!storage.refs[currentIndex]) {
+            storage.refs[currentIndex] = { current: initialValue };
+        }
+        
+        return storage.refs[currentIndex];
     }
 
-    // useMemo implementation
-    let memos = {};
+    // useMemo implementation - component scoped
     function useMemo(factory, deps) {
-        const currentIndex = stateIndex++;
-        const key = `memo_${currentIndex}`;
-        
-        if (!memos[key]) {
-            memos[key] = { value: undefined, deps: undefined };
+        const storage = getCurrentHookStorage();
+        if (!storage) {
+            console.error('useMemo called outside of component render');
+            return factory();
         }
         
-        const memo = memos[key];
+        const currentIndex = hookIndex++;
+        
+        if (!storage.memos[currentIndex]) {
+            storage.memos[currentIndex] = { value: undefined, deps: undefined };
+        }
+        
+        const memo = storage.memos[currentIndex];
         const hasChanged = !memo.deps || !deps || 
             deps.some((dep, i) => dep !== memo.deps[i]);
 
         if (hasChanged) {
             memo.value = factory();
-            memo.deps = deps;
+            memo.deps = deps ? [...deps] : undefined;
         }
 
         return memo.value;
