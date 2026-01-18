@@ -13,6 +13,20 @@
 (function(global) {
     'use strict';
 
+    // ================================================================================
+    // CONSTANTS
+    // ================================================================================
+    
+    // Threshold for back-face culling to avoid z-fighting artifacts
+    const BACKFACE_CULL_THRESHOLD = -0.1;
+    
+    // Threshold for damping velocity cutoff
+    const DAMPING_VELOCITY_THRESHOLD = 0.0001;
+    
+    // Maximum rotation angle limits (radians) to prevent flipping
+    const MAX_PITCH = Math.PI / 2 - 0.1;
+    const MIN_PITCH = -Math.PI / 2 + 0.1;
+
     // Vector3 class
     class Vector3 {
         constructor(x = 0, y = 0, z = 0) {
@@ -195,9 +209,10 @@
             const ctx = this.context;
             const width = this.width;
             const height = this.height;
+            const dpr = window.devicePixelRatio || 1;
 
-            // Reset transform for clearing
-            ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+            // Reset transform for clearing (use stored dpr)
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             
             // Clear canvas
             ctx.fillStyle = scene.background.getStyle();
@@ -328,7 +343,8 @@
                 const nz2 = ny * sinX + nz1 * cosX;
 
                 // Face is visible if normal points toward camera (positive Z after rotation)
-                if (nz2 > -0.1) {  // Small threshold to avoid z-fighting
+                // Uses BACKFACE_CULL_THRESHOLD to avoid z-fighting artifacts
+                if (nz2 > BACKFACE_CULL_THRESHOLD) {
                     const faceCorners = faceDef.corners.map(i => transformedCorners[i]);
                     
                     // Calculate average depth for sorting
@@ -398,6 +414,11 @@
             let isDragging = false;
             let previousPosition = { x: 0, y: 0 };
 
+            // Helper function to clamp camera pitch angle
+            const clampPitch = () => {
+                camera.rotationX = Math.max(MIN_PITCH, Math.min(MAX_PITCH, camera.rotationX));
+            };
+
             // Mouse events
             const onMouseDown = (e) => {
                 isDragging = true;
@@ -416,7 +437,7 @@
                     camera.rotationX += deltaY * 0.01;
                     
                     // Clamp vertical rotation to avoid flipping
-                    camera.rotationX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camera.rotationX));
+                    clampPitch();
                     
                     // Store velocity for damping
                     this.rotationVelocityY = deltaX * 0.01;
@@ -453,7 +474,7 @@
                     
                     camera.rotationY += deltaX * 0.01;
                     camera.rotationX += deltaY * 0.01;
-                    camera.rotationX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camera.rotationX));
+                    clampPitch();
                     
                     this.rotationVelocityY = deltaX * 0.01;
                     this.rotationVelocityX = deltaY * 0.01;
@@ -501,12 +522,12 @@
         update() {
             // Apply damping to rotation velocity
             if (this.enableDamping) {
-                if (Math.abs(this.rotationVelocityX) > 0.0001) {
+                if (Math.abs(this.rotationVelocityX) > DAMPING_VELOCITY_THRESHOLD) {
                     this.rotationVelocityX *= (1 - this.dampingFactor);
                 } else {
                     this.rotationVelocityX = 0;
                 }
-                if (Math.abs(this.rotationVelocityY) > 0.0001) {
+                if (Math.abs(this.rotationVelocityY) > DAMPING_VELOCITY_THRESHOLD) {
                     this.rotationVelocityY *= (1 - this.dampingFactor);
                 } else {
                     this.rotationVelocityY = 0;
