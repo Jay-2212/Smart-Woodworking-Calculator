@@ -457,7 +457,8 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
                     positions.push(-totalL / 2 + i * step);
                 }
             }
-            const vCenterY = srLen / 2;
+            // Position vertical runners starting from the floor level
+            const vCenterY = floorLevel + (srLen / 2);
             positions.forEach(xPos => {
                 group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
             });
