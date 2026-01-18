@@ -184,8 +184,8 @@ function App() {
     // These get auto-calculated based on box dimensions
     // ================================================================
     const [mainRows, setMainRows] = useState({
-        top: { l: 44, w: 22, t: 1, qty: 2 },      // qty: 2 for top and bottom combined in simple box
-        bottom: { l: 44, w: 22, t: 1, qty: 2 },   // qty: 2 for top and bottom combined in simple box
+        top: { l: 44, w: 22, t: 1, qty: 2 },      // Simple box: displayed as "Top & Bottom" combined row
+        bottom: { l: 44, w: 22, t: 1, qty: 2 },   // Simple box: same as top, both shown in one row with qty=2
         sides: { l: 44, w: 20, t: 1, qty: 2 },
         kara: { l: 20, w: 20, t: 1, qty: 2 }
     });
@@ -267,8 +267,8 @@ function App() {
             const baseW = w + 2;  // 2" overhang on width
 
             setMainRows({
-                top: { l: baseL, w: baseW, t: 1, qty: 2 },     // qty: 2 for top and bottom combined
-                bottom: { l: baseL, w: baseW, t: 1, qty: 2 },  // qty: 2 for top and bottom combined
+                top: { l: baseL, w: baseW, t: 1, qty: 2 },     // qty=2: UI shows "Top & Bottom" as one combined row
+                bottom: { l: baseL, w: baseW, t: 1, qty: 2 },  // Same as top, displayed together in the UI
                 sides: { l: baseL, w: h, t: 1, qty: 2 },
                 kara: { l: w, w: h, t: 1, qty: 2 }
             });
