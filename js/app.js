@@ -236,11 +236,12 @@ function App() {
 
     // ================================================================
     // EFFECT: Auto-adjust global runners based on length
-    // Only applies to simple box type
+    // Updates when dimensions change (both increase and decrease)
     // ================================================================
     useEffect(() => {
         if (boxType === 'simple') {
-            setGlobalRunners(prev => (prev < recommendedRunners ? recommendedRunners : prev));
+            // Always update runners to match the recommended count for the current length
+            setGlobalRunners(recommendedRunners);
         }
     }, [recommendedRunners, boxType]);
 

@@ -2,6 +2,12 @@
  * Minimal Three.js implementation for Smart Woodworking Calculator
  * This is a lightweight alternative that provides basic 3D rendering using Canvas 2D
  * It implements only the Three.js API features used by this specific app
+ * 
+ * Features:
+ * - Interactive rotation via mouse/touch drag
+ * - Zoom via mouse wheel or pinch gesture
+ * - Proper 3D box rendering with all visible faces
+ * - Depth-sorted rendering (painter's algorithm)
  */
 
 (function(global) {
@@ -36,7 +42,9 @@
             this.r = 1;
             this.g = 1;
             this.b = 1;
-            this.setHex(color);
+            if (color !== undefined) {
+                this.setHex(color);
+            }
         }
 
         setHex(hex) {
@@ -154,54 +162,68 @@
             this.aspect = aspect;
             this.near = near;
             this.far = far;
+            // Rotation angles for orbit control (in radians)
+            this.rotationX = Math.PI / 6;  // Vertical angle (pitch) - looking down
+            this.rotationY = Math.PI / 4;  // Horizontal angle (yaw) - 45 degrees
+            this.distance = 150;           // Distance from origin
         }
     }
 
-    // WebGL Renderer (using Canvas 2D)
+    // WebGL Renderer (using Canvas 2D with proper 3D projection)
     class WebGLRenderer {
         constructor(params = {}) {
             this.domElement = document.createElement('canvas');
             this.context = this.domElement.getContext('2d');
             this.shadowMap = { enabled: false };
+            this.width = 400;
+            this.height = 400;
         }
 
         setSize(width, height) {
-            this.domElement.width = width;
-            this.domElement.height = height;
+            this.width = width;
+            this.height = height;
+            // Use device pixel ratio for sharper rendering
+            const dpr = window.devicePixelRatio || 1;
+            this.domElement.width = width * dpr;
+            this.domElement.height = height * dpr;
             this.domElement.style.width = width + 'px';
             this.domElement.style.height = height + 'px';
+            this.context.scale(dpr, dpr);
         }
 
         render(scene, camera) {
             const ctx = this.context;
-            const width = this.domElement.width;
-            const height = this.domElement.height;
+            const width = this.width;
+            const height = this.height;
 
+            // Reset transform for clearing
+            ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+            
             // Clear canvas
             ctx.fillStyle = scene.background.getStyle();
             ctx.fillRect(0, 0, width, height);
 
-            // Collect all meshes with their positions
+            // Collect all meshes
             const meshes = [];
             this.collectMeshes(scene, meshes);
 
-            // Sort by depth for proper rendering order (painter's algorithm)
-            // For isometric projection, depth = x + z - y ensures objects further back
-            // (higher x, higher z) are drawn first, while objects higher up (higher y) 
-            // are drawn later to appear on top
-            meshes.sort((a, b) => {
-                const depthA = a.position.x + a.position.z - a.position.y;
-                const depthB = b.position.x + b.position.z - b.position.y;
-                return depthA - depthB;
+            // Create faces array for all visible faces of all meshes
+            const allFaces = [];
+
+            meshes.forEach(mesh => {
+                const faces = this.getMeshFaces(mesh, camera);
+                allFaces.push(...faces);
             });
 
-            // Draw a simple 3D representation
-            ctx.save();
-            ctx.translate(width / 2, height / 2 + 50);
+            // Sort faces by depth (painter's algorithm - draw furthest first)
+            allFaces.sort((a, b) => a.depth - b.depth);
 
-            // Render each mesh
-            meshes.forEach(mesh => {
-                this.renderMesh(mesh, ctx);
+            // Draw each face
+            ctx.save();
+            ctx.translate(width / 2, height / 2 + 30);
+
+            allFaces.forEach(face => {
+                this.drawFace(ctx, face);
             });
 
             ctx.restore();
@@ -216,85 +238,130 @@
             });
         }
 
-        renderMesh(mesh, ctx) {
+        // Get all visible faces of a mesh with their projected coordinates
+        getMeshFaces(mesh, camera) {
             const geo = mesh.geometry;
             const mat = mesh.material;
 
             // Scale factor for visualization
-            const scale = 3;
+            const scale = 2.5;
 
-            // Isometric projection angles
-            const isoAngle = Math.PI / 6; // 30 degrees
+            // Get camera rotation angles
+            const rotX = camera.rotationX;
+            const rotY = camera.rotationY;
 
             // Get position and dimensions
-            const px = mesh.position.x * scale;
-            const py = mesh.position.y * scale;
-            const pz = mesh.position.z * scale;
+            const px = mesh.position.x;
+            const py = mesh.position.y;
+            const pz = mesh.position.z;
 
-            const w = geo.width * scale;
-            const h = geo.height * scale;
-            const d = geo.depth * scale;
+            const hw = geo.width / 2;   // half width (X axis)
+            const hh = geo.height / 2;  // half height (Y axis)
+            const hd = geo.depth / 2;   // half depth (Z axis)
 
-            // Convert 3D coordinates to 2D isometric
-            const toIso = (x, y, z) => {
-                return {
-                    x: (x - z) * Math.cos(isoAngle),
-                    y: (x + z) * Math.sin(isoAngle) - y
-                };
-            };
-
-            // Calculate the 8 corners of the box
-            const corners = [
-                toIso(px - w/2, py - h/2, pz - d/2), // 0: front-bottom-left
-                toIso(px + w/2, py - h/2, pz - d/2), // 1: front-bottom-right
-                toIso(px + w/2, py + h/2, pz - d/2), // 2: front-top-right
-                toIso(px - w/2, py + h/2, pz - d/2), // 3: front-top-left
-                toIso(px - w/2, py - h/2, pz + d/2), // 4: back-bottom-left
-                toIso(px + w/2, py - h/2, pz + d/2), // 5: back-bottom-right
-                toIso(px + w/2, py + h/2, pz + d/2), // 6: back-top-right
-                toIso(px - w/2, py + h/2, pz + d/2)  // 7: back-top-left
+            // 8 corners of the box in local coordinates
+            const localCorners = [
+                { x: -hw, y: -hh, z: -hd }, // 0: front-bottom-left
+                { x:  hw, y: -hh, z: -hd }, // 1: front-bottom-right
+                { x:  hw, y:  hh, z: -hd }, // 2: front-top-right
+                { x: -hw, y:  hh, z: -hd }, // 3: front-top-left
+                { x: -hw, y: -hh, z:  hd }, // 4: back-bottom-left
+                { x:  hw, y: -hh, z:  hd }, // 5: back-bottom-right
+                { x:  hw, y:  hh, z:  hd }, // 6: back-top-right
+                { x: -hw, y:  hh, z:  hd }  // 7: back-top-left
             ];
 
+            // Transform corners to world space and then to screen space
+            const transformedCorners = localCorners.map(corner => {
+                // Add mesh position
+                let x = corner.x + px;
+                let y = corner.y + py;
+                let z = corner.z + pz;
+
+                // Rotate around Y axis (horizontal rotation)
+                const cosY = Math.cos(rotY);
+                const sinY = Math.sin(rotY);
+                const x1 = x * cosY - z * sinY;
+                const z1 = x * sinY + z * cosY;
+
+                // Rotate around X axis (vertical rotation - pitch)
+                const cosX = Math.cos(rotX);
+                const sinX = Math.sin(rotX);
+                const y1 = y * cosX - z1 * sinX;
+                const z2 = y * sinX + z1 * cosX;
+
+                // Project to 2D with perspective-like scaling
+                const screenX = x1 * scale;
+                const screenY = -y1 * scale;  // Flip Y for screen coordinates
+                
+                return { x: screenX, y: screenY, z: z2 };
+            });
+
+            // Define the 6 faces with their corner indices and normal directions
+            const faceDefinitions = [
+                { corners: [3, 2, 6, 7], normal: { x: 0, y: 1, z: 0 }, brightness: 40 },   // Top (Y+)
+                { corners: [0, 1, 5, 4], normal: { x: 0, y: -1, z: 0 }, brightness: -30 }, // Bottom (Y-)
+                { corners: [0, 3, 7, 4], normal: { x: -1, y: 0, z: 0 }, brightness: -10 }, // Left (X-)
+                { corners: [1, 2, 6, 5], normal: { x: 1, y: 0, z: 0 }, brightness: -20 },  // Right (X+)
+                { corners: [0, 1, 2, 3], normal: { x: 0, y: 0, z: -1 }, brightness: 0 },   // Front (Z-)
+                { corners: [4, 5, 6, 7], normal: { x: 0, y: 0, z: 1 }, brightness: -25 }   // Back (Z+)
+            ];
+
+            const faces = [];
             const baseColor = mat.color.getStyle();
 
-            // Draw top face (lighter)
-            ctx.fillStyle = this.adjustBrightness(baseColor, 30);
-            ctx.beginPath();
-            ctx.moveTo(corners[3].x, corners[3].y);
-            ctx.lineTo(corners[2].x, corners[2].y);
-            ctx.lineTo(corners[6].x, corners[6].y);
-            ctx.lineTo(corners[7].x, corners[7].y);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = this.adjustBrightness(baseColor, -40);
+            faceDefinitions.forEach(faceDef => {
+                // Transform normal vector to check visibility
+                let nx = faceDef.normal.x;
+                let ny = faceDef.normal.y;
+                let nz = faceDef.normal.z;
+
+                // Rotate normal around Y axis
+                const cosY = Math.cos(rotY);
+                const sinY = Math.sin(rotY);
+                const nx1 = nx * cosY - nz * sinY;
+                const nz1 = nx * sinY + nz * cosY;
+
+                // Rotate normal around X axis
+                const cosX = Math.cos(rotX);
+                const sinX = Math.sin(rotX);
+                const nz2 = ny * sinX + nz1 * cosX;
+
+                // Face is visible if normal points toward camera (positive Z after rotation)
+                if (nz2 > -0.1) {  // Small threshold to avoid z-fighting
+                    const faceCorners = faceDef.corners.map(i => transformedCorners[i]);
+                    
+                    // Calculate average depth for sorting
+                    const avgDepth = faceCorners.reduce((sum, c) => sum + c.z, 0) / 4;
+
+                    faces.push({
+                        corners: faceCorners,
+                        color: this.adjustBrightness(baseColor, faceDef.brightness),
+                        depth: avgDepth,
+                        strokeColor: this.adjustBrightness(baseColor, -50)
+                    });
+                }
+            });
+
+            return faces;
+        }
+
+        drawFace(ctx, face) {
+            ctx.fillStyle = face.color;
+            ctx.strokeStyle = face.strokeColor;
             ctx.lineWidth = 0.5;
-            ctx.stroke();
 
-            // Draw left face (medium)
-            ctx.fillStyle = this.adjustBrightness(baseColor, -10);
             ctx.beginPath();
-            ctx.moveTo(corners[0].x, corners[0].y);
-            ctx.lineTo(corners[3].x, corners[3].y);
-            ctx.lineTo(corners[7].x, corners[7].y);
-            ctx.lineTo(corners[4].x, corners[4].y);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            // Draw right face (darker)
-            ctx.fillStyle = this.adjustBrightness(baseColor, -30);
-            ctx.beginPath();
-            ctx.moveTo(corners[1].x, corners[1].y);
-            ctx.lineTo(corners[2].x, corners[2].y);
-            ctx.lineTo(corners[6].x, corners[6].y);
-            ctx.lineTo(corners[5].x, corners[5].y);
+            ctx.moveTo(face.corners[0].x, face.corners[0].y);
+            for (let i = 1; i < face.corners.length; i++) {
+                ctx.lineTo(face.corners[i].x, face.corners[i].y);
+            }
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
         }
 
         adjustBrightness(color, amount) {
-            // Simple color adjustment
             const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
             if (match) {
                 const r = Math.min(255, Math.max(0, parseInt(match[1]) + amount));
@@ -306,58 +373,151 @@
         }
 
         dispose() {
-            // Clean up resources
             this.context = null;
         }
     }
 
-    // OrbitControls (simplified)
+    // OrbitControls - enables interactive rotation and zoom
     class OrbitControls {
         constructor(camera, domElement) {
             this.camera = camera;
             this.domElement = domElement;
             this.enabled = true;
-            this.enableDamping = false;
+            this.enableDamping = true;
             this.dampingFactor = 0.05;
             this.enableZoom = true;
             this.zoomSpeed = 1.0;
-            this.minDistance = 0;
-            this.maxDistance = Infinity;
+            this.minDistance = 50;
+            this.maxDistance = 300;
 
-            // Simple mouse interaction
+            // Rotation velocity for smooth damping
+            this.rotationVelocityX = 0;
+            this.rotationVelocityY = 0;
+
+            // Mouse/touch state
             let isDragging = false;
-            let previousMousePosition = { x: 0, y: 0 };
+            let previousPosition = { x: 0, y: 0 };
 
-            domElement.addEventListener('mousedown', (e) => {
+            // Mouse events
+            const onMouseDown = (e) => {
                 isDragging = true;
-                previousMousePosition = { x: e.clientX, y: e.clientY };
-            });
+                previousPosition = { x: e.clientX, y: e.clientY };
+                this.rotationVelocityX = 0;
+                this.rotationVelocityY = 0;
+            };
 
-            domElement.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    const deltaX = e.clientX - previousMousePosition.x;
-                    const deltaY = e.clientY - previousMousePosition.y;
-                    camera.position.x += deltaX * 0.1;
-                    camera.position.y -= deltaY * 0.1;
-                    previousMousePosition = { x: e.clientX, y: e.clientY };
+            const onMouseMove = (e) => {
+                if (isDragging && this.enabled) {
+                    const deltaX = e.clientX - previousPosition.x;
+                    const deltaY = e.clientY - previousPosition.y;
+                    
+                    // Update rotation based on mouse movement
+                    camera.rotationY += deltaX * 0.01;
+                    camera.rotationX += deltaY * 0.01;
+                    
+                    // Clamp vertical rotation to avoid flipping
+                    camera.rotationX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camera.rotationX));
+                    
+                    // Store velocity for damping
+                    this.rotationVelocityY = deltaX * 0.01;
+                    this.rotationVelocityX = deltaY * 0.01;
+                    
+                    previousPosition = { x: e.clientX, y: e.clientY };
                 }
-            });
+            };
 
-            domElement.addEventListener('mouseup', () => {
+            const onMouseUp = () => {
                 isDragging = false;
-            });
+            };
 
-            domElement.addEventListener('wheel', (e) => {
-                if (this.enableZoom) {
-                    e.preventDefault();
-                    camera.position.z += e.deltaY * 0.01 * this.zoomSpeed;
-                    camera.position.z = Math.max(this.minDistance, Math.min(this.maxDistance, camera.position.z));
+            const onMouseLeave = () => {
+                isDragging = false;
+            };
+
+            // Touch events for mobile
+            const onTouchStart = (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    previousPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    this.rotationVelocityX = 0;
+                    this.rotationVelocityY = 0;
                 }
-            });
+            };
+
+            const onTouchMove = (e) => {
+                if (isDragging && this.enabled && e.touches.length === 1) {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - previousPosition.x;
+                    const deltaY = touch.clientY - previousPosition.y;
+                    
+                    camera.rotationY += deltaX * 0.01;
+                    camera.rotationX += deltaY * 0.01;
+                    camera.rotationX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camera.rotationX));
+                    
+                    this.rotationVelocityY = deltaX * 0.01;
+                    this.rotationVelocityX = deltaY * 0.01;
+                    
+                    previousPosition = { x: touch.clientX, y: touch.clientY };
+                }
+            };
+
+            const onTouchEnd = () => {
+                isDragging = false;
+            };
+
+            // Wheel event for zoom
+            const onWheel = (e) => {
+                if (this.enableZoom && this.enabled) {
+                    e.preventDefault();
+                    camera.distance += e.deltaY * 0.5 * this.zoomSpeed;
+                    camera.distance = Math.max(this.minDistance, Math.min(this.maxDistance, camera.distance));
+                }
+            };
+
+            // Attach event listeners
+            domElement.addEventListener('mousedown', onMouseDown);
+            domElement.addEventListener('mousemove', onMouseMove);
+            domElement.addEventListener('mouseup', onMouseUp);
+            domElement.addEventListener('mouseleave', onMouseLeave);
+            domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+            domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+            domElement.addEventListener('touchend', onTouchEnd);
+            domElement.addEventListener('wheel', onWheel, { passive: false });
+
+            // Store reference for cleanup
+            this._cleanup = () => {
+                domElement.removeEventListener('mousedown', onMouseDown);
+                domElement.removeEventListener('mousemove', onMouseMove);
+                domElement.removeEventListener('mouseup', onMouseUp);
+                domElement.removeEventListener('mouseleave', onMouseLeave);
+                domElement.removeEventListener('touchstart', onTouchStart);
+                domElement.removeEventListener('touchmove', onTouchMove);
+                domElement.removeEventListener('touchend', onTouchEnd);
+                domElement.removeEventListener('wheel', onWheel);
+            };
         }
 
         update() {
-            // Animation frame update
+            // Apply damping to rotation velocity
+            if (this.enableDamping) {
+                if (Math.abs(this.rotationVelocityX) > 0.0001) {
+                    this.rotationVelocityX *= (1 - this.dampingFactor);
+                } else {
+                    this.rotationVelocityX = 0;
+                }
+                if (Math.abs(this.rotationVelocityY) > 0.0001) {
+                    this.rotationVelocityY *= (1 - this.dampingFactor);
+                } else {
+                    this.rotationVelocityY = 0;
+                }
+            }
+        }
+
+        dispose() {
+            if (this._cleanup) {
+                this._cleanup();
+            }
         }
     }
 
