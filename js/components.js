@@ -241,7 +241,7 @@ const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType
  * - Quantity +/- buttons and direct input
  * - "Purchase" value showing feet to buy (0.5 increments)
  * - CFT calculation for this support type
- * - Optional direction toggle (vertical/horizontal)
+ * - Optional direction toggle (vertical/horizontal) with dimension display
  * 
  * @param {object} props - Component props
  * @param {string} props.label - Card title (e.g., "Bottom Supports")
@@ -254,6 +254,8 @@ const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType
  * @param {object} props.runnerConfig - Current runner configuration
  * @param {function} props.onConfigChange - Callback for config changes
  * @param {string} props.fixedDir - If set, shows fixed direction instead of toggle
+ * @param {number} props.widthDim - Dimension value for width-wise/vertical option
+ * @param {number} props.lengthDim - Dimension value for horizontal option
  * 
  * CONNECTED TO:
  * - js/calculations.js → getSizeDims() for dimension lookup
@@ -269,7 +271,9 @@ const SupportCard = ({
     configKey, 
     runnerConfig, 
     onConfigChange, 
-    fixedDir 
+    fixedDir,
+    widthDim,
+    lengthDim
 }) => {
     // Get dimensions from size code and calculate CFT
     const sDims = getSizeDims(settings.size);
@@ -323,17 +327,46 @@ const SupportCard = ({
             ),
 
             // Direction toggle (if configurable and not fixed)
+            // Shows actual dimensions instead of labels for better clarity
             !fixedDir && configKey && React.createElement('div', {
-                className: "flex bg-slate-100 p-1 rounded-lg border border-slate-300"
+                className: "flex gap-2"
             },
+                // First option button (Width-wise or Vertical)
                 React.createElement('button', {
                     onClick: () => onConfigChange(configKey, configKey === 'bottomDir' ? 'width' : 'vertical'),
-                    className: `flex-1 py-1 text-xs font-black uppercase rounded transition-all ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') ? 'bg-white shadow text-black border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`
-                }, configKey === 'bottomDir' ? 'Width-wise' : 'Vertical'),
+                    className: `flex-1 py-2 px-3 text-sm font-black rounded-lg transition-all border-2 ${
+                        runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') 
+                            ? 'bg-amber-500 border-amber-700 text-white shadow-md' 
+                            : 'bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200 hover:border-slate-400'
+                    }`
+                },
+                    React.createElement('div', { className: "flex flex-col items-center" },
+                        React.createElement('span', { className: "text-[10px] uppercase tracking-wide opacity-80" }, 
+                            configKey === 'bottomDir' ? 'Width-wise' : 'Vertical'
+                        ),
+                        React.createElement('span', { className: "text-lg font-black" }, 
+                            widthDim ? `${widthDim}"` : (configKey === 'bottomDir' ? 'Width' : 'Vert')
+                        )
+                    )
+                ),
+                // Second option button (Horizontal)
                 React.createElement('button', {
                     onClick: () => onConfigChange(configKey, configKey === 'bottomDir' ? 'length' : 'horizontal'),
-                    className: `flex-1 py-1 text-xs font-black uppercase rounded transition-all ${runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') ? 'bg-white shadow text-black border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`
-                }, 'Horizontal')
+                    className: `flex-1 py-2 px-3 text-sm font-black rounded-lg transition-all border-2 ${
+                        runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') 
+                            ? 'bg-amber-500 border-amber-700 text-white shadow-md' 
+                            : 'bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200 hover:border-slate-400'
+                    }`
+                },
+                    React.createElement('div', { className: "flex flex-col items-center" },
+                        React.createElement('span', { className: "text-[10px] uppercase tracking-wide opacity-80" }, 
+                            'Horizontal'
+                        ),
+                        React.createElement('span', { className: "text-lg font-black" }, 
+                            lengthDim ? `${lengthDim}"` : 'Horiz'
+                        )
+                    )
+                )
             ),
             
             // Fixed direction indicator
