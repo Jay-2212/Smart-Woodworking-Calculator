@@ -161,7 +161,7 @@ No build process, no npm install, no compilation needed!
 3. **Adjust Runner Configuration**
    - The calculator automatically suggests runner count based on box length
    - Override with custom runner count if needed
-   - Toggle runner orientations (width-wise/horizontal, vertical/horizontal)
+   - Toggle runner orientations for optimal structural support
 
 4. **Review Calculations**
    - View automatic panel dimension calculations
@@ -186,8 +186,8 @@ For ventilated crates, customize:
 - **Gap Size** - Space between planks for ventilation
 
 #### Runner Orientations
-- **Bottom Runners** - Choose width-wise or horizontal orientation
-- **Side Runners** - Choose vertical or horizontal positioning
+- **Bottom Runners** - Choose between width-wise or length-wise orientation
+- **Side Runners** - Choose between vertical or horizontal positioning
 
 #### Extra Supports
 Add custom support pieces:
