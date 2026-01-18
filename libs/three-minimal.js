@@ -258,8 +258,16 @@
             const geo = mesh.geometry;
             const mat = mesh.material;
 
-            // Scale factor for visualization
-            const scale = 2.5;
+            // Calculate perspective projection parameters
+            // Use camera FOV to determine the focal length
+            const fovRad = (camera.fov || 45) * Math.PI / 180;
+            const focalLength = 1 / Math.tan(fovRad / 2);
+
+            // Use camera distance for proper depth perception
+            const cameraDistance = camera.distance || 150;
+
+            // Base scale for the projection (adjusts overall size)
+            const baseScale = this.height * 0.8;
 
             // Get camera rotation angles
             const rotX = camera.rotationX;
@@ -305,10 +313,15 @@
                 const y1 = y * cosX - z1 * sinX;
                 const z2 = y * sinX + z1 * cosX;
 
-                // Project to 2D with perspective-like scaling
-                const screenX = x1 * scale;
-                const screenY = -y1 * scale;  // Flip Y for screen coordinates
-                
+                // Apply true perspective projection
+                // The Z coordinate after rotation represents depth from camera
+                // Objects further away (larger z2) should appear smaller
+                const zDepth = z2 + cameraDistance;
+                const perspectiveFactor = (focalLength * baseScale) / Math.max(zDepth, 1);
+
+                const screenX = x1 * perspectiveFactor;
+                const screenY = -y1 * perspectiveFactor;  // Flip Y for screen coordinates
+
                 return { x: screenX, y: screenY, z: z2 };
             });
 
