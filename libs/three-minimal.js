@@ -18,7 +18,8 @@
     // ================================================================================
     
     // Threshold for back-face culling to avoid z-fighting artifacts
-    const BACKFACE_CULL_THRESHOLD = -0.1;
+    // Using a more lenient threshold to prevent runner flickering during rotation
+    const BACKFACE_CULL_THRESHOLD = -0.3;
     
     // Threshold for damping velocity cutoff
     const DAMPING_VELOCITY_THRESHOLD = 0.0001;
@@ -168,7 +169,7 @@
         }
     }
 
-    // Camera class
+    // Camera class - Using orthographic projection for static box visualization
     class PerspectiveCamera extends Object3D {
         constructor(fov, aspect, near, far) {
             super();
@@ -179,7 +180,8 @@
             // Rotation angles for orbit control (in radians)
             this.rotationX = Math.PI / 6;  // Vertical angle (pitch) - looking down
             this.rotationY = Math.PI / 4;  // Horizontal angle (yaw) - 45 degrees
-            this.distance = 150;           // Distance from origin
+            this.distance = 150;           // Distance from origin (used as scale factor for orthographic)
+            this.useOrthographic = true;   // Use orthographic projection for static box visualization
         }
     }
 
@@ -258,16 +260,16 @@
             const geo = mesh.geometry;
             const mat = mesh.material;
 
-            // Calculate perspective projection parameters
-            // Use camera FOV to determine the focal length
-            const fovRad = (camera.fov || 45) * Math.PI / 180;
-            const focalLength = 1 / Math.tan(fovRad / 2);
+            // Use orthographic projection for static box visualization
+            // The box will appear the same size regardless of rotation (no FOV distortion)
+            const useOrthographic = camera.useOrthographic !== false;
 
-            // Use camera distance for proper depth perception
+            // Use camera distance as scale factor for orthographic projection
             const cameraDistance = camera.distance || 150;
 
             // Base scale for the projection (adjusts overall size)
-            const baseScale = this.height * 0.8;
+            // For orthographic: use a fixed scale based on viewport and distance
+            const orthographicScale = this.height / (cameraDistance * 0.7);
 
             // Get camera rotation angles
             const rotX = camera.rotationX;
@@ -313,14 +315,10 @@
                 const y1 = y * cosX - z1 * sinX;
                 const z2 = y * sinX + z1 * cosX;
 
-                // Apply true perspective projection
-                // The Z coordinate after rotation represents depth from camera
-                // Objects further away (larger z2) should appear smaller
-                const zDepth = z2 + cameraDistance;
-                const perspectiveFactor = (focalLength * baseScale) / Math.max(zDepth, 1);
-
-                const screenX = x1 * perspectiveFactor;
-                const screenY = -y1 * perspectiveFactor;  // Flip Y for screen coordinates
+                // Apply orthographic projection (no perspective distortion)
+                // Box dimensions stay constant regardless of rotation
+                const screenX = x1 * orthographicScale;
+                const screenY = -y1 * orthographicScale;  // Flip Y for screen coordinates
 
                 return { x: screenX, y: screenY, z: z2 };
             });

@@ -184,8 +184,8 @@ function App() {
     // These get auto-calculated based on box dimensions
     // ================================================================
     const [mainRows, setMainRows] = useState({
-        top: { l: 44, w: 22, t: 1, qty: 1 },
-        bottom: { l: 44, w: 22, t: 1, qty: 1 },
+        top: { l: 44, w: 22, t: 1, qty: 2 },      // Simple box: displayed as "Top & Bottom" combined row
+        bottom: { l: 44, w: 22, t: 1, qty: 2 },   // Simple box: same as top, both shown in one row with qty=2
         sides: { l: 44, w: 20, t: 1, qty: 2 },
         kara: { l: 20, w: 20, t: 1, qty: 2 }
     });
@@ -267,8 +267,8 @@ function App() {
             const baseW = w + 2;  // 2" overhang on width
 
             setMainRows({
-                top: { l: baseL, w: baseW, t: 1, qty: 1 },
-                bottom: { l: baseL, w: baseW, t: 1, qty: 1 },
+                top: { l: baseL, w: baseW, t: 1, qty: 2 },     // qty=2: UI shows "Top & Bottom" as one combined row
+                bottom: { l: baseL, w: baseW, t: 1, qty: 2 },  // Same as top, displayed together in the UI
                 sides: { l: baseL, w: h, t: 1, qty: 2 },
                 kara: { l: w, w: h, t: 1, qty: 2 }
             });
@@ -444,6 +444,35 @@ function App() {
     const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
 
     // ================================================================
+    // COMPUTED: Dimension values for direction toggle buttons
+    // Pre-calculate dimensions for both directions to display in UI
+    // ================================================================
+    const runnerDimensions = useMemo(() => {
+        const l = parseFloat(dims.l) || 0;
+        const w = parseFloat(dims.w) || 0;
+        const h = parseFloat(dims.h) || 0;
+        const baseL = l + 4;  // 4" overhang on length
+        const baseW = w + 2;  // 2" overhang on width
+        const bSize = getMaxD(supps.bottom.size);
+        
+        // Bottom supports: width-wise vs horizontal
+        const bottomWidthDim = Math.round(baseW);
+        const bottomLengthDim = Math.round(baseL);
+        
+        // Side supports: vertical vs horizontal
+        const bottomAdd = (runnerConfig.bottomDir === 'width') ? bSize : 0;
+        const sideVerticalDim = Math.round(h + bottomAdd + 2);
+        const sideHorizontalDim = Math.round(baseL);
+        
+        return {
+            bottomWidthDim,
+            bottomLengthDim,
+            sideVerticalDim,
+            sideHorizontalDim
+        };
+    }, [dims.l, dims.w, dims.h, supps.bottom.size, runnerConfig.bottomDir]);
+
+    // ================================================================
     // RENDER
     // ================================================================
     return React.createElement('div', { className: "min-h-screen pb-10 wood-pattern" },
@@ -451,9 +480,13 @@ function App() {
         // ============================================================
         // STICKY STATS BAR
         // Shows on scroll for quick reference
+        // Always rendered but hidden/shown with CSS to prevent flickering
         // ============================================================
-        showStickyStats && React.createElement('div', {
-            className: "fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 animate-fade-in p-3 px-4"
+        React.createElement('div', {
+            className: `fixed top-0 left-0 w-full bg-slate-900 z-[100] shadow-xl border-b-4 border-amber-600 p-3 px-4 transition-all duration-300 ${
+                showStickyStats ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
+            }`,
+            style: { willChange: 'transform, opacity' }
         },
             React.createElement('div', {
                 className: "max-w-2xl mx-auto flex justify-between items-center text-white"
@@ -785,7 +818,9 @@ function App() {
                         configKey: "bottomDir",
                         runnerConfig: runnerConfig,
                         onConfigChange: handleConfigChange,
-                        fixedDir: isBottomType ? 'Horizontal' : null
+                        fixedDir: isBottomType ? 'Horizontal' : null,
+                        widthDim: runnerDimensions.bottomWidthDim,
+                        lengthDim: runnerDimensions.bottomLengthDim
                     }),
 
                     React.createElement(SupportCard, {
@@ -797,7 +832,9 @@ function App() {
                         configKey: "sideDir",
                         runnerConfig: runnerConfig,
                         onConfigChange: handleConfigChange,
-                        fixedDir: isBottomType ? 'Horizontal' : null
+                        fixedDir: isBottomType ? 'Horizontal' : null,
+                        widthDim: runnerDimensions.sideVerticalDim,
+                        lengthDim: runnerDimensions.sideHorizontalDim
                     }),
 
                     React.createElement(SupportCard, {

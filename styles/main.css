@@ -920,6 +920,33 @@ select::-ms-expand {
     transition-duration: 150ms;
 }
 
+/* Transition Duration */
+.duration-300 {
+    transition-duration: 300ms;
+}
+
+/* Opacity for transitions */
+.opacity-0 {
+    opacity: 0;
+}
+
+.opacity-80 {
+    opacity: 0.8;
+}
+
+.opacity-100 {
+    opacity: 1;
+}
+
+/* Transform utilities */
+.translate-y-0 {
+    transform: translateY(0);
+}
+
+.-translate-y-full {
+    transform: translateY(-100%);
+}
+
 /* Transform */
 .scale-105 {
     transform: scale(1.05);
