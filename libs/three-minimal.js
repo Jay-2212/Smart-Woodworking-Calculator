@@ -28,7 +28,7 @@
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
-    // Depth sort epsilon prevents face order flicker when depths are nearly identical (0.01 scene depth units).
+    // Depth sort epsilon prevents face order flicker when depths are nearly identical (0.01 scene depth units, same scale as box dimensions).
     const DEPTH_SORT_EPSILON = 0.01;
     const DEFAULT_RENDER_ORDER_VALUE = 0;
 
@@ -242,9 +242,7 @@
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                const renderOrderA = a.renderOrder ?? DEFAULT_RENDER_ORDER_VALUE;
-                const renderOrderB = b.renderOrder ?? DEFAULT_RENDER_ORDER_VALUE;
-                return renderOrderA - renderOrderB;
+                return a.renderOrder - b.renderOrder;
             });
 
             // Draw each face

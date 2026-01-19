@@ -378,7 +378,7 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     
     const botL = mainRows.bottom.l;
     const botW = mainRows.bottom.w;
-    group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK / 2, 0));
+    group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK / 2, 0, DEFAULT_RENDER_ORDER));
 
     const floorLevel = baseY + THK;
 
@@ -398,8 +398,8 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         sideZ_offset = (botW / 2) - (THK / 2);
     }
 
-    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset));
-    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset));
+    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset, DEFAULT_RENDER_ORDER));
+    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset, DEFAULT_RENDER_ORDER));
 
     // ============================================================
     // KARA PANELS (End Panels)
@@ -418,8 +418,8 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         karaX_offset = (parseFloat(dims.l) / 2) + (kThk / 2);
     }
 
-    group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0));
-    group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0));
+    group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0, DEFAULT_RENDER_ORDER));
+    group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0, DEFAULT_RENDER_ORDER));
 
     // ============================================================
     // SIDE RUNNERS
@@ -526,7 +526,7 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     const tL = mainRows.top.l;
     const tW = mainRows.top.w;
     const topY = (isBottomType ? baseY : floorLevel) + sH + THK / 2;
-    group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0));
+    group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0, DEFAULT_RENDER_ORDER));
 
     // ============================================================
     // TOP LID RUNNERS
