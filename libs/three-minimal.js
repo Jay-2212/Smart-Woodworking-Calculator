@@ -28,6 +28,8 @@
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
+    const DEPTH_SORT_EPSILON = 0.01;
+
     // Vector3 class
     class Vector3 {
         constructor(x = 0, y = 0, z = 0) {
@@ -233,7 +235,13 @@
             });
 
             // Sort faces by depth (painter's algorithm - draw furthest first)
-            allFaces.sort((a, b) => a.depth - b.depth);
+            allFaces.sort((a, b) => {
+                const depthDiff = a.depth - b.depth;
+                if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
+                    return depthDiff;
+                }
+                return a.renderOrder - b.renderOrder;
+            });
 
             // Draw each face
             ctx.save();
@@ -335,6 +343,7 @@
 
             const faces = [];
             const baseColor = mat.color.getStyle();
+            const renderOrder = mesh.renderOrder || 0;
 
             faceDefinitions.forEach(faceDef => {
                 // Transform normal vector to check visibility
@@ -365,7 +374,8 @@
                         corners: faceCorners,
                         color: this.adjustBrightness(baseColor, faceDef.brightness),
                         depth: avgDepth,
-                        strokeColor: this.adjustBrightness(baseColor, -50)
+                        strokeColor: this.adjustBrightness(baseColor, -50),
+                        renderOrder
                     });
                 }
             });
