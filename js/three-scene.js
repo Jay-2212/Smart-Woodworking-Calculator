@@ -306,10 +306,10 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     const DEFAULT_RENDER_ORDER = 0;
     const RUNNER_RENDER_ORDER = 1;
 
-    const createBox = (w, h, d, colorMat, x, y, z) => {
+    const createBox = (w, h, d, colorMat, x, y, z, renderOrder = DEFAULT_RENDER_ORDER) => {
         const geo = new THREE.BoxGeometry(w, h, d);
         const mesh = new THREE.Mesh(geo, colorMat);
-        mesh.renderOrder = colorMat === woodMatDark ? RUNNER_RENDER_ORDER : DEFAULT_RENDER_ORDER;
+        mesh.renderOrder = renderOrder;
         mesh.position.set(x, y, z);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -347,7 +347,7 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
                     zPos = -maxOffset + (pct * 2 * maxOffset);
                 }
                 runnerPositions.push(zPos);
-                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
+                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos, RUNNER_RENDER_ORDER));
             }
         } else {
             if (runnerConfig.bottomDir === 'width') {
@@ -356,7 +356,7 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
                 for (let i = 1; i <= bCount; i++) {
                     const xPos = -spreadL / 2 + (i * stepX);
                     runnerPositions.push(xPos);
-                    group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH / 2, 0));
+                    group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH / 2, 0, RUNNER_RENDER_ORDER));
                 }
             } else {
                 const spreadW = mainRows.bottom.w;
@@ -364,7 +364,7 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
                 for (let i = 1; i <= bCount; i++) {
                     const zPos = -spreadW / 2 + (i * stepZ);
                     runnerPositions.push(zPos);
-                    group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos));
+                    group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos, RUNNER_RENDER_ORDER));
                 }
             }
         }
@@ -434,20 +434,20 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         if (isBottomType || runnerConfig.sideDir === 'horizontal') {
             if (isBottomType && srCount > 0) {
                 const topY = baseY + sH - 1.5;
-                group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel));
+                group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel, RUNNER_RENDER_ORDER));
                 if (srCount > 1) {
                     const remainingSpace = sH - 3;
                     const step = remainingSpace / srCount;
                     for (let i = 1; i < srCount; i++) {
                         const yPos = baseY + (i * step);
-                        group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
+                        group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
                     }
                 }
             } else {
                 const stepY = sH / (srCount + 1);
                 for (let i = 1; i <= srCount; i++) {
                     const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
-                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel));
+                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
                 }
             }
         } else {
@@ -464,7 +464,7 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
             // Position vertical runners starting from the floor level
             const vCenterY = floorLevel + (srLen / 2);
             positions.forEach(xPos => {
-                group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel));
+                group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel, RUNNER_RENDER_ORDER));
             });
         }
     };
@@ -488,12 +488,12 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
             const xPos = dirX * (karaX_offset + kThk + 1.5);
             if (runnerPositions.length > 0) {
                 runnerPositions.forEach(zPos => {
-                    group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos));
+                    group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos, RUNNER_RENDER_ORDER));
                 });
             } else {
                 const kPostZ = (kL / 2) - 1.5;
-                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ));
-                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ));
+                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ, RUNNER_RENDER_ORDER));
+                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ, RUNNER_RENDER_ORDER));
             }
         });
     } else {
@@ -510,11 +510,11 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
 
         [1, -1].forEach(dirX => {
             const xPos = dirX * (karaX_offset + kThk + 1.5);
-            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0));
-            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0));
+            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0, RUNNER_RENDER_ORDER));
+            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0, RUNNER_RENDER_ORDER));
             if (kVertLen > 0) {
-                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left));
-                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Right));
+                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left, RUNNER_RENDER_ORDER));
+                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Right, RUNNER_RENDER_ORDER));
             }
         });
     }
@@ -560,14 +560,14 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
             const trW = 4;
             const trLen = tL;
             topRunnerPositions.forEach(zPos => {
-                group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos));
+                group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos, RUNNER_RENDER_ORDER));
             });
         } else {
             const trLen = tW;
             const topSize = getSizeDims(supps.top.size);
             const trW = topSize.w + 0.5;
             topRunnerPositions.forEach(xPos => {
-                group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0));
+                group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0, RUNNER_RENDER_ORDER));
             });
         }
     }

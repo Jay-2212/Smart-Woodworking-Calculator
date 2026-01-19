@@ -30,6 +30,7 @@
 
     // Depth sort epsilon prevents face order flicker when depths are nearly identical.
     const DEPTH_SORT_EPSILON = 0.01;
+    const DEFAULT_RENDER_ORDER_VALUE = 0;
 
     // Vector3 class
     class Vector3 {
@@ -241,7 +242,8 @@
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                return (a.renderOrder || 0) - (b.renderOrder || 0);
+                return (a.renderOrder || DEFAULT_RENDER_ORDER_VALUE)
+                    - (b.renderOrder || DEFAULT_RENDER_ORDER_VALUE);
             });
 
             // Draw each face
@@ -344,7 +346,7 @@
 
             const faces = [];
             const baseColor = mat.color.getStyle();
-            const renderOrder = mesh.renderOrder || 0;
+            const renderOrder = mesh.renderOrder || DEFAULT_RENDER_ORDER_VALUE;
 
             faceDefinitions.forEach(faceDef => {
                 // Transform normal vector to check visibility
