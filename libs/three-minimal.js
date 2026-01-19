@@ -30,10 +30,10 @@
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
     // Depth sort epsilon prevents face order flicker when depths are nearly identical.
-    // Using 0.15 scene units to ensure runners (renderOrder=1) appear in front of
-    // nearby panel faces (renderOrder=0) during rotation at various angles, while
-    // still allowing legitimate depth differences to be respected.
-    const DEPTH_SORT_EPSILON = 0.15;
+    // Using 0.6 scene units to keep thin runner faces stable against panels during
+    // rotation; this stays below typical panel spacing so real depth differences
+    // still win the comparison.
+    const DEPTH_SORT_EPSILON = 0.6;
     const DEFAULT_RENDER_ORDER_VALUE = 0;
 
     // Vector3 class
@@ -240,21 +240,29 @@
                 allFaces.push(...faces);
             });
 
+            const sortableFaces = allFaces.map((face, index) => ({
+                face,
+                sortIndex: index
+            }));
+
             // Sort faces by depth (painter's algorithm - draw furthest first)
-            allFaces.sort((a, b) => {
-                const depthDiff = a.depth - b.depth;
+            sortableFaces.sort((a, b) => {
+                const depthDiff = a.face.depth - b.face.depth;
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                return a.renderOrder - b.renderOrder;
+                if (a.face.renderOrder !== b.face.renderOrder) {
+                    return a.face.renderOrder - b.face.renderOrder;
+                }
+                return a.sortIndex - b.sortIndex;
             });
 
             // Draw each face
             ctx.save();
             ctx.translate(width / 2, height / 2 + 30);
 
-            allFaces.forEach(face => {
-                this.drawFace(ctx, face);
+            sortableFaces.forEach(item => {
+                this.drawFace(ctx, item.face);
             });
 
             ctx.restore();
