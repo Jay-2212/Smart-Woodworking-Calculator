@@ -303,7 +303,9 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     // HELPER FUNCTION: Create Box Geometry
     // ============================================================
     
-    const DEFAULT_RENDER_ORDER = 0;
+    const DEFAULT_RENDER_ORDER = typeof THREE.DEFAULT_RENDER_ORDER === 'number'
+        ? THREE.DEFAULT_RENDER_ORDER
+        : 0;
     const RUNNER_RENDER_ORDER = 1;
 
     const createBox = (w, h, d, colorMat, x, y, z, renderOrder = DEFAULT_RENDER_ORDER) => {

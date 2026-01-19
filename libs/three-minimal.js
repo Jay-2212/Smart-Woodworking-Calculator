@@ -28,7 +28,7 @@
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
-    // Depth sort epsilon prevents face order flicker when depths are nearly identical.
+    // Depth sort epsilon prevents face order flicker when depths are nearly identical (scene depth units).
     const DEPTH_SORT_EPSILON = 0.01;
     const DEFAULT_RENDER_ORDER_VALUE = 0;
 
@@ -242,8 +242,9 @@
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                return (a.renderOrder || DEFAULT_RENDER_ORDER_VALUE)
-                    - (b.renderOrder || DEFAULT_RENDER_ORDER_VALUE);
+                const renderOrderA = a.renderOrder ?? DEFAULT_RENDER_ORDER_VALUE;
+                const renderOrderB = b.renderOrder ?? DEFAULT_RENDER_ORDER_VALUE;
+                return renderOrderA - renderOrderB;
             });
 
             // Draw each face
@@ -346,7 +347,7 @@
 
             const faces = [];
             const baseColor = mat.color.getStyle();
-            const renderOrder = mesh.renderOrder || DEFAULT_RENDER_ORDER_VALUE;
+            const renderOrder = mesh.renderOrder ?? DEFAULT_RENDER_ORDER_VALUE;
 
             faceDefinitions.forEach(faceDef => {
                 // Transform normal vector to check visibility
@@ -582,7 +583,8 @@
         DirectionalLight,
         PerspectiveCamera,
         WebGLRenderer,
-        OrbitControls
+        OrbitControls,
+        DEFAULT_RENDER_ORDER: DEFAULT_RENDER_ORDER_VALUE
     };
 
 })(window);
