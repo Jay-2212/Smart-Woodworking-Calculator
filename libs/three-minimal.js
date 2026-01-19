@@ -240,7 +240,7 @@
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                return a.renderOrder - b.renderOrder;
+                return (a.renderOrder || 0) - (b.renderOrder || 0);
             });
 
             // Draw each face
