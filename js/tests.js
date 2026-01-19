@@ -119,11 +119,11 @@ function runTests() {
     console.log("   Formula: (feet × width × thickness) / 144 × qty");
     console.log("");
     
-    const test2a = calculateLineCFT(24, 3, 1, 1);  // 2ft × 3" × 1" × 1pc = 0.5 CFT
-    const test2b = calculateLineCFT(24, 3, 1, 2);  // Same but 2 pieces = 1.0 CFT
+    const test2a = calculateLineCFT(24, 3, 1, 1);  // 2ft × 3" × 1" × 1pc = 0.04 CFT
+    const test2b = calculateLineCFT(24, 3, 1, 2);  // Same but 2 pieces = 0.08 CFT
 
-    console.log(test2a.toFixed(2) === "0.50" ? "✅ 24×3×1×1 = 0.50 CFT" : `❌ FAILED: Expected 0.50, got ${test2a.toFixed(2)}`);
-    console.log(test2b.toFixed(2) === "1.00" ? "✅ 24×3×1×2 = 1.00 CFT" : `❌ FAILED: Expected 1.00, got ${test2b.toFixed(2)}`);
+    console.log(test2a.toFixed(2) === "0.04" ? "✅ 24×3×1×1 = 0.04 CFT" : `❌ FAILED: Expected 0.04, got ${test2a.toFixed(2)}`);
+    console.log(test2b.toFixed(2) === "0.08" ? "✅ 24×3×1×2 = 0.08 CFT" : `❌ FAILED: Expected 0.08, got ${test2b.toFixed(2)}`);
     console.log("");
 
     // ================================================================
