@@ -28,7 +28,7 @@
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
-    // Depth sort epsilon prevents face order flicker when depths are nearly identical (scene depth units).
+    // Depth sort epsilon prevents face order flicker when depths are nearly identical (0.01 scene depth units).
     const DEPTH_SORT_EPSILON = 0.01;
     const DEFAULT_RENDER_ORDER_VALUE = 0;
 
