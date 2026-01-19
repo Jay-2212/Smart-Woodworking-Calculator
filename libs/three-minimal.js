@@ -30,10 +30,10 @@
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
     // Depth sort epsilon prevents face order flicker when depths are nearly identical.
-    // Using 0.15 scene units to ensure runners (renderOrder=1) appear in front of
+    // Using 0.6 scene units to ensure runners (renderOrder=1) appear in front of
     // nearby panel faces (renderOrder=0) during rotation at various angles, while
     // still allowing legitimate depth differences to be respected.
-    const DEPTH_SORT_EPSILON = 0.15;
+    const DEPTH_SORT_EPSILON = 0.6;
     const DEFAULT_RENDER_ORDER_VALUE = 0;
 
     // Vector3 class
@@ -246,7 +246,10 @@
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                return a.renderOrder - b.renderOrder;
+                if (a.renderOrder !== b.renderOrder) {
+                    return a.renderOrder - b.renderOrder;
+                }
+                return depthDiff;
             });
 
             // Draw each face
