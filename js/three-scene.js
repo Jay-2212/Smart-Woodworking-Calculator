@@ -303,10 +303,13 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     // HELPER FUNCTION: Create Box Geometry
     // ============================================================
     
+    const DEFAULT_RENDER_ORDER = 0;
+    const RUNNER_RENDER_ORDER = 1;
+
     const createBox = (w, h, d, colorMat, x, y, z) => {
         const geo = new THREE.BoxGeometry(w, h, d);
         const mesh = new THREE.Mesh(geo, colorMat);
-        mesh.renderOrder = colorMat === woodMatDark ? 1 : 0;
+        mesh.renderOrder = colorMat === woodMatDark ? RUNNER_RENDER_ORDER : DEFAULT_RENDER_ORDER;
         mesh.position.set(x, y, z);
         mesh.castShadow = true;
         mesh.receiveShadow = true;

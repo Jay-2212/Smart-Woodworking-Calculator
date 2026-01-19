@@ -28,6 +28,7 @@
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
+    // Depth sort epsilon prevents face order flicker when depths are nearly identical.
     const DEPTH_SORT_EPSILON = 0.01;
 
     // Vector3 class
