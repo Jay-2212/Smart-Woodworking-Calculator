@@ -240,18 +240,19 @@
                 allFaces.push(...faces);
             });
 
-            allFaces.forEach((face, index) => {
-                face.sortIndex = index;
-            });
+            const sortableFaces = allFaces.map((face, index) => ({
+                face,
+                sortIndex: index
+            }));
 
             // Sort faces by depth (painter's algorithm - draw furthest first)
-            allFaces.sort((a, b) => {
-                const depthDiff = a.depth - b.depth;
+            sortableFaces.sort((a, b) => {
+                const depthDiff = a.face.depth - b.face.depth;
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
-                if (a.renderOrder !== b.renderOrder) {
-                    return a.renderOrder - b.renderOrder;
+                if (a.face.renderOrder !== b.face.renderOrder) {
+                    return a.face.renderOrder - b.face.renderOrder;
                 }
                 return a.sortIndex - b.sortIndex;
             });
@@ -260,8 +261,8 @@
             ctx.save();
             ctx.translate(width / 2, height / 2 + 30);
 
-            allFaces.forEach(face => {
-                this.drawFace(ctx, face);
+            sortableFaces.forEach(item => {
+                this.drawFace(ctx, item.face);
             });
 
             ctx.restore();
