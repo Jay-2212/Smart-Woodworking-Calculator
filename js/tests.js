@@ -111,7 +111,7 @@ function runTests() {
     // TEST 2: CFT Calculation
     // Tests: calculateLineCFT() from js/calculations.js
     // 
-    // Formula: (feet × width × thickness) / 144 × qty
+    // Formula: (feet × width × thickness) / 12 × qty
     // ================================================================
     
     console.log("📊 TEST 2: CFT Calculation");

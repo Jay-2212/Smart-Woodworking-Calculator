@@ -86,12 +86,13 @@ const getPurchasedFeet = (inches) => {
 /**
  * Calculates CFT (Cubic Feet) for a wood piece.
  * 
- * FORMULA: (Length_in_feet × Width_in_inches × Thickness_in_inches) / 144
+ * FORMULA: (Length_in_feet × Width_in_inches × Thickness_in_inches) / 12
  * 
- * WHY 144?
- * - 1 cubic foot = 12" × 12" × 12" = 1728 cubic inches
- * - We measure: feet × inches × inches
- * - So we divide by 12×12 = 144 to convert to cubic feet
+ * WHY 12?
+ * In woodworking, CFT is the industry standard calculation:
+ * - Length is in feet, width and thickness are in inches
+ * - Dividing by 12 converts the result to cubic feet
+ * - This matches the standard lumber measurement conventions
  * 
  * @param {number} l - Length in inches
  * @param {number} w - Width in inches  

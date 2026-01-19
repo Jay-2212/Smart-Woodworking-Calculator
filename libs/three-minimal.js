@@ -237,11 +237,14 @@
             });
 
             // Sort faces by depth (painter's algorithm - draw furthest first)
+            // Use b.depth - a.depth for descending order (furthest/largest depth values first)
             allFaces.sort((a, b) => {
-                const depthDiff = a.depth - b.depth;
+                const depthDiff = b.depth - a.depth;
                 if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
                     return depthDiff;
                 }
+                // When depths are similar, use renderOrder as tiebreaker
+                // Higher renderOrder should be drawn later (on top)
                 return a.renderOrder - b.renderOrder;
             });
 

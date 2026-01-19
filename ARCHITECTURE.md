@@ -209,13 +209,13 @@ User Input (dims)           Auto-Calculation              Display
 ### CFT Calculation Formula
 
 ```
-CFT = (purchasedFeet × width × thickness) / 144 × quantity
+CFT = (purchasedFeet × width × thickness) / 12 × quantity
 
 Where:
 - purchasedFeet = inches / 12, rounded up to nearest 0.5 ft
 - width = wood width in inches (from size like "3x1" → 3")
 - thickness = wood thickness in inches (from size like "3x1" → 1")
-- 144 = 12 × 12 (converts inch² to ft² since length is already in feet)
+- 12 = divisor to convert result to cubic feet (industry standard)
 ```
 
 ---

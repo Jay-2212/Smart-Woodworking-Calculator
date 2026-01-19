@@ -52,16 +52,18 @@ const HALF_FOOT_THRESHOLD = 0.5001;
 
 /**
  * Conversion factor for CFT calculation.
- * Since CFT formula uses: (feet × inches × inches) / 144
- * Where 144 = 12" × 12" (converting inch dimensions to foot-based volume)
+ * CFT formula uses: (feet × inches × inches) / 12
  * 
  * FORMULA CONTEXT:
- * 1 cubic foot = 12" × 12" × 12" = 1728 cubic inches
- * When we have: feet × inches × inches, we divide by 144 (12×12) to get CFT
+ * In woodworking, CFT is calculated as: (length_ft × width_in × thickness_in) / 12
+ * This is the industry standard for measuring wood volume where:
+ * - Length is measured in feet
+ * - Width and thickness are measured in inches
+ * - Dividing by 12 converts the result to cubic feet
  * 
  * USED IN: js/calculations.js → calculateLineCFT()
  */
-const CUBIC_INCH_TO_CFT_DIVISOR = 144;
+const CUBIC_INCH_TO_CFT_DIVISOR = 12;
 
 /**
  * Standard inches per foot conversion.
