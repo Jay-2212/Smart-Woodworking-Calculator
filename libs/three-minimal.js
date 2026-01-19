@@ -18,8 +18,9 @@
     // ================================================================================
     
     // Threshold for back-face culling to avoid z-fighting artifacts
-    // Using a more lenient threshold to prevent runner flickering during rotation
-    const BACKFACE_CULL_THRESHOLD = -0.3;
+    // Using a lenient threshold (-0.5) to prevent thin runners from disappearing
+    // at glancing angles during rotation
+    const BACKFACE_CULL_THRESHOLD = -0.5;
     
     // Threshold for damping velocity cutoff
     const DAMPING_VELOCITY_THRESHOLD = 0.0001;
@@ -28,8 +29,10 @@
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
-    // Depth sort epsilon prevents face order flicker when depths are nearly identical (0.01 scene depth units, same scale as box dimensions).
-    const DEPTH_SORT_EPSILON = 0.01;
+    // Depth sort epsilon prevents face order flicker when depths are nearly identical.
+    // Using 0.5 scene units to ensure runners (renderOrder=1) appear in front of
+    // nearby panel faces (renderOrder=0) during rotation at various angles.
+    const DEPTH_SORT_EPSILON = 0.5;
     const DEFAULT_RENDER_ORDER_VALUE = 0;
 
     // Vector3 class
