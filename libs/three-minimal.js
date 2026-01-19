@@ -240,6 +240,10 @@
                 allFaces.push(...faces);
             });
 
+            allFaces.forEach((face, index) => {
+                face.sortIndex = index;
+            });
+
             // Sort faces by depth (painter's algorithm - draw furthest first)
             allFaces.sort((a, b) => {
                 const depthDiff = a.depth - b.depth;
@@ -249,7 +253,7 @@
                 if (a.renderOrder !== b.renderOrder) {
                     return a.renderOrder - b.renderOrder;
                 }
-                return depthDiff;
+                return a.sortIndex - b.sortIndex;
             });
 
             // Draw each face
