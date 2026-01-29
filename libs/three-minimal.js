@@ -308,6 +308,13 @@
             const hh = geo.height / 2;  // half height (Y axis)
             const hd = geo.depth / 2;   // half depth (Z axis)
 
+            // Detect thin geometry and use adaptive culling threshold
+            // Thin objects (any dimension < 2 units, like runners with depth=1)
+            // need a much more lenient threshold to stay visible at all angles
+            const minDimension = Math.min(geo.width, geo.height, geo.depth);
+            const isThinObject = minDimension < 2;
+            const effectiveCullThreshold = isThinObject ? -0.95 : BACKFACE_CULL_THRESHOLD;
+
             // 8 corners of the box in local coordinates
             const localCorners = [
                 { x: -hw, y: -hh, z: -hd }, // 0: front-bottom-left
@@ -379,8 +386,8 @@
                 const nz2 = ny * sinX + nz1 * cosX;
 
                 // Face is visible if normal points toward camera (positive Z after rotation)
-                // Uses BACKFACE_CULL_THRESHOLD to avoid z-fighting artifacts
-                if (nz2 > BACKFACE_CULL_THRESHOLD) {
+                // Uses adaptive threshold: thin objects get more lenient culling
+                if (nz2 > effectiveCullThreshold) {
                     const faceCorners = faceDef.corners.map(i => transformedCorners[i]);
                     
                     // Calculate average depth for sorting
