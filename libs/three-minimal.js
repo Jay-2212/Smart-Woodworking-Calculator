@@ -18,8 +18,10 @@
     // ================================================================================
     
     // Threshold for back-face culling to avoid z-fighting artifacts
-    // Using a VERY lenient threshold (-0.7) to ensure thin runners (depth=1)
+    // Using a lenient threshold (-0.7) to ensure thin runners (depth=1)
     // remain visible even when their main faces are angled away from the camera.
+    // This allows faces tilted up to ~135° from camera-facing to still be drawn.
+    // More lenient than previous -0.3 threshold which caused runners to disappear.
     const BACKFACE_CULL_THRESHOLD = -0.7;
     
     // Threshold for damping velocity cutoff
