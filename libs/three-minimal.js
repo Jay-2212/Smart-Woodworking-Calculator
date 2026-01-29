@@ -18,9 +18,19 @@
     // ================================================================================
     
     // Threshold for back-face culling to avoid z-fighting artifacts
-    // Using a lenient threshold (-0.5) to prevent thin runners from disappearing
-    // at glancing angles during rotation
-    const BACKFACE_CULL_THRESHOLD = -0.3;
+    // Using a lenient threshold (-0.7) to ensure thin runners (depth=1)
+    // remain visible even when their main faces are angled away from the camera.
+    // This allows faces tilted up to ~135° from camera-facing to still be drawn.
+    // More lenient than previous -0.3 threshold which caused runners to disappear.
+    const BACKFACE_CULL_THRESHOLD = -0.7;
+    
+    // Threshold for detecting thin geometry that needs more lenient culling
+    // Objects with any dimension smaller than this are considered "thin"
+    const THIN_OBJECT_DIMENSION_THRESHOLD = 2;
+    
+    // Very lenient threshold for thin objects (e.g., runners with depth=1)
+    // Allows faces to be drawn unless almost completely facing away from camera
+    const THIN_OBJECT_CULL_THRESHOLD = -0.95;
     
     // Threshold for damping velocity cutoff
     const DAMPING_VELOCITY_THRESHOLD = 0.0001;
@@ -306,6 +316,13 @@
             const hh = geo.height / 2;  // half height (Y axis)
             const hd = geo.depth / 2;   // half depth (Z axis)
 
+            // Detect thin geometry and use adaptive culling threshold
+            // Thin objects (any dimension < THIN_OBJECT_DIMENSION_THRESHOLD)
+            // need a much more lenient threshold to stay visible at all angles
+            const minDimension = Math.min(geo.width, geo.height, geo.depth);
+            const isThinObject = minDimension < THIN_OBJECT_DIMENSION_THRESHOLD;
+            const effectiveCullThreshold = isThinObject ? THIN_OBJECT_CULL_THRESHOLD : BACKFACE_CULL_THRESHOLD;
+
             // 8 corners of the box in local coordinates
             const localCorners = [
                 { x: -hw, y: -hh, z: -hd }, // 0: front-bottom-left
@@ -377,8 +394,8 @@
                 const nz2 = ny * sinX + nz1 * cosX;
 
                 // Face is visible if normal points toward camera (positive Z after rotation)
-                // Uses BACKFACE_CULL_THRESHOLD to avoid z-fighting artifacts
-                if (nz2 > BACKFACE_CULL_THRESHOLD) {
+                // Uses adaptive threshold: thin objects get more lenient culling
+                if (nz2 > effectiveCullThreshold) {
                     const faceCorners = faceDef.corners.map(i => transformedCorners[i]);
                     
                     // Calculate average depth for sorting
