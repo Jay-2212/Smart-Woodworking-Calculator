@@ -319,9 +319,18 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     // ============================================================
     // CONSTANTS
     // ============================================================
-    
+
     const THK = 1;  // Panel thickness
     const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+
+    // PREVIOUS: Runner offset was THK + 0.5 = 1.5 units from panel center
+    // This put runner faces within DEPTH_SORT_EPSILON of panel faces during rotation
+    // IMPROVED: Calculated offset ensures runner faces are always outside epsilon
+    // Formula: panel_half_thickness + runner_half_depth + safety_margin
+    // With THK=1, runner_depth=2, safety=0.8: 0.5 + 1.0 + 0.8 = 2.3
+    const RUNNER_Z_OFFSET = 2.3;
+    // Runner depth increased from 1 to 2 for better depth stability
+    const RUNNER_DEPTH = 2;
 
     // ============================================================
     // BOTTOM RUNNERS (Foundation)
@@ -423,31 +432,41 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
 
     // ============================================================
     // SIDE RUNNERS
+    // PREVIOUS: Runners placed at THK + 0.5 offset with depth=1, causing:
+    //   - Faces within depth epsilon of panel during rotation
+    //   - Only 1 of 2 runners visible due to sorting instability
+    // IMPROVED: Runners placed at RUNNER_Z_OFFSET with RUNNER_DEPTH thickness
+    //   - Clear depth separation from panels
+    //   - Both +Z and -Z runners reliably visible
     // ============================================================
-    
+
     const srLen = supps.sides.dim;
     const srCount = Math.round(supps.sides.count / 2);
 
     const drawSideRunners = (sideMultiplier) => {
-        const zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5);
+        // PREVIOUS: zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5)
+        // IMPROVED: Use calculated offset ensuring depth separation > epsilon
+        const zPosPanel = sideMultiplier * (sideZ_offset + RUNNER_Z_OFFSET);
 
         if (isBottomType || runnerConfig.sideDir === 'horizontal') {
             if (isBottomType && srCount > 0) {
                 const topY = baseY + sH - 1.5;
-                group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel, RUNNER_RENDER_ORDER));
+                // PREVIOUS: depth=1 caused thin object instability
+                // IMPROVED: depth=RUNNER_DEPTH for stable rendering
+                group.add(createBox(srLen, 3, RUNNER_DEPTH, woodMatDark, 0, topY, zPosPanel, RUNNER_RENDER_ORDER));
                 if (srCount > 1) {
                     const remainingSpace = sH - 3;
                     const step = remainingSpace / srCount;
                     for (let i = 1; i < srCount; i++) {
                         const yPos = baseY + (i * step);
-                        group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
+                        group.add(createBox(srLen, 3, RUNNER_DEPTH, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
                     }
                 }
             } else {
                 const stepY = sH / (srCount + 1);
                 for (let i = 1; i <= srCount; i++) {
                     const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
-                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
+                    group.add(createBox(srLen, 3, RUNNER_DEPTH, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
                 }
             }
         } else {
@@ -464,7 +483,9 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
             // Position vertical runners starting from the floor level
             const vCenterY = floorLevel + (srLen / 2);
             positions.forEach(xPos => {
-                group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel, RUNNER_RENDER_ORDER));
+                // PREVIOUS: depth=1 caused thin object instability
+                // IMPROVED: depth=RUNNER_DEPTH for stable rendering
+                group.add(createBox(3, srLen, RUNNER_DEPTH, woodMatDark, xPos, vCenterY, zPosPanel, RUNNER_RENDER_ORDER));
             });
         }
     };
@@ -475,17 +496,24 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
     }
 
     // ============================================================
-    // KARA RUNNERS
+    // KARA RUNNERS (End Panel Runners)
+    // PREVIOUS: Used hardcoded offset of 1.5, causing depth conflicts
+    // IMPROVED: Uses RUNNER_Z_OFFSET for consistent depth separation
     // ============================================================
-    
+
+    // KARA runner X offset: panel center + half thickness + runner offset
+    const KARA_RUNNER_X_OFFSET = karaX_offset + (kThk / 2) + RUNNER_Z_OFFSET;
+
     if (isBottomType) {
         const kVertLen = supps.karaVert.dim;
         const kVertSize = getSizeDims(supps.karaVert.size);
-        const kVertW = kVertSize.w;
+        const kVertW = Math.max(kVertSize.w, RUNNER_DEPTH); // Ensure minimum thickness
         const kV_Y = baseY + (kVertLen / 2);
 
         [1, -1].forEach(dirX => {
-            const xPos = dirX * (karaX_offset + kThk + 1.5);
+            // PREVIOUS: xPos = dirX * (karaX_offset + kThk + 1.5)
+            // IMPROVED: Consistent offset calculation
+            const xPos = dirX * KARA_RUNNER_X_OFFSET;
             if (runnerPositions.length > 0) {
                 runnerPositions.forEach(zPos => {
                     group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos, RUNNER_RENDER_ORDER));
@@ -500,7 +528,9 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         const kHorzLen = supps.karaHorz.dim;
         const kVertLen = supps.karaVert.dim;
         const suppW = getSizeDims(supps.karaHorz.size).w;
-        const frameThickness = 4;
+        // PREVIOUS: frameThickness = 4 (arbitrary magic number)
+        // IMPROVED: Use calculated thickness ensuring depth stability
+        const frameThickness = Math.max(4, RUNNER_DEPTH);
 
         const kY_Top = floorLevel + kH - (suppW / 2);
         const kY_Bot = floorLevel + (suppW / 2);
@@ -509,7 +539,9 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         const kZ_Right = -((kL / 2) - (suppW / 2));
 
         [1, -1].forEach(dirX => {
-            const xPos = dirX * (karaX_offset + kThk + 1.5);
+            // PREVIOUS: xPos = dirX * (karaX_offset + kThk + 1.5)
+            // IMPROVED: Consistent offset calculation
+            const xPos = dirX * KARA_RUNNER_X_OFFSET;
             group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0, RUNNER_RENDER_ORDER));
             group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0, RUNNER_RENDER_ORDER));
             if (kVertLen > 0) {
@@ -530,11 +562,16 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
 
     // ============================================================
     // TOP LID RUNNERS
+    // PREVIOUS: Used hardcoded 0.5 offset and magic number dimensions
+    // IMPROVED: Calculated offsets ensuring clear depth separation from lid
     // ============================================================
-    
+
     if (supps.top.count > 0) {
         const trH = 3;
-        const trY = topY + (THK / 2) + trH / 2 + 0.5;
+        // PREVIOUS: trY = topY + (THK / 2) + trH / 2 + 0.5 (magic number offset)
+        // IMPROVED: Calculated offset: lid_top_surface + runner_center + safety_margin
+        const TOP_RUNNER_Y_OFFSET = (THK / 2) + (trH / 2) + 1.0;
+        const trY = topY + TOP_RUNNER_Y_OFFSET;
 
         let topRunnerPositions = [];
         if (runnerPositions.length > 0) {
@@ -557,7 +594,9 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         }
 
         if (isBottomType) {
-            const trW = 4;
+            // PREVIOUS: trW = 4 (arbitrary magic number)
+            // IMPROVED: Calculated minimum width for depth stability
+            const trW = Math.max(4, RUNNER_DEPTH);
             const trLen = tL;
             topRunnerPositions.forEach(zPos => {
                 group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos, RUNNER_RENDER_ORDER));
@@ -565,7 +604,9 @@ function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, r
         } else {
             const trLen = tW;
             const topSize = getSizeDims(supps.top.size);
-            const trW = topSize.w + 0.5;
+            // PREVIOUS: trW = topSize.w + 0.5 (magic number offset)
+            // IMPROVED: Ensure minimum depth for rendering stability
+            const trW = Math.max(topSize.w + 0.5, RUNNER_DEPTH);
             topRunnerPositions.forEach(xPos => {
                 group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0, RUNNER_RENDER_ORDER));
             });
