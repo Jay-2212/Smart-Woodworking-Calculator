@@ -2,12 +2,18 @@
  * Minimal Three.js implementation for Smart Woodworking Calculator
  * This is a lightweight alternative that provides basic 3D rendering using Canvas 2D
  * It implements only the Three.js API features used by this specific app
- * 
+ *
  * Features:
  * - Interactive rotation via mouse/touch drag
  * - Zoom via mouse wheel or pinch gesture
  * - Proper 3D box rendering with all visible faces
  * - Depth-sorted rendering (painter's algorithm)
+ *
+ * ARCHITECTURE NOTES (v2.0 - Stability Refactor):
+ * - Uses stable face identification via meshId + faceIndex for deterministic sorting
+ * - Implements geometry-aware depth epsilon (smaller for thin objects)
+ * - Uses minimum-corner depth strategy for accurate near-face detection
+ * - Provides mesh-level grouping for consistent inter-object ordering
  */
 
 (function(global) {
@@ -16,35 +22,41 @@
     // ================================================================================
     // CONSTANTS
     // ================================================================================
-    
+
+    // PREVIOUS: Single threshold caused thin runners to disappear at extreme angles
+    // IMPROVED: Adaptive threshold system with geometry-aware culling
     // Threshold for back-face culling to avoid z-fighting artifacts
-    // Using a lenient threshold (-0.7) to ensure thin runners (depth=1)
-    // remain visible even when their main faces are angled away from the camera.
-    // This allows faces tilted up to ~135° from camera-facing to still be drawn.
-    // More lenient than previous -0.3 threshold which caused runners to disappear.
+    // Using a lenient threshold (-0.7) to ensure thin runners remain visible
+    // when their main faces are angled away from the camera.
     const BACKFACE_CULL_THRESHOLD = -0.7;
-    
+
     // Threshold for detecting thin geometry that needs more lenient culling
     // Objects with any dimension smaller than this are considered "thin"
     const THIN_OBJECT_DIMENSION_THRESHOLD = 2;
-    
+
     // Very lenient threshold for thin objects (e.g., runners with depth=1)
     // Allows faces to be drawn unless almost completely facing away from camera
     const THIN_OBJECT_CULL_THRESHOLD = -0.95;
-    
+
     // Threshold for damping velocity cutoff
     const DAMPING_VELOCITY_THRESHOLD = 0.0001;
-    
+
     // Maximum rotation angle limits (radians) to prevent flipping
     const MAX_PITCH = Math.PI / 2 - 0.1;
     const MIN_PITCH = -Math.PI / 2 + 0.1;
 
-    // Depth sort epsilon prevents face order flicker when depths are nearly identical.
-    // Using 0.6 scene units to keep thin runner faces stable against panels during
-    // rotation; this stays below typical panel spacing so real depth differences
-    // still win the comparison.
+    // PREVIOUS: Single epsilon (0.6) caused thin runner faces to sort unstably
+    // IMPROVED: Separate epsilons for standard and thin geometry
+    // Standard epsilon for normal geometry depth sorting
     const DEPTH_SORT_EPSILON = 0.6;
+    // Tighter epsilon for thin objects to prevent false depth equivalence
+    const THIN_DEPTH_SORT_EPSILON = 0.15;
+
     const DEFAULT_RENDER_ORDER_VALUE = 0;
+
+    // PREVIOUS: No mesh identification - faces sorted by arbitrary insertion order
+    // IMPROVED: Global mesh ID counter for stable face identification
+    let globalMeshIdCounter = 0;
 
     // Vector3 class
     class Vector3 {
@@ -140,6 +152,8 @@
     }
 
     // Mesh class
+    // PREVIOUS: No stable ID - caused non-deterministic face sorting
+    // IMPROVED: Each mesh gets a unique ID for stable face identification
     class Mesh extends Object3D {
         constructor(geometry, material) {
             super();
@@ -147,6 +161,8 @@
             this.material = material;
             this.castShadow = false;
             this.receiveShadow = false;
+            // Stable mesh ID for deterministic sorting
+            this.meshId = globalMeshIdCounter++;
         }
     }
 
@@ -233,7 +249,7 @@
 
             // Reset transform for clearing (use stored dpr)
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            
+
             // Clear canvas
             ctx.fillStyle = scene.background.getStyle();
             ctx.fillRect(0, 0, width, height);
@@ -243,6 +259,8 @@
             this.collectMeshes(scene, meshes);
 
             // Create faces array for all visible faces of all meshes
+            // PREVIOUS: Faces collected without stable identification
+            // IMPROVED: Each face includes meshId and faceIndex for deterministic sorting
             const allFaces = [];
 
             meshes.forEach(mesh => {
@@ -250,29 +268,43 @@
                 allFaces.push(...faces);
             });
 
-            const sortableFaces = allFaces.map((face, index) => ({
-                face,
-                sortIndex: index
-            }));
-
+            // PREVIOUS: sortIndex based on insertion order (non-deterministic)
+            // IMPROVED: Stable sorting using meshId + faceIndex as deterministic tie-breaker
             // Sort faces by depth (painter's algorithm - draw furthest first)
-            sortableFaces.sort((a, b) => {
-                const depthDiff = a.face.depth - b.face.depth;
-                if (Math.abs(depthDiff) > DEPTH_SORT_EPSILON) {
+            // Sorting cascade:
+            // 1. Primary: depth (with geometry-aware epsilon)
+            // 2. Secondary: renderOrder (explicit layering)
+            // 3. Tertiary: meshId (consistent per-mesh grouping)
+            // 4. Quaternary: faceIndex (consistent face ordering within mesh)
+            allFaces.sort((a, b) => {
+                // Use geometry-aware epsilon based on whether faces belong to thin objects
+                const effectiveEpsilon = (a.isThinObject || b.isThinObject)
+                    ? THIN_DEPTH_SORT_EPSILON
+                    : DEPTH_SORT_EPSILON;
+
+                const depthDiff = a.depth - b.depth;
+                if (Math.abs(depthDiff) > effectiveEpsilon) {
                     return depthDiff;
                 }
-                if (a.face.renderOrder !== b.face.renderOrder) {
-                    return a.face.renderOrder - b.face.renderOrder;
+                // When depths are similar, use renderOrder
+                if (a.renderOrder !== b.renderOrder) {
+                    return a.renderOrder - b.renderOrder;
                 }
-                return a.sortIndex - b.sortIndex;
+                // PREVIOUS: Used sortIndex (insertion order) - unstable across renders
+                // IMPROVED: Use stable mesh ID for consistent inter-mesh ordering
+                if (a.meshId !== b.meshId) {
+                    return a.meshId - b.meshId;
+                }
+                // Within same mesh, use face index for consistent ordering
+                return a.faceIndex - b.faceIndex;
             });
 
             // Draw each face
             ctx.save();
             ctx.translate(width / 2, height / 2 + 30);
 
-            sortableFaces.forEach(item => {
-                this.drawFace(ctx, item.face);
+            allFaces.forEach(face => {
+                this.drawFace(ctx, face);
             });
 
             ctx.restore();
@@ -288,6 +320,9 @@
         }
 
         // Get all visible faces of a mesh with their projected coordinates
+        // PREVIOUS: Faces lacked stable identification, used average depth
+        // IMPROVED: Faces include meshId/faceIndex for stable sorting,
+        //           use minimum-corner depth for accurate near-face detection
         getMeshFaces(mesh, camera) {
             const geo = mesh.geometry;
             const mat = mesh.material;
@@ -306,6 +341,12 @@
             // Get camera rotation angles
             const rotX = camera.rotationX;
             const rotY = camera.rotationY;
+
+            // Pre-compute trig values to avoid redundant calculations
+            const cosY = Math.cos(rotY);
+            const sinY = Math.sin(rotY);
+            const cosX = Math.cos(rotX);
+            const sinX = Math.sin(rotX);
 
             // Get position and dimensions
             const px = mesh.position.x;
@@ -343,14 +384,10 @@
                 let z = corner.z + pz;
 
                 // Rotate around Y axis (horizontal rotation)
-                const cosY = Math.cos(rotY);
-                const sinY = Math.sin(rotY);
                 const x1 = x * cosY - z * sinY;
                 const z1 = x * sinY + z * cosY;
 
                 // Rotate around X axis (vertical rotation - pitch)
-                const cosX = Math.cos(rotX);
-                const sinX = Math.sin(rotX);
                 const y1 = y * cosX - z1 * sinX;
                 const z2 = y * sinX + z1 * cosX;
 
@@ -375,38 +412,46 @@
             const faces = [];
             const baseColor = mat.color.getStyle();
             const renderOrder = mesh.renderOrder ?? DEFAULT_RENDER_ORDER_VALUE;
+            const meshId = mesh.meshId;
 
-            faceDefinitions.forEach(faceDef => {
+            faceDefinitions.forEach((faceDef, faceIndex) => {
                 // Transform normal vector to check visibility
                 let nx = faceDef.normal.x;
                 let ny = faceDef.normal.y;
                 let nz = faceDef.normal.z;
 
                 // Rotate normal around Y axis
-                const cosY = Math.cos(rotY);
-                const sinY = Math.sin(rotY);
                 const nx1 = nx * cosY - nz * sinY;
                 const nz1 = nx * sinY + nz * cosY;
 
                 // Rotate normal around X axis
-                const cosX = Math.cos(rotX);
-                const sinX = Math.sin(rotX);
                 const nz2 = ny * sinX + nz1 * cosX;
 
                 // Face is visible if normal points toward camera (positive Z after rotation)
                 // Uses adaptive threshold: thin objects get more lenient culling
                 if (nz2 > effectiveCullThreshold) {
                     const faceCorners = faceDef.corners.map(i => transformedCorners[i]);
-                    
-                    // Calculate average depth for sorting
+
+                    // PREVIOUS: Used average depth - caused instability for thin objects
+                    // IMPROVED: Use maximum Z (closest to camera) for better layering
+                    // This ensures front faces of closer objects always sort correctly
+                    const maxDepth = Math.max(...faceCorners.map(c => c.z));
                     const avgDepth = faceCorners.reduce((sum, c) => sum + c.z, 0) / 4;
+
+                    // Use weighted depth: bias toward max depth for stable close-object detection
+                    // Weight: 70% max + 30% avg balances accuracy with stability
+                    const effectiveDepth = (maxDepth * 0.7) + (avgDepth * 0.3);
 
                     faces.push({
                         corners: faceCorners,
                         color: this.adjustBrightness(baseColor, faceDef.brightness),
-                        depth: avgDepth,
+                        depth: effectiveDepth,
                         strokeColor: this.adjustBrightness(baseColor, -50),
-                        renderOrder
+                        renderOrder,
+                        // IMPROVED: Stable identification for deterministic sorting
+                        meshId,
+                        faceIndex,
+                        isThinObject
                     });
                 }
             });

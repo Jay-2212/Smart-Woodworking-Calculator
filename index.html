@@ -139,13 +139,21 @@ JavaScript files MUST be loaded in this exact order:
     -->
     <script src="js/app.js"></script>
 
-    <!-- 
+    <!--
          Module 6: TESTS
          File: js/tests.js
          Dependencies: js/constants.js, js/calculations.js
          Note: Tests run automatically on load. Check browser console (F12) for results.
     -->
     <script src="js/tests.js"></script>
+
+    <!--
+         Module 7: VISUALIZATION STABILITY TESTS
+         File: js/visualization-tests.js
+         Dependencies: libs/three-minimal.js, js/three-scene.js, js/calculations.js
+         Note: Manual run via console: AppVisualizationTests.runAllTests()
+    -->
+    <script src="js/visualization-tests.js"></script>
 
 </body>
 
