@@ -209,23 +209,36 @@ function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerC
 
     // ============================================================
     // LIGHTING SETUP
+    // Increased intensity for better visibility with MeshStandardMaterial
     // ============================================================
     
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    dirLight.position.set(50, 60, 50);
+    // Main directional light (sun-like)
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(50, 80, 50);
     dirLight.castShadow = true;
     scene.add(dirLight);
+    
+    // Fill light from opposite side to reduce harsh shadows
+    const fillLight = new THREE.DirectionalLight(0xffedd5, 0.5);
+    fillLight.position.set(-50, 40, -50);
+    scene.add(fillLight);
 
     // ============================================================
     // CAMERA CONTROLS (Orbit)
+    // Enable rotation, zoom, and damping for smooth interaction
     // ============================================================
     
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.enablePan = false;  // Disable pan to keep box centered
+    controls.minDistance = 30;
+    controls.maxDistance = 200;
 
     // Create group for box parts
     const group = new THREE.Group();
