@@ -209,22 +209,33 @@ function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerC
 
     // ============================================================
     // LIGHTING SETUP
-    // Increased intensity for better visibility with MeshStandardMaterial
+    // Bright, warm lighting for better visibility
     // ============================================================
     
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    // Ambient light - increased for overall brightness
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
     scene.add(ambientLight);
     
-    // Main directional light (sun-like)
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(50, 80, 50);
+    // Main directional light (sun-like) - brighter
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(60, 100, 60);
     dirLight.castShadow = true;
     scene.add(dirLight);
     
-    // Fill light from opposite side to reduce harsh shadows
-    const fillLight = new THREE.DirectionalLight(0xffedd5, 0.5);
-    fillLight.position.set(-50, 40, -50);
-    scene.add(fillLight);
+    // Fill light from front-left
+    const fillLight1 = new THREE.DirectionalLight(0xfff5e6, 0.8);
+    fillLight1.position.set(-60, 50, 60);
+    scene.add(fillLight1);
+    
+    // Fill light from back-right
+    const fillLight2 = new THREE.DirectionalLight(0xffeedd, 0.6);
+    fillLight2.position.set(60, 40, -60);
+    scene.add(fillLight2);
+    
+    // Bottom fill to light up undersides
+    const bottomLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    bottomLight.position.set(0, -50, 0);
+    scene.add(bottomLight);
 
     // ============================================================
     // CAMERA CONTROLS (Orbit)
@@ -236,7 +247,7 @@ function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerC
     controls.dampingFactor = 0.05;
     controls.enableRotate = true;
     controls.enableZoom = true;
-    controls.enablePan = false;  // Disable pan to keep box centered
+    controls.enablePan = true;   // Enable right-click panning to center the view
     controls.minDistance = 30;
     controls.maxDistance = 200;
 
