@@ -303,7 +303,7 @@
                 }
             }
             function handleTouchStartRotate(event) {
-                if (event.touches.length == 1) {
+                if (event.touches.length === 1) {
                     rotateStart.set(event.touches[0].pageX, event.touches[0].pageY);
                 } else {
                     const x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
@@ -312,7 +312,7 @@
                 }
             }
             function handleTouchStartPan(event) {
-                if (event.touches.length == 1) {
+                if (event.touches.length === 1) {
                     panStart.set(event.touches[0].pageX, event.touches[0].pageY);
                 } else {
                     const x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
@@ -335,7 +335,7 @@
                 if (scope.enableRotate) handleTouchStartRotate(event);
             }
             function handleTouchMoveRotate(event) {
-                if (event.touches.length == 1) {
+                if (event.touches.length === 1) {
                     rotateEnd.set(event.touches[0].pageX, event.touches[0].pageY);
                 } else {
                     const x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
@@ -349,7 +349,7 @@
                 rotateStart.copy(rotateEnd);
             }
             function handleTouchMovePan(event) {
-                if (event.touches.length == 1) {
+                if (event.touches.length === 1) {
                     panEnd.set(event.touches[0].pageX, event.touches[0].pageY);
                 } else {
                     const x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
