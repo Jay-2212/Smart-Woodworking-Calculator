@@ -482,6 +482,8 @@
 
             scope.domElement.addEventListener('contextmenu', onContextMenu);
             scope.domElement.addEventListener('pointerdown', onPointerDown);
+            scope.domElement.addEventListener('pointermove', onPointerMove);
+            scope.domElement.addEventListener('pointerup', onPointerUp);
             scope.domElement.addEventListener('pointercancel', onPointerCancel);
             scope.domElement.addEventListener('wheel', onMouseWheel, { passive: false });
             this.update();
