@@ -60,7 +60,8 @@ Smart-Woodworking-Calculator/
 | three-scene.js | ~450 | 3D box visualization |
 | components.js | ~500 | React UI components |
 | app.js | ~850 | Main application logic |
-| tests.js | ~280 | Test suite |
+| tests.js | ~280 | Basic test suite (smoke tests) |
+| tests-comprehensive.js | ~1500 | Comprehensive test suite with visual reporting |
 
 ---
 
@@ -76,12 +77,13 @@ Smart-Woodworking-Calculator/
 <script src="OrbitControls.js"></script>
 
 <!-- 2. Application modules (ORDER MATTERS!) -->
-<script src="js/constants.js"></script>      <!-- First: No dependencies -->
-<script src="js/calculations.js"></script>   <!-- Needs: constants.js -->
-<script src="js/three-scene.js"></script>    <!-- Needs: calculations.js -->
-<script src="js/components.js"></script>     <!-- Needs: constants.js, calculations.js -->
-<script src="js/app.js"></script>            <!-- Needs: ALL above -->
-<script src="js/tests.js"></script>          <!-- Needs: constants.js, calculations.js -->
+<script src="js/constants.js"></script>              <!-- First: No dependencies -->
+<script src="js/calculations.js"></script>           <!-- Needs: constants.js -->
+<script src="js/three-scene.js"></script>            <!-- Needs: calculations.js -->
+<script src="js/components.js"></script>             <!-- Needs: constants.js, calculations.js -->
+<script src="js/app.js"></script>                    <!-- Needs: ALL above -->
+<script src="js/tests.js"></script>                  <!-- Needs: constants.js, calculations.js -->
+<script src="js/tests-comprehensive.js"></script>    <!-- Needs: constants.js, calculations.js, components.js -->
 ```
 
 ### Why Load Order Matters
@@ -346,6 +348,130 @@ supps.karaHorz.size change ──────────────┘
 
 ---
 
+## Testing Guide
+
+The Smart CFT Calculator has a comprehensive test suite to ensure calculation accuracy and catch regressions. This is critical because the calculations directly affect business pricing.
+
+### Test Files
+
+| File | Purpose | When to Run |
+|------|---------|-------------|
+| `js/tests.js` | Basic smoke tests | Quick validation |
+| `js/tests-comprehensive.js` | Full test suite with 50+ tests | Before deployment, after changes |
+
+### Running Tests
+
+**Automatic:** Tests run automatically when the page loads. A visual report appears in the top-right corner.
+
+**Manual (all tests):**
+```javascript
+ComprehensiveTestSuite.runAllTests();
+```
+
+**Manual (specific category):**
+```javascript
+// Available categories: calculations, constants, components, integration, workflows, edge-cases
+ComprehensiveTestSuite.runCategory('calculations');
+```
+
+### Test Categories
+
+1. **Calculations** (~20 tests)
+   - `getPurchasedFeet()` - Feet rounding logic
+   - `calculateLineCFT()` - CFT formula verification
+   - `getSizeDims()` - Wood size lookups
+   - `calculateCrateEffectiveLength()` - Gap calculations
+   - `getEffectiveCrateDims()` - Crate dimension adjustments
+
+2. **Constants** (~8 tests)
+   - Threshold values (HALF_FOOT_THRESHOLD, etc.)
+   - Runner recommendation configuration
+   - Validation functions
+
+3. **Components** (~5 tests)
+   - Component existence checks
+   - Function type validation
+
+4. **Integration** (~4 tests)
+   - Calculation chains
+   - Module interaction verification
+
+5. **Workflows** (~5 tests)
+   - Simple box calculations
+   - Crate box calculations
+   - Cost calculations
+   - Runner recommendations
+
+6. **Edge Cases** (~15 tests)
+   - Zero/negative inputs
+   - Null/undefined handling
+   - Very large/small values
+   - Boundary conditions
+   - Regression tests
+
+### Test Structure
+
+Tests follow the Arrange-Act-Assert pattern:
+```javascript
+test('description', () => {
+    // Arrange: Set up test data
+    const input = 15;
+    
+    // Act: Execute function
+    const result = getPurchasedFeet(input);
+    
+    // Assert: Verify result
+    Assert.equal(result, 1.5, '15 inches should round to 1.5 feet');
+});
+```
+
+### Adding New Tests
+
+When adding new calculation functions:
+1. Add tests in the `calculations` category
+2. Test happy path, edge cases, and error handling
+3. Use `Assert.approximatelyEqual()` for floating-point comparisons
+4. Add regression tests for any bugs fixed
+
+Example:
+```javascript
+calculationTests.addTest('myNewFunction: basic case', () => {
+    const { myNewFunction } = getCalculationFunctions();
+    const result = myNewFunction(10, 20);
+    Assert.equal(result, expectedValue, 'Should calculate correctly');
+});
+```
+
+### Interpreting Results
+
+**Visual Report:**
+- Green overlay with ✅ = All tests passed
+- Red overlay with ❌ = Some tests failed
+- Click category names to expand details
+
+**Console Output:**
+- ✅ = Individual test passed
+- ❌ = Individual test failed (with error message)
+- Shows timing for each test
+
+### Test Configuration
+
+Edit `TEST_CONFIG` at the top of `js/tests-comprehensive.js`:
+```javascript
+const TEST_CONFIG = {
+    AUTO_RUN: true,               // Auto-run on page load
+    STOP_ON_FIRST_FAIL: false,    // Stop after first failure
+    VERBOSE: true,                // Show detailed console output
+    FLOAT_TOLERANCE: 0.01,        // Tolerance for floating-point comparisons
+    SHOW_TIMING: true,            // Show test duration
+    SHOW_VISUAL_REPORT: false     // Visual popup (false for production)
+};
+```
+
+**Important:** `SHOW_VISUAL_REPORT` is set to `false` by default to keep the UI clean for end users. Tests still run automatically in the background and output to the browser console. Set to `true` during development if you want the popup.
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -370,6 +496,10 @@ supps.karaHorz.size change ──────────────┘
 
 Open browser console and type:
 ```javascript
+// Run comprehensive suite
+ComprehensiveTestSuite.runAllTests();
+
+// Run legacy basic tests
 window.AppTests.runTests();
 ```
 
