@@ -482,6 +482,10 @@ function App() {
 
     // Helper flag for bottom type logic
     const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+    const hasNonStandardPreviewPanelQuantity = isBottomType
+        ? Number(mainRows.top.qty) !== 1 || Number(mainRows.bottom.qty) !== 1 ||
+            Number(mainRows.sides.qty) !== 2 || Number(mainRows.kara.qty) !== 2
+        : Number(mainRows.top.qty) !== 2 || Number(mainRows.sides.qty) !== 2 || Number(mainRows.kara.qty) !== 2;
 
     // ============================================================================
     // COMPUTED: Quote readiness
@@ -839,7 +843,10 @@ function App() {
                 React.createElement('div', {
                     className: "three-scene-notices"
                 },
-                    React.createElement('p', null, 'Preview uses the calculated panel and support sizes.'),
+                    React.createElement('p', null, 'Preview uses calculated panel and support sizes with standard assembled panel counts.'),
+                    hasNonStandardPreviewPanelQuantity && React.createElement('p', {
+                        className: 'three-scene-notice--warning'
+                    }, 'The altered panel quantity is included in the calculation but cannot be placed in this assembled 3D preview.'),
                     boxType === 'crate' && React.createElement('p', null, 'Crate preview shows the calculated structure only. It does not show crate slats or gaps.'),
                     extras.length > 0 && React.createElement('p', null, 'Extra supports are included in the quote but are not placed in this 3D preview.')
                 )

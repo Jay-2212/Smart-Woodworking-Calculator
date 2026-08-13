@@ -172,3 +172,25 @@ test('the 3D preview uses selected support dimensions and clearly limits crate a
   await page.getByRole('button', { name: 'Crate' }).click();
   await expect(page.getByText('Crate preview shows the calculated structure only. It does not show crate slats or gaps.')).toBeVisible();
 });
+
+test('the 3D canvas reattaches after an unrelated root render', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto('/');
+
+  const canvas = page.locator('#three-scene-container canvas');
+  await expect(canvas).toHaveCount(1);
+
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(canvas).toHaveCount(1);
+
+  await page.getByLabel('Rate, rupees per CFT').fill('626');
+  await expect(canvas).toHaveCount(1);
+});
+
+test('the 3D preview discloses when a calculated panel quantity cannot be assembled', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByLabel('Top & Bottom quantity').fill('3');
+
+  await expect(page.getByText('The altered panel quantity is included in the calculation but cannot be placed in this assembled 3D preview.')).toBeVisible();
+});

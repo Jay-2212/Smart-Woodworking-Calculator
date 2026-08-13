@@ -260,13 +260,26 @@ window.addEventListener('pagehide', () => { if (controller) controller.dispose()
 const ThreeScene = props => {
     const containerRef = useRef(null);
     const [unavailable, setUnavailable] = useState(false);
+
+    // The vendored renderer replaces the full app root for every state change.
+    // Reattach after every render, but leave geometry updates to the input effect.
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => {
+            if (unavailable) return;
+            try {
+                getController().attach(containerRef.current || document.getElementById('three-scene-container'));
+            } catch (error) {
+                console.warn('3D preview is unavailable', error);
+                setUnavailable(true);
+            }
+        });
+        return () => cancelAnimationFrame(frame);
+    });
+
     useEffect(() => {
         const frame = requestAnimationFrame(() => {
             try {
                 const sceneController = getController();
-                // The vendored React runtime does not always populate object refs,
-                // so retain the explicit lookup for its full-root rerender path.
-                sceneController.attach(containerRef.current || document.getElementById('three-scene-container'));
                 sceneController.update(props);
             } catch (error) {
                 console.warn('3D preview is unavailable', error);
