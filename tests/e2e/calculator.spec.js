@@ -159,11 +159,18 @@ test('the 3D preview resizes after phone rotation, keeps one canvas, and offers 
 test('the 3D preview uses selected support dimensions and clearly limits crate and extra previews', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByLabel('Side Supports size').selectOption('4x2');
+  const sideSupportSize = page.getByLabel('Side Supports size');
+  const currentSideSize = await sideSupportSize.inputValue();
+  const sideSizeOptions = await sideSupportSize.locator('option').evaluateAll(options => options.map(option => option.value));
+  const changedSideSize = sideSizeOptions.find(size => size !== currentSideSize);
+  expect(changedSideSize).toBeTruthy();
+  await sideSupportSize.selectOption(changedSideSize);
+  const [sideWidth, sideThickness] = changedSideSize.split('x').map(Number);
+
   await page.getByLabel('Side Supports quantity').fill('3');
   await expect.poll(() => page.evaluate(() => window.AppThreeScene.getSceneDebugSnapshot())).toMatchObject({
     supportCounts: { sides: 3 },
-    supportCrossSections: { sides: { width: 4, thickness: 2 } }
+    supportCrossSections: { sides: { width: sideWidth, thickness: sideThickness } }
   });
 
   await page.getByRole('button', { name: 'Add extra support' }).click();
