@@ -417,10 +417,14 @@ function App() {
     };
 
     // Total CFT for all panels
-    const totalBoard = getRowCFT("Top", mainRows.top) +
-        getRowCFT("Bottom", mainRows.bottom) +
-        getRowCFT("Sides", mainRows.sides) +
-        getRowCFT("Kara", mainRows.kara);
+    const totalBoard = boxType === 'simple'
+        ? getRowCFT("Top", mainRows.top) +
+            getRowCFT("Sides", mainRows.sides) +
+            getRowCFT("Kara", mainRows.kara)
+        : getRowCFT("Top", mainRows.top) +
+            getRowCFT("Bottom", mainRows.bottom) +
+            getRowCFT("Sides", mainRows.sides) +
+            getRowCFT("Kara", mainRows.kara);
 
     /**
      * Calculates CFT for a support runner configuration
@@ -554,7 +558,8 @@ function App() {
                     className: "text-sm font-black text-amber-500 uppercase tracking-[0.2em] mb-2"
                 }, "Total Project Cost"),
                 React.createElement('div', {
-                    className: "text-6xl font-black text-white leading-none mb-6"
+                    className: "text-6xl font-black text-white leading-none mb-6",
+                    'data-testid': "grand-total-cost"
                 },
                     React.createElement('span', {
                         className: "text-3xl text-amber-600 align-top mr-1"
@@ -585,7 +590,8 @@ function App() {
                             className: "text-xs font-bold text-slate-400 uppercase mb-1"
                         }, "Total CFT"),
                         React.createElement('span', {
-                            className: "text-3xl font-black text-amber-400"
+                            className: "text-3xl font-black text-amber-400",
+                            'data-testid': "grand-total-cft"
                         }, grandTotalCFT.toFixed(2))
                     )
                 )
@@ -611,9 +617,12 @@ function App() {
                     ['l', 'w', 'h'].map(k => 
                         React.createElement('div', { key: k, className: "flex flex-col" },
                             React.createElement('label', {
+                                for: `internal-${k}`,
                                 className: "text-xs text-black font-black mb-2 uppercase tracking-wide bg-amber-100 w-full text-center py-1 rounded border border-amber-200"
                             }, k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'),
                             React.createElement('input', {
+                                id: `internal-${k}`,
+                                'aria-label': `Internal ${k === 'l' ? 'length' : k === 'w' ? 'width' : 'height'}, inches`,
                                 type: "number",
                                 value: dims[k],
                                 onChange: (e) => setDims({ ...dims, [k]: e.target.value }),
@@ -678,7 +687,8 @@ function App() {
                         className: "font-black text-sm text-white uppercase tracking-wide"
                     }, "Box Components"),
                     React.createElement('span', {
-                        className: "font-black text-xl text-amber-400"
+                        className: "font-black text-xl text-amber-400",
+                        'data-testid': "board-total"
                     }, 
                         totalBoard.toFixed(3),
                         React.createElement('span', { className: "text-xs text-slate-400" }, " CFT")
@@ -779,7 +789,12 @@ function App() {
                         }, "Runners & Supports"),
                         React.createElement('p', {
                             className: "text-sm text-slate-300 font-bold mt-1"
-                        }, `Total: ${totalSupp.toFixed(3)} CFT`)
+                        },
+                            "Total: ",
+                            React.createElement('span', {
+                                'data-testid': "supports-total"
+                            }, `${totalSupp.toFixed(3)} CFT`)
+                        )
                     ),
 
                     React.createElement('div', { className: "flex flex-col items-end" },
@@ -810,7 +825,7 @@ function App() {
                 },
                     React.createElement(SupportCard, {
                         label: "Bottom Supports",
-                        sizeOptions: ['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1'],
+                        sizeOptions: ['4x3', '4x4', '3x2', '4x2', '4x1.5', '4x1', '3x1'],
                         dimValue: supps.bottom.dim,
                         settings: supps.bottom,
                         onUpdate: (f, v) => updateSupp('bottom', f, v),

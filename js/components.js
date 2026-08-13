@@ -279,6 +279,7 @@ const SupportCard = ({
     const sDims = getSizeDims(settings.size);
     const feet = getPurchasedFeet(settings.dim);
     const cft = ((feet * sDims.w * sDims.t) / CUBIC_INCH_TO_CFT_DIVISOR) * settings.count;
+    const sizeSelectId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-size`;
 
     return React.createElement('div', {
         className: `rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-slate-900 overflow-hidden ${colorClass}`
@@ -305,9 +306,12 @@ const SupportCard = ({
                 // Size dropdown
                 React.createElement('div', null,
                     React.createElement('label', { 
+                        for: sizeSelectId,
                         className: "text-xs text-black font-black mb-1 uppercase block tracking-wider" 
                     }, "Size"),
                     React.createElement('select', {
+                        id: sizeSelectId,
+                        'aria-label': `${label} size`,
                         value: settings.size,
                         onChange: (e) => onUpdate('size', e.target.value),
                         className: "w-full bg-white border-2 border-slate-900 rounded-lg py-2 px-2 text-xl font-black text-black focus:ring-4 focus:ring-amber-400 outline-none appearance-none"

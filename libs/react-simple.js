@@ -95,6 +95,7 @@
 
         // Create DOM element
         const element = document.createElement(type);
+        let pendingSelectValue;
 
         // Set props
         Object.keys(props).forEach(name => {
@@ -114,7 +115,11 @@
             } else if (name === 'dangerouslySetInnerHTML') {
                 element.innerHTML = props[name].__html;
             } else if (name === 'value') {
-                element.value = props[name];
+                if (type === 'select') {
+                    pendingSelectValue = props[name];
+                } else {
+                    element.value = props[name];
+                }
             } else if (name === 'checked') {
                 element.checked = props[name];
             } else {
@@ -129,6 +134,10 @@
                 element.appendChild(childElement);
             }
         });
+
+        if (type === 'select' && pendingSelectValue !== undefined) {
+            element.value = pendingSelectValue;
+        }
 
         return element;
     }
