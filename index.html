@@ -21,10 +21,9 @@ FILE STRUCTURE:
 └── js/
     ├── constants.js       (Magic numbers, icons, error boundary)
     ├── calculations.js    (Pure CFT calculation functions)
-    ├── three-scene.js     (3D visualization engine using Three.js)
-    ├── components.js      (Reusable React UI components)
-    ├── app.js             (Main App component with state management)
-    └── tests.js           (Test suite - runs on page load)
+    ├── three-scene.js     (3D structural preview using Three.js)
+    ├── components.js      (Reusable UI components)
+    └── app.js             (Main application state and rendering)
 
 LOAD ORDER (CRITICAL):
 JavaScript files MUST be loaded in this exact order:
@@ -33,7 +32,9 @@ JavaScript files MUST be loaded in this exact order:
 3. three-scene.js    (needs calculations.js)
 4. components.js     (needs constants.js, calculations.js)
 5. app.js            (needs all above)
-6. tests.js          (needs constants.js, calculations.js)
+
+Customer pages do not load legacy test scripts. The supported browser suite is
+Playwright (`npm test`); see README.md for setup.
 
 ================================================================================
 -->
@@ -47,10 +48,10 @@ JavaScript files MUST be loaded in this exact order:
          LOCAL DEPENDENCIES
          ==================================================================== -->
     
-    <!-- React-like Framework - Simple implementation -->
+    <!-- Project-local lightweight renderer; this is not the React library. -->
     <script src="libs/react-simple.js"></script>
     
-    <!-- Three.js - Real 3D Library (Local) -->
+    <!-- Vendored official Three.js r160 and a locally adapted OrbitControls wrapper. -->
     <script src="libs/three.min.js"></script>
     <script src="libs/OrbitControlsGlobal.js"></script>
 
@@ -77,7 +78,7 @@ JavaScript files MUST be loaded in this exact order:
 
     <!-- 
          APPLICATION ROOT
-         React will render the app here via js/app.js
+         The project-local lightweight renderer will render the app here via js/app.js
     -->
     <div id="root">
         <!-- Loading indicator shown while scripts load -->
@@ -136,25 +137,9 @@ JavaScript files MUST be loaded in this exact order:
          File: js/app.js
          Dependencies: All above modules
          Exports: App (main component)
-         Note: This script also initializes React and renders the app
+         Note: This script initializes the lightweight renderer and renders the app
     -->
     <script src="js/app.js"></script>
-
-    <!-- 
-         Module 6: BASIC TESTS
-         File: js/tests.js
-         Dependencies: js/constants.js, js/calculations.js
-         Note: Simple smoke tests. Check browser console (F12) for results.
-    -->
-
-    <!-- 
-         Module 7: COMPREHENSIVE TEST SUITE
-         File: js/tests-comprehensive.js
-         Dependencies: js/constants.js, js/calculations.js, js/components.js (optional)
-         Note: Extensive test coverage with visual reporting. Replaces/enhances basic tests.
-               Automatically runs on page load and shows results overlay.
-               Manual run: ComprehensiveTestSuite.runAllTests()
-    -->
 
 </body>
 
@@ -165,9 +150,10 @@ JavaScript files MUST be loaded in this exact order:
 END OF FILE
 
 For development and debugging:
-- Open browser console (F12) to see test results
-- Tests run automatically on page load
-- Re-run tests: window.AppTests.runTests()
+- Customer pages load only the runtime scripts above.
+- Run `npm test` for the maintained Playwright browser suite.
+- Legacy `js/tests.js` and `js/tests-comprehensive.js` remain in source control
+  for historical reference and are intentionally not production-loaded.
 
 For documentation:
 - See ARCHITECTURE.md for complete module documentation

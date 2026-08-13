@@ -1,528 +1,80 @@
-# Architecture Documentation
-
-## Ambica Wooden Works - Smart CFT Calculator
-
-This document explains the modular file structure of the Smart Woodworking Calculator application. Use this as a reference when working on specific features or debugging issues.
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [File Structure](#file-structure)
-3. [Load Order (Critical)](#load-order-critical)
-4. [Module Dependencies](#module-dependencies)
-5. [Data Flow](#data-flow)
-6. [State Management](#state-management)
-7. [Quick Reference: Where to Find What](#quick-reference-where-to-find-what)
-8. [Adding New Features](#adding-new-features)
-9. [Troubleshooting](#troubleshooting)
-
----
+# Architecture
 
 ## Overview
 
-The Smart CFT Calculator is a single-page React application that calculates wood requirements (in Cubic Feet - CFT) for wooden boxes/crates used in shipping. The codebase has been modularized for better maintainability and collaboration.
+Smart Woodworking Calculator is a static, single-page JavaScript application. `index.html` loads a project-local lightweight renderer, vendored official Three.js r160, a locally adapted OrbitControls global wrapper, and the application scripts in dependency order. It is not a React application and does not use a custom Three.js engine.
 
-### Key Features
-- 3D visualization of box construction (Three.js)
-- Real-time CFT calculations
-- Support for 3 box types: Simple, Bottom, and Crate
-- Crate gap calculations for ventilated boxes
-- Cost estimation based on CFT × rate
+The application keeps quote state in `js/app.js`. Pure CFT and crate helpers live in `js/calculations.js`; UI components, validation, and the 3D scene consume that state. There is no API, database, authentication, save/load, or export pipeline.
 
----
+## Runtime load order
 
-## File Structure
+`index.html` loads these scripts in order:
 
-```
-Smart-Woodworking-Calculator/
-├── index.html              # Main entry point (loads all modules)
-├── ARCHITECTURE.md         # This documentation file
-├── styles/
-│   └── main.css           # All CSS utility classes
-└── js/
-    ├── constants.js       # Magic numbers, icons, error boundary
-    ├── calculations.js    # Pure calculation functions
-    ├── three-scene.js     # 3D visualization engine
-    ├── components.js      # Reusable UI components
-    ├── app.js             # Main App component & state
-    └── tests.js           # Test suite (runs on page load)
-```
+1. `libs/react-simple.js` — project-local lightweight renderer used by the application.
+2. `libs/three.min.js` — vendored official Three.js r160 distribution.
+3. `libs/OrbitControlsGlobal.js` — locally adapted OrbitControls wrapper that attaches to the global `THREE` object.
+4. `js/constants.js` — constants, icons, and shared validation helpers.
+5. `js/calculations.js` — CFT, purchasing-length, size, and crate helpers.
+6. `js/three-scene.js` — Three.js scene, controls, lifecycle, resize, and reset support.
+7. `js/components.js` — reusable form and display components.
+8. `js/app.js` — quote state, aggregation, validation, and application render.
 
-### File Sizes (Approximate)
-| File | Lines | Purpose |
-|------|-------|---------|
-| index.html | ~60 | Entry point, script loader |
-| main.css | ~650 | Tailwind-like utility classes |
-| constants.js | ~250 | Constants & shared utilities |
-| calculations.js | ~280 | CFT calculation logic |
-| three-scene.js | ~450 | 3D box visualization |
-| components.js | ~500 | React UI components |
-| app.js | ~850 | Main application logic |
-| tests.js | ~280 | Basic test suite (smoke tests) |
-| tests-comprehensive.js | ~1500 | Comprehensive test suite with visual reporting |
+Later files use globals established by earlier files, so changing this order can break page startup.
 
----
+## Quote flow
 
-## Load Order (Critical)
-
-**JavaScript files MUST be loaded in this exact order:**
-
-```html
-<!-- 1. External dependencies -->
-<script src="react.js"></script>
-<script src="react-dom.js"></script>
-<script src="three.js"></script>
-<script src="OrbitControls.js"></script>
-
-<!-- 2. Application modules (ORDER MATTERS!) -->
-<script src="js/constants.js"></script>              <!-- First: No dependencies -->
-<script src="js/calculations.js"></script>           <!-- Needs: constants.js -->
-<script src="js/three-scene.js"></script>            <!-- Needs: calculations.js -->
-<script src="js/components.js"></script>             <!-- Needs: constants.js, calculations.js -->
-<script src="js/app.js"></script>                    <!-- Needs: ALL above -->
-<script src="js/tests.js"></script>                  <!-- Needs: constants.js, calculations.js -->
-<script src="js/tests-comprehensive.js"></script>    <!-- Needs: constants.js, calculations.js, components.js -->
+```text
+Internal dimensions and options
+            |
+            v
+js/app.js adaptive recalculation
+            |
+            +--> main panel rows and support rows
+            |             |
+            |             v
+            |       js/calculations.js line-item CFT
+            |
+            +--> js/three-scene.js structural preview
+            |
+            v
+Board CFT + support/runner CFT + extras = final CFT and cost
 ```
 
-### Why Load Order Matters
-Each module attaches its exports to the `window` object. Later modules depend on these exports being available. Loading out of order will cause "undefined" errors.
+`calculateLineCFT()` uses the purchased length, wood width, thickness, and quantity. Purchased length comes from `getPurchasedFeet()`, which preserves the business rule of rounding each piece up to the next half foot.
 
----
+For an ordinary Simple box, `Top & Bottom` is one visible row representing two boards. `js/app.js` includes that combined row once in the board total; it does not add the matching hidden `bottom` state a second time. Supports and runners are aggregated separately and then included in the final total. Crate logic and crate-gap mathematics remain on their existing path.
 
-## Module Dependencies
+Changing internal length, width, or height triggers the adaptive quote calculation. That intentionally replaces manually edited panel and support dimensions/quantities with values for the newly entered main dimensions.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        index.html                                │
-│                    (Entry Point / Loader)                        │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      js/constants.js                             │
-│                                                                  │
-│  EXPORTS:                                                        │
-│  • HALF_FOOT_THRESHOLD (0.5001)                                 │
-│  • CUBIC_INCH_TO_CFT_DIVISOR (144)                              │
-│  • INCHES_PER_FOOT (12)                                         │
-│  • RUNNER_RECOMMENDATIONS                                        │
-│  • MIN_RUNNER_COUNT (2)                                         │
-│  • isInvalidNumber()                                            │
-│  • Icon, Icons (Box, Plus, Trash, Rotate)                       │
-│  • ErrorBoundary                                                 │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-           ┌──────────────────┼──────────────────┐
-           ▼                  ▼                  ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-│ js/calculations  │ │ js/components    │ │ js/tests.js      │
-│                  │ │                  │ │                  │
-│ EXPORTS:         │ │ EXPORTS:         │ │ EXPORTS:         │
-│ • getPurchased-  │ │ • NumberInput    │ │ • runTests()     │
-│   Feet()         │ │ • CalculationRow │ │                  │
-│ • calculateLine- │ │ • SupportCard    │ │ USES:            │
-│   CFT()          │ │ • BoxTypeSelector│ │ • All calc       │
-│ • getSizeDims()  │ │                  │ │   functions      │
-│ • getMaxDim()    │ │ USES:            │ │ • Constants      │
-│ • calculateCrate │ │ • Icons          │ │                  │
-│   EffectiveLen() │ │ • calculateLine- │ └──────────────────┘
-│ • getEffective-  │ │   CFT()          │
-│   CrateDims()    │ │ • getPurchased-  │
-│                  │ │   Feet()         │
-│ USES:            │ │ • getSizeDims()  │
-│ • isInvalidNum() │ │ • getEffective-  │
-│ • Constants      │ │   CrateDims()    │
-└────────┬─────────┘ └────────┬─────────┘
-         │                    │
-         ▼                    │
-┌──────────────────┐          │
-│ js/three-scene   │          │
-│                  │          │
-│ EXPORTS:         │          │
-│ • ThreeScene     │          │
-│                  │          │
-│ USES:            │          │
-│ • getSizeDims()  │          │
-│ • THREE.js       │          │
-└────────┬─────────┘          │
-         │                    │
-         └────────┬───────────┘
-                  ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                          js/app.js                                │
-│                                                                   │
-│  EXPORTS:                                                         │
-│  • App component                                                  │
-│                                                                   │
-│  USES (everything):                                               │
-│  • RUNNER_RECOMMENDATIONS, MIN_RUNNER_COUNT                       │
-│  • Icons, ErrorBoundary                                           │
-│  • All calculation functions                                      │
-│  • ThreeScene                                                     │
-│  • NumberInput, CalculationRow, SupportCard, BoxTypeSelector     │
-│                                                                   │
-│  MANAGES STATE FOR:                                               │
-│  • Box dimensions (dims)                                          │
-│  • Box type (boxType, crateType, crateSettings)                  │
-│  • Pricing (costPerCFT)                                          │
-│  • Panel dimensions (mainRows)                                    │
-│  • Support runners (supps)                                        │
-│  • Extra supports (extras)                                        │
-│  • Runner configuration (runnerConfig)                            │
-└──────────────────────────────────────────────────────────────────┘
+## 3D preview boundary
+
+`js/three-scene.js` uses Three.js and OrbitControls to present a structural preview. It rebuilds safely as quote state changes, keeps one canvas attached, observes viewport changes, and exposes the reset action used by the UI.
+
+- Simple and Bottom configurations can show their structural panels and selected support dimensions.
+- Crate previews are structural only; slats and gaps are not modelled.
+- Extra supports and non-standard panel quantities still affect the calculation but are not placed in the assembled preview.
+
+The scene helps explain a quote; it is not a fabrication drawing or a substitute for shop verification.
+
+## Tests and deployment
+
+Customer pages load only the runtime scripts above. They do not load or run `js/tests.js` or `js/tests-comprehensive.js`; those legacy files are retained as historical source, not production tests.
+
+The maintained browser suite is `tests/e2e/calculator.spec.js`, run with Playwright:
+
+```bash
+npm ci
+npx playwright install chromium
+npm test
 ```
 
----
+`playwright.config.js` starts a local Python static server for the suite. GitHub Actions runs `npm ci`, installs Chromium with dependencies, and runs `npm test` using Node 22 on pushes and pull requests.
 
-## Data Flow
+The deployed static site is GitHub Pages at [https://jay-2212.github.io/Smart-Woodworking-Calculator/](https://jay-2212.github.io/Smart-Woodworking-Calculator/). CI is not a Pages deployment gate. Verify the Pages build for the intended `main` commit and inspect the live desktop and phone flows before declaring a release complete.
 
-### Input → Calculation → Display
+## Maintaining changes safely
 
-```
-User Input (dims)           Auto-Calculation              Display
-─────────────────     ────────────────────────     ──────────────────
-                      
-┌─────────────┐       ┌──────────────────────┐    ┌─────────────────┐
-│ Length: 40  │──────▶│ Calculate mainRows:  │───▶│ Top: 44 × 22    │
-│ Width: 20   │       │ top.l = l + 4 = 44   │    │ Bottom: 44 × 22 │
-│ Height: 20  │       │ top.w = w + 2 = 22   │    │ Sides: 44 × 20  │
-└─────────────┘       └──────────────────────┘    │ Kara: 20 × 20   │
-                                                  └─────────────────┘
-      │                        │
-      │                        │
-      ▼                        ▼
-┌─────────────┐       ┌──────────────────────┐    ┌─────────────────┐
-│ Box Type:   │──────▶│ Calculate supps:     │───▶│ Bottom: 22"     │
-│ Simple      │       │ bottom.dim = baseW   │    │ Sides: 26"      │
-└─────────────┘       │ sides.dim = h + add  │    │ Top: 22"        │
-                      └──────────────────────┘    └─────────────────┘
-      │                        │
-      │                        │
-      ▼                        ▼
-┌─────────────┐       ┌──────────────────────┐    ┌─────────────────┐
-│ Each Panel  │──────▶│ calculateLineCFT()   │───▶│ CFT per item    │
-│ Dimensions  │       │ getPurchasedFeet()   │    │ Total CFT       │
-└─────────────┘       └──────────────────────┘    │ Total Cost      │
-                                                  └─────────────────┘
-```
-
-### CFT Calculation Formula
-
-```
-CFT = (purchasedFeet × width × thickness) / 144 × quantity
-
-Where:
-- purchasedFeet = inches / 12, rounded up to nearest 0.5 ft
-- width = wood width in inches (from size like "3x1" → 3")
-- thickness = wood thickness in inches (from size like "3x1" → 1")
-- 144 = 12 × 12 (converts inch² to ft² since length is already in feet)
-```
-
----
-
-## State Management
-
-### State Variables in js/app.js
-
-| State Variable | Type | Purpose |
-|---------------|------|---------|
-| `dims` | `{l, w, h}` | Internal box dimensions (inches) |
-| `boxType` | `string` | 'simple', 'bottom', or 'crate' |
-| `crateType` | `string` | 'simple' or 'bottom' (for crate boxes) |
-| `crateSettings` | `{plank, gap}` | Plank width and gap for crates |
-| `costPerCFT` | `number` | Price per cubic foot (₹) |
-| `showStickyStats` | `boolean` | Controls sticky header visibility |
-| `runnerConfig` | `{bottomDir, sideDir}` | Runner orientations |
-| `mainRows` | `object` | Panel dimensions (top, bottom, sides, kara) |
-| `supps` | `object` | Support runner configs |
-| `extras` | `array` | User-added extra supports |
-| `globalRunners` | `number` | Override for runner count |
-
-### State Update Triggers
-
-```
-dims change ─────────────────────────────┐
-boxType change ──────────────────────────┤
-crateType change ────────────────────────┤──▶ useEffect ──▶ Update mainRows & supps
-globalRunners change ────────────────────┤
-runnerConfig change ─────────────────────┤
-supps.bottom.size change ────────────────┤
-supps.karaHorz.size change ──────────────┘
-```
-
----
-
-## Quick Reference: Where to Find What
-
-### "I need to modify..."
-
-| Task | File(s) |
-|------|---------|
-| Change wood size options | `js/calculations.js` → `getSizeDims()` |
-| Add new box type | `js/app.js`, `js/components.js` → `BoxTypeSelector` |
-| Fix CFT calculation | `js/calculations.js` → `calculateLineCFT()` |
-| Change 3D visualization | `js/three-scene.js` → `ThreeScene` |
-| Update styling | `styles/main.css` |
-| Modify auto-calculation | `js/app.js` → main `useEffect` |
-| Change runner thresholds | `js/constants.js` → `RUNNER_RECOMMENDATIONS` |
-| Update UI components | `js/components.js` |
-| Fix tests | `js/tests.js` |
-
-### "I need to understand..."
-
-| Concept | File | Function/Section |
-|---------|------|------------------|
-| How CFT is calculated | `js/calculations.js` | `calculateLineCFT()` |
-| How feet are rounded | `js/calculations.js` | `getPurchasedFeet()` |
-| How crate gaps work | `js/calculations.js` | `calculateCrateEffectiveLength()` |
-| How 3D model is built | `js/three-scene.js` | Steps 1-8 comments |
-| How dimensions auto-update | `js/app.js` | Main `useEffect` |
-| What constants mean | `js/constants.js` | JSDoc comments |
-
----
-
-## Adding New Features
-
-### Adding a New Box Type
-
-1. **Add type option** in `js/components.js`:
-   ```javascript
-   // In BoxTypeSelector, add to the button list
-   ['simple', 'bottom', 'crate', 'newType'].map(...)
-   ```
-
-2. **Add calculation logic** in `js/app.js`:
-   ```javascript
-   // In the main useEffect, add a new branch
-   if (boxType === 'newType') {
-       // Calculate mainRows and supps
-   }
-   ```
-
-3. **Update 3D visualization** in `js/three-scene.js`:
-   ```javascript
-   // Add rendering logic for the new type
-   if (boxType === 'newType') {
-       // Create 3D elements
-   }
-   ```
-
-### Adding a New Calculation
-
-1. **Add function** in `js/calculations.js`:
-   ```javascript
-   const myNewCalculation = (params) => {
-       // Calculation logic
-   };
-   
-   // Export it
-   window.AppCalculations.myNewCalculation = myNewCalculation;
-   ```
-
-2. **Add tests** in `js/tests.js`:
-   ```javascript
-   // TEST X: My New Calculation
-   const result = myNewCalculation(testParams);
-   console.log(result === expected ? "✅ Pass" : "❌ Fail");
-   ```
-
-### Adding a New UI Component
-
-1. **Create component** in `js/components.js`:
-   ```javascript
-   const MyNewComponent = ({ props }) => {
-       return React.createElement('div', {...});
-   };
-   
-   // Export it
-   window.AppComponents.MyNewComponent = MyNewComponent;
-   ```
-
-2. **Use in App** in `js/app.js`:
-   ```javascript
-   const { MyNewComponent } = window.AppComponents;
-   // Use in render
-   ```
-
----
-
-## Testing Guide
-
-The Smart CFT Calculator has a comprehensive test suite to ensure calculation accuracy and catch regressions. This is critical because the calculations directly affect business pricing.
-
-### Test Files
-
-| File | Purpose | When to Run |
-|------|---------|-------------|
-| `js/tests.js` | Basic smoke tests | Quick validation |
-| `js/tests-comprehensive.js` | Full test suite with 50+ tests | Before deployment, after changes |
-
-### Running Tests
-
-**Automatic:** Tests run automatically when the page loads. A visual report appears in the top-right corner.
-
-**Manual (all tests):**
-```javascript
-ComprehensiveTestSuite.runAllTests();
-```
-
-**Manual (specific category):**
-```javascript
-// Available categories: calculations, constants, components, integration, workflows, edge-cases
-ComprehensiveTestSuite.runCategory('calculations');
-```
-
-### Test Categories
-
-1. **Calculations** (~20 tests)
-   - `getPurchasedFeet()` - Feet rounding logic
-   - `calculateLineCFT()` - CFT formula verification
-   - `getSizeDims()` - Wood size lookups
-   - `calculateCrateEffectiveLength()` - Gap calculations
-   - `getEffectiveCrateDims()` - Crate dimension adjustments
-
-2. **Constants** (~8 tests)
-   - Threshold values (HALF_FOOT_THRESHOLD, etc.)
-   - Runner recommendation configuration
-   - Validation functions
-
-3. **Components** (~5 tests)
-   - Component existence checks
-   - Function type validation
-
-4. **Integration** (~4 tests)
-   - Calculation chains
-   - Module interaction verification
-
-5. **Workflows** (~5 tests)
-   - Simple box calculations
-   - Crate box calculations
-   - Cost calculations
-   - Runner recommendations
-
-6. **Edge Cases** (~15 tests)
-   - Zero/negative inputs
-   - Null/undefined handling
-   - Very large/small values
-   - Boundary conditions
-   - Regression tests
-
-### Test Structure
-
-Tests follow the Arrange-Act-Assert pattern:
-```javascript
-test('description', () => {
-    // Arrange: Set up test data
-    const input = 15;
-    
-    // Act: Execute function
-    const result = getPurchasedFeet(input);
-    
-    // Assert: Verify result
-    Assert.equal(result, 1.5, '15 inches should round to 1.5 feet');
-});
-```
-
-### Adding New Tests
-
-When adding new calculation functions:
-1. Add tests in the `calculations` category
-2. Test happy path, edge cases, and error handling
-3. Use `Assert.approximatelyEqual()` for floating-point comparisons
-4. Add regression tests for any bugs fixed
-
-Example:
-```javascript
-calculationTests.addTest('myNewFunction: basic case', () => {
-    const { myNewFunction } = getCalculationFunctions();
-    const result = myNewFunction(10, 20);
-    Assert.equal(result, expectedValue, 'Should calculate correctly');
-});
-```
-
-### Interpreting Results
-
-**Visual Report:**
-- Green overlay with ✅ = All tests passed
-- Red overlay with ❌ = Some tests failed
-- Click category names to expand details
-
-**Console Output:**
-- ✅ = Individual test passed
-- ❌ = Individual test failed (with error message)
-- Shows timing for each test
-
-### Test Configuration
-
-Edit `TEST_CONFIG` at the top of `js/tests-comprehensive.js`:
-```javascript
-const TEST_CONFIG = {
-    AUTO_RUN: true,               // Auto-run on page load
-    STOP_ON_FIRST_FAIL: false,    // Stop after first failure
-    VERBOSE: true,                // Show detailed console output
-    FLOAT_TOLERANCE: 0.01,        // Tolerance for floating-point comparisons
-    SHOW_TIMING: true,            // Show test duration
-    SHOW_VISUAL_REPORT: false     // Visual popup (false for production)
-};
-```
-
-**Important:** `SHOW_VISUAL_REPORT` is set to `false` by default to keep the UI clean for end users. Tests still run automatically in the background and output to the browser console. Set to `true` during development if you want the popup.
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-| Problem | Likely Cause | Solution |
-|---------|--------------|----------|
-| "undefined is not a function" | Wrong load order | Check script tags in index.html |
-| 3D scene not rendering | Three.js not loaded | Ensure CDN scripts are accessible |
-| Calculations returning 0 | Invalid input | Check `isInvalidNumber()` validation |
-| Tests failing | Code change broke logic | Review test output in console |
-| Styles not applying | CSS class missing | Check `styles/main.css` |
-
-### Debug Checklist
-
-1. **Open browser console (F12)** - Look for red errors
-2. **Check test output** - Tests run automatically on load
-3. **Verify load order** - All scripts should load in sequence
-4. **Check network tab** - Ensure all files load successfully
-5. **Add console.log** - Trace data flow through functions
-
-### Re-running Tests
-
-Open browser console and type:
-```javascript
-// Run comprehensive suite
-ComprehensiveTestSuite.runAllTests();
-
-// Run legacy basic tests
-window.AppTests.runTests();
-```
-
----
-
-## Original File Reference
-
-The original `index.html` contained everything in one file. Here's where each section went:
-
-| Original Section | New Location |
-|-----------------|--------------|
-| Lines 1-983 (CSS) | `styles/main.css` |
-| Lines 1017-1095 (Constants & Icons) | `js/constants.js` |
-| Lines 1097-1252 (Calculation Functions) | `js/calculations.js` |
-| Lines 1254-1640 (3D Engine) | `js/three-scene.js` |
-| Lines 1642-1869 (UI Components) | `js/components.js` |
-| Lines 1871-2385 (Main App) | `js/app.js` |
-| Lines 2387-2525 (Tests) | `js/tests.js` |
-
----
-
-## Contact & Updates
-
-- Last Updated: 2024
-- For questions about the codebase structure, refer to this document
-- When making changes, update this documentation if the architecture changes
+- Keep calculation changes in `js/calculations.js` and the matching state/aggregation changes in `js/app.js` aligned.
+- Add or update Playwright coverage for any changed quote rule, validation behaviour, or preview boundary.
+- Do not reintroduce legacy test scripts into `index.html`.
+- Update [README.md](README.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) whenever the public workflow or vendored libraries change.
