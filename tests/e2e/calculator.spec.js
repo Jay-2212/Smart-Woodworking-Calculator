@@ -18,6 +18,11 @@ test('Bottom Supports visibly starts at and calculates with 4x2', async ({ page 
   await expect(page.getByLabel('Bottom Supports size')).toHaveValue('4x2');
 });
 
+test('Bottom Supports excludes the unapproved 4x4 size', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Bottom Supports size').locator('option[value="4x4"]')).toHaveCount(0);
+});
+
 test('changing the Simple main size recalculates visible board rows and retains runner CFT', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Internal length, inches').fill('48');
@@ -28,7 +33,7 @@ test('changing the Simple main size recalculates visible board rows and retains 
 test('a non-first support size stays visibly selected after a rerender', async ({ page }) => {
   await page.goto('/');
   const select = page.getByLabel('Bottom Supports size');
-  await select.selectOption('4x4');
+  await select.selectOption('3x2');
   await page.getByLabel('Internal width, inches').fill('24');
-  await expect(select).toHaveValue('4x4');
+  await expect(select).toHaveValue('3x2');
 });

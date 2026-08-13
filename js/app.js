@@ -825,7 +825,7 @@ function App() {
                 },
                     React.createElement(SupportCard, {
                         label: "Bottom Supports",
-                        sizeOptions: ['4x3', '4x4', '3x2', '4x2', '4x1.5', '4x1', '3x1'],
+                        sizeOptions: ['4x3', '3x2', '4x2', '4x1.5', '4x1', '3x1'],
                         dimValue: supps.bottom.dim,
                         settings: supps.bottom,
                         onUpdate: (f, v) => updateSupp('bottom', f, v),
