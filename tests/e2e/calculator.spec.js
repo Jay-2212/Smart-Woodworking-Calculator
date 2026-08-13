@@ -128,3 +128,47 @@ test('phone users can zoom and controls expose their current state', async ({ pa
   await expect(page.getByRole('button', { name: 'Simple' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Decrease quantity for Bottom Supports' })).toBeVisible();
 });
+
+test('the 3D preview resizes after phone rotation, keeps one canvas, and offers reset without errors', async ({ page }) => {
+  const consoleErrors = [];
+  page.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', error => consoleErrors.push(error.message));
+
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto('/');
+
+  const canvas = page.locator('#three-scene-container canvas');
+  await expect(canvas).toHaveCount(1);
+  const desktopWidth = await canvas.evaluate(node => node.clientWidth);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await canvas.evaluate(node => node.width)).toBeGreaterThan(0);
+  expect(await canvas.evaluate(node => node.clientWidth)).toBeLessThan(desktopWidth);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.getByRole('button', { name: 'Reset 3D view' })).toBeVisible();
+  await page.getByRole('button', { name: 'Reset 3D view' }).click();
+
+  await page.getByLabel('Internal width, inches').fill('24');
+  await expect(canvas).toHaveCount(1);
+  expect(consoleErrors).toEqual([]);
+});
+
+test('the 3D preview uses selected support dimensions and clearly limits crate and extra previews', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByLabel('Side Supports size').selectOption('4x2');
+  await page.getByLabel('Side Supports quantity').fill('3');
+  await expect.poll(() => page.evaluate(() => window.AppThreeScene.getSceneDebugSnapshot())).toMatchObject({
+    supportCounts: { sides: 3 },
+    supportCrossSections: { sides: { width: 4, thickness: 2 } }
+  });
+
+  await page.getByRole('button', { name: 'Add extra support' }).click();
+  await expect(page.getByText('Extra supports are included in the quote but are not placed in this 3D preview.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Crate' }).click();
+  await expect(page.getByText('Crate preview shows the calculated structure only. It does not show crate slats or gaps.')).toBeVisible();
+});

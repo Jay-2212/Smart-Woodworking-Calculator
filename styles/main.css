@@ -1185,6 +1185,88 @@ input[aria-invalid="true"],
     font-weight: 800;
 }
 
+/* 3D preview controls stay readable over the canvas and meet the shared 44px target. */
+.three-scene-container {
+    width: 100%;
+    height: 100%;
+}
+
+.three-scene-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.three-scene-instruction {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    max-width: calc(100% - 10.5rem);
+    padding: 0.5rem 0.75rem;
+    color: #fff;
+    background: #000;
+    border-radius: 0 0 0.5rem 0;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.three-scene-reset {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
+    min-height: 44px;
+    padding: 0.55rem 0.8rem;
+    color: #fff;
+    background: #0f172a;
+    border: 3px solid #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 0 2px #0f172a;
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 900;
+}
+
+.three-scene-reset:hover,
+.three-scene-reset:focus {
+    color: #0f172a;
+    background: #fef3c7;
+}
+
+.three-scene-notices {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    z-index: 10;
+    display: grid;
+    gap: 0.25rem;
+    pointer-events: none;
+}
+
+.three-scene-notices p,
+.three-scene-unavailable {
+    padding: 0.35rem 0.5rem;
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.94);
+    border: 2px solid #0f172a;
+    border-radius: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.three-scene-unavailable {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin: 0;
+    padding: 1rem;
+    font-size: 1rem;
+}
+
 .calculation-column-headings {
     display: none;
 }

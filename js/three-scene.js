@@ -1,609 +1,285 @@
 /**
- * ================================================================================
- * AMBICA WOODEN WORKS - SMART CFT CALCULATOR
- * 3D VISUALIZATION ENGINE
- * ================================================================================
- * 
- * PURPOSE:
- * Contains the Three.js scene for rendering an interactive 3D preview of the box.
- * Users can rotate and view the box from any angle to understand construction.
- * 
- * FILE LOCATION: js/three-scene.js
- * 
- * DEPENDENCIES:
- * - Three.js (loaded via CDN in index.html)
- * - OrbitControls (loaded via CDN in index.html)
- * - React (loaded via CDN in index.html)
- * - js/calculations.js (must be loaded first)
- *   - Uses: getSizeDims for wood dimensions
- * 
- * USED BY:
- * - js/app.js (renders ThreeScene inside ErrorBoundary)
- * 
- * EXPORTS (via window.AppThreeScene):
- * - ThreeScene: React component for 3D box visualization
- * 
- * PROPS (ThreeScene):
- * - dims: {l, w, h} - Internal box dimensions
- * - boxType: 'simple' | 'bottom' | 'crate'
- * - crateType: 'simple' | 'bottom' (only if boxType is 'crate')
- * - mainRows: Object with top, bottom, sides, kara dimensions
- * - supps: Object with support runner configurations
- * - runnerConfig: {bottomDir, sideDir} - Runner orientation settings
- * 
- * 3D MODEL STRUCTURE:
- * The box is built from bottom up in this order:
- * 1. Bottom Runners (foundation support beams)
- * 2. Bottom Panel (base of the box)
- * 3. Side Panels (left and right walls)
- * 4. Kara Panels (front and back end walls)
- * 5. Side Runners (support beams on side panels)
- * 6. Kara Runners (support beams on end panels - frames or posts)
- * 7. Top Lid Panel
- * 8. Top Lid Runners
- * 
- * ================================================================================
+ * Interactive structural preview. It deliberately models calculated panels and
+ * supports only; it is not a cut list or a crate-slat layout.
  */
+if (!window.AppCalculations) console.error('ERROR: js/calculations.js must be loaded before js/three-scene.js');
+if (typeof THREE === 'undefined') console.error('ERROR: Three.js must be loaded before js/three-scene.js');
 
-// ================================================================================
-// DEPENDENCY CHECK
-// ================================================================================
-
-if (!window.AppCalculations) {
-    console.error('ERROR: js/calculations.js must be loaded before js/three-scene.js');
-}
-
-if (typeof THREE === 'undefined') {
-    console.error('ERROR: Three.js must be loaded before js/three-scene.js');
-}
-
-// Guard against multiple loads
 if (!window.AppThreeScene) {
-
-// Get calculation functions
 const { getSizeDims } = window.AppCalculations;
+const { useEffect, useRef, useState } = React;
 
-// Get React hooks
-const { useRef, useEffect } = React;
-
-// ================================================================================
-// THREE.JS SCENE COMPONENT
-// ================================================================================
-
-/**
- * ThreeScene Component
- * 
- * Creates a 3D visualization of the wooden box with all its parts.
- * Uses Three.js for WebGL rendering and OrbitControls for interaction.
- * 
- * COLOR SCHEME:
- * - woodMat (light): #fcd34d - Panels (top, bottom)
- * - woodMatSide (medium): #f59e0b - Side and Kara panels
- * - woodMatDark (dark): #78350f - Runners and supports
- * 
- * @param {object} props - Component props
- * @param {object} props.dims - {l, w, h} internal dimensions
- * @param {string} props.boxType - 'simple', 'bottom', or 'crate'
- * @param {string} props.crateType - 'simple' or 'bottom' (for crates)
- * @param {object} props.mainRows - Panel dimensions
- * @param {object} props.supps - Support runner settings
- * @param {object} props.runnerConfig - Runner orientation config
- */
-// ================================================================================
-// GLOBAL SCENE STATE
-// We store scene objects globally to persist across React re-renders
-// This is necessary because our simple React implementation does full DOM replacement
-// ================================================================================
-
-let globalSceneState = null;
-let sceneInitialized = false;
-let lastProps = null;
-let containerWatcherInterval = null;
-
-// Watch for container changes and re-attach canvas when needed
-// Uses MutationObserver for efficiency, with setInterval as fallback
-function setupContainerWatcher() {
-    // Use MutationObserver if available for better performance
-    if (typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(() => {
-            const container = document.getElementById('three-scene-container');
-            if (container && globalSceneState && globalSceneState.renderer) {
-                if (!container.contains(globalSceneState.renderer.domElement)) {
-                    container.innerHTML = '';
-                    container.appendChild(globalSceneState.renderer.domElement);
-                    if (lastProps) {
-                        updateSceneGeometry(globalSceneState, lastProps.dims, lastProps.boxType, 
-                            lastProps.crateType, lastProps.mainRows, lastProps.supps, lastProps.runnerConfig);
-                    }
-                }
-            }
-        });
-        
-        // Start observing once DOM is ready
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        } else {
-            document.addEventListener('DOMContentLoaded', () => {
-                observer.observe(document.body, { childList: true, subtree: true });
-            });
-        }
-    } else {
-        // Fallback to setInterval for older browsers
-        containerWatcherInterval = setInterval(() => {
-            const container = document.getElementById('three-scene-container');
-            if (container && globalSceneState && globalSceneState.renderer) {
-                if (!container.contains(globalSceneState.renderer.domElement)) {
-                    container.innerHTML = '';
-                    container.appendChild(globalSceneState.renderer.domElement);
-                    if (lastProps) {
-                        updateSceneGeometry(globalSceneState, lastProps.dims, lastProps.boxType, 
-                            lastProps.crateType, lastProps.mainRows, lastProps.supps, lastProps.runnerConfig);
-                    }
-                }
-            }
-        }, 100);
-    }
-}
-
-// Start the watcher when the script loads
-setupContainerWatcher();
-
-// Initialize the scene once the container is available in the DOM
-const MAX_INIT_RETRIES = 100; // Maximum retries (~1.6 seconds at 60fps)
-let initRetryCount = 0;
-
-function initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig) {
-    // Store props for later use
-    lastProps = { dims, boxType, crateType, mainRows, supps, runnerConfig };
-    
-    // Find the container div by a unique attribute we'll set
-    const container = document.getElementById('three-scene-container');
-    if (!container) {
-        // Container not ready yet, try again on next frame (with retry limit)
-        initRetryCount++;
-        if (initRetryCount < MAX_INIT_RETRIES) {
-            requestAnimationFrame(() => initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig));
-        }
-        return;
-    }
-    
-    // Reset retry count on success
-    initRetryCount = 0;
-
-    // Get container dimensions
-    const w = container.clientWidth || 400;
-    const h = container.clientHeight || 400;
-
-    // If we have an existing scene, just re-attach the canvas and update
-    if (globalSceneState && globalSceneState.renderer) {
-        // Check if canvas is not already in this container
-        if (!container.contains(globalSceneState.renderer.domElement)) {
-            container.innerHTML = '';
-            container.appendChild(globalSceneState.renderer.domElement);
-        }
-        // Update the scene geometry
-        updateSceneGeometry(globalSceneState, dims, boxType, crateType, mainRows, supps, runnerConfig);
-        return;
-    }
-
-    // ============================================================
-    // SCENE SETUP (only runs once)
-    // ============================================================
-    
-    // Create scene with warm background
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xfff8ef);
-
-    // Setup camera (perspective view)
-    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-    camera.position.set(60, 50, 80);
-
-    // Setup WebGL renderer with antialiasing
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(w, h);
-    renderer.shadowMap.enabled = true;
-    
-    // Add canvas to container
-    container.innerHTML = '';
-    container.appendChild(renderer.domElement);
-
-    // ============================================================
-    // LIGHTING SETUP
-    // Bright, warm lighting for better visibility
-    // ============================================================
-    
-    // Ambient light - increased for overall brightness
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-    scene.add(ambientLight);
-    
-    // Main directional light (sun-like) - brighter
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(60, 100, 60);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-    
-    // Fill light from front-left
-    const fillLight1 = new THREE.DirectionalLight(0xfff5e6, 0.8);
-    fillLight1.position.set(-60, 50, 60);
-    scene.add(fillLight1);
-    
-    // Fill light from back-right
-    const fillLight2 = new THREE.DirectionalLight(0xffeedd, 0.6);
-    fillLight2.position.set(60, 40, -60);
-    scene.add(fillLight2);
-    
-    // Bottom fill to light up undersides
-    const bottomLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    bottomLight.position.set(0, -50, 0);
-    scene.add(bottomLight);
-
-    // ============================================================
-    // CAMERA CONTROLS (Orbit)
-    // Enable rotation, zoom, and damping for smooth interaction
-    // ============================================================
-    
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.enableRotate = true;
-    controls.enableZoom = true;
-    controls.enablePan = true;   // Enable right-click panning to center the view
-    controls.minDistance = 30;
-    controls.maxDistance = 200;
-
-    // Create group for box parts
-    const group = new THREE.Group();
-    scene.add(group);
-
-    // Store global state
-    globalSceneState = {
-        scene,
-        camera,
-        renderer,
-        controls,
-        group
-    };
-    sceneInitialized = true;
-
-    // Build initial geometry
-    updateSceneGeometry(globalSceneState, dims, boxType, crateType, mainRows, supps, runnerConfig);
-
-    // ============================================================
-    // ANIMATION LOOP
-    // ============================================================
-
-    const animate = () => {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-    };
-    animate();
-}
-
-const ThreeScene = ({ dims, boxType, crateType, mainRows, supps, runnerConfig }) => {
-    useEffect(() => {
-        // Use requestAnimationFrame to ensure DOM is ready
-        requestAnimationFrame(() => {
-            initializeThreeScene(dims, boxType, crateType, mainRows, supps, runnerConfig);
-        });
-    }, [dims, boxType, crateType, mainRows, supps, runnerConfig]);
-
-    // Return the container div with an ID so we can find it later
-    return React.createElement('div', { 
-        id: 'three-scene-container',
-        style: { width: '100%', height: '100%' } 
-    });
+const number = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+const count = value => Math.max(0, Math.floor(Number(value) || 0));
+const distributeAcrossPairs = total => [Math.ceil(count(total) / 2), Math.floor(count(total) / 2)];
+const evenlySpaced = (total, span) => {
+    if (total < 1) return [];
+    if (total === 1) return [0];
+    return Array.from({ length: total }, (_, index) => -span / 2 + (span * index) / (total - 1));
 };
 
-/**
- * Update the scene geometry based on current props
- */
-function updateSceneGeometry(state, dims, boxType, crateType, mainRows, supps, runnerConfig) {
-    const { group } = state;
-    
-    // Clear existing geometry
-    while (group.children.length > 0) {
-        group.remove(group.children[0]);
+class SceneController {
+    constructor() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0xfff8ef);
+        this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        this.group = new THREE.Group();
+        this.scene.add(this.group);
+        this.materials = {
+            panel: new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.8 }),
+            side: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.8 }),
+            support: new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 })
+        };
+        this.addLights();
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.08;
+        this.controls.enablePan = false;
+        this.controls.minDistance = 10;
+        this.controls.maxDistance = 500;
+        this.controls.addEventListener('change', () => this.scheduleRender());
+        this.resizeObserver = new ResizeObserver(() => this.resize());
+        this.defaultTarget = new THREE.Vector3();
+        this.debug = { supportCounts: {}, supportCrossSections: {} };
+        this.renderPending = false;
+        this.disposed = false;
     }
-    
-    // ============================================================
-    // MATERIALS (Wood Colors)
-    // ============================================================
-    
-    const woodMat = new THREE.MeshStandardMaterial({ 
-        color: 0xfcd34d,  // Light yellow for panels
-        roughness: 0.8 
-    });
-    const woodMatSide = new THREE.MeshStandardMaterial({ 
-        color: 0xf59e0b,  // Orange for sides
-        roughness: 0.8 
-    });
-    const woodMatDark = new THREE.MeshStandardMaterial({ 
-        color: 0x78350f,  // Dark brown for runners
-        roughness: 0.9 
-    });
 
-    // ============================================================
-    // HELPER FUNCTION: Create Box Geometry
-    // ============================================================
-    
-    const DEFAULT_RENDER_ORDER = THREE.DEFAULT_RENDER_ORDER;
-    const RUNNER_RENDER_ORDER = 1;
+    addLights() {
+        this.scene.add(new THREE.AmbientLight(0xffffff, 1.05));
+        [[60, 100, 60, 1.2], [-60, 50, 60, 0.8], [60, 40, -60, 0.6], [0, -50, 0, 0.4]].forEach(([x, y, z, intensity]) => {
+            const light = new THREE.DirectionalLight(0xffffff, intensity);
+            light.position.set(x, y, z);
+            this.scene.add(light);
+        });
+    }
 
-    const createBox = (w, h, d, colorMat, x, y, z, renderOrder = DEFAULT_RENDER_ORDER) => {
-        const geo = new THREE.BoxGeometry(w, h, d);
-        const mesh = new THREE.Mesh(geo, colorMat);
-        mesh.renderOrder = renderOrder;
-        mesh.position.set(x, y, z);
+    attach(container) {
+        if (!container || this.disposed) return;
+        if (this.container !== container) {
+            this.resizeObserver.disconnect();
+            this.container = container;
+            if (this.renderer.domElement.parentNode !== container) {
+                container.replaceChildren(this.renderer.domElement);
+            }
+            this.resizeObserver.observe(container);
+        }
+        this.resize();
+    }
+
+    resize() {
+        if (!this.container || this.disposed) return;
+        const width = Math.max(1, this.container.clientWidth);
+        const height = Math.max(1, this.container.clientHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.setSize(width, height, false);
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+        this.scheduleRender();
+    }
+
+    scheduleRender() {
+        if (this.renderPending || this.disposed) return;
+        this.renderPending = true;
+        requestAnimationFrame(() => {
+            this.renderPending = false;
+            if (this.disposed) return;
+            this.controls.update();
+            this.renderer.render(this.scene, this.camera);
+        });
+    }
+
+    clearGeometry() {
+        while (this.group.children.length) {
+            const child = this.group.children[0];
+            this.group.remove(child);
+            child.geometry.dispose();
+        }
+    }
+
+    box(x, y, z, material, position) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(number(x, 0.01), number(y, 0.01), number(z, 0.01)), material);
+        mesh.position.set(...position);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        return mesh;
-    };
+        this.group.add(mesh);
+    }
 
-    // ============================================================
-    // CONSTANTS
-    // ============================================================
-    
-    const THK = 1;  // Panel thickness
-    const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
-
-    // ============================================================
-    // BOTTOM RUNNERS (Foundation)
-    // ============================================================
-    
-    const bSize = getSizeDims(supps.bottom.size);
-    const bH = bSize.w;
-    const bW = bSize.t;
-    const bLen = supps.bottom.dim;
-    const bCount = supps.bottom.count;
-    let runnerPositions = [];
-
-    if (bCount > 0) {
-        if (isBottomType) {
-            const spreadW = mainRows.bottom.w;
-            for (let i = 0; i < bCount; i++) {
-                let zPos;
-                if (bCount === 1) {
-                    zPos = 0;
-                } else {
-                    const maxOffset = (spreadW / 2) - (bW / 2);
-                    const pct = i / (bCount - 1);
-                    zPos = -maxOffset + (pct * 2 * maxOffset);
-                }
-                runnerPositions.push(zPos);
-                group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos, RUNNER_RENDER_ORDER));
+    update(props) {
+        this.clearGeometry();
+        const { mainRows, supps, runnerConfig, boxType, crateType } = props;
+        const top = mainRows.top;
+        const bottom = mainRows.bottom;
+        const sides = mainRows.sides;
+        const kara = mainRows.kara;
+        const bottomSize = getSizeDims(supps.bottom.size);
+        const sideSize = getSizeDims(supps.sides.size);
+        const topSize = getSizeDims(supps.top.size);
+        const karaHorizontalSize = getSizeDims(supps.karaHorz.size);
+        const karaVerticalSize = getSizeDims(supps.karaVert.size);
+        const isBottom = boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom');
+        const baseL = number(bottom.l);
+        const baseW = number(bottom.w);
+        const baseT = number(bottom.t, 1);
+        const sideL = number(sides.l);
+        const sideH = number(sides.w);
+        const sideT = number(sides.t, 1);
+        const karaL = number(kara.l);
+        const karaH = number(kara.w);
+        const karaT = number(kara.t, 1);
+        const topL = number(top.l);
+        const topW = number(top.w);
+        const topT = number(top.t, 1);
+        const supportCounts = {
+            bottom: count(supps.bottom.count), sides: count(supps.sides.count), top: count(supps.top.count),
+            karaHorz: count(supps.karaHorz.count), karaVert: count(supps.karaVert.count)
+        };
+        this.debug = {
+            supportCounts,
+            supportCrossSections: {
+                bottom: { width: bottomSize.w, thickness: bottomSize.t },
+                sides: { width: sideSize.w, thickness: sideSize.t },
+                top: { width: topSize.w, thickness: topSize.t },
+                karaHorz: { width: karaHorizontalSize.w, thickness: karaHorizontalSize.t },
+                karaVert: { width: karaVerticalSize.w, thickness: karaVerticalSize.t }
             }
+        };
+
+        // Bottom runners keep the selected direction, with their real cross-section.
+        const bottomPositions = [];
+        if (runnerConfig.bottomDir === 'width') {
+            evenlySpaced(supportCounts.bottom, baseL).forEach(x => {
+                this.box(bottomSize.t, bottomSize.w, number(supps.bottom.dim), this.materials.support, [x, bottomSize.w / 2, 0]);
+                bottomPositions.push(x);
+            });
         } else {
-            if (runnerConfig.bottomDir === 'width') {
-                const spreadL = mainRows.bottom.l;
-                const stepX = spreadL / (bCount + 1);
-                for (let i = 1; i <= bCount; i++) {
-                    const xPos = -spreadL / 2 + (i * stepX);
-                    runnerPositions.push(xPos);
-                    group.add(createBox(bW, bH, bLen, woodMatDark, xPos, bH / 2, 0, RUNNER_RENDER_ORDER));
-                }
-            } else {
-                const spreadW = mainRows.bottom.w;
-                const stepZ = spreadW / (bCount + 1);
-                for (let i = 1; i <= bCount; i++) {
-                    const zPos = -spreadW / 2 + (i * stepZ);
-                    runnerPositions.push(zPos);
-                    group.add(createBox(bLen, bH, bW, woodMatDark, 0, bH / 2, zPos, RUNNER_RENDER_ORDER));
-                }
-            }
-        }
-    }
-
-    const baseY = bH;
-
-    // ============================================================
-    // BOTTOM PANEL
-    // ============================================================
-    
-    const botL = mainRows.bottom.l;
-    const botW = mainRows.bottom.w;
-    group.add(createBox(botL, THK, botW, woodMat, 0, baseY + THK / 2, 0, DEFAULT_RENDER_ORDER));
-
-    const floorLevel = baseY + THK;
-
-    // ============================================================
-    // SIDE PANELS
-    // ============================================================
-    
-    const sL = mainRows.sides.l;
-    const sH = mainRows.sides.w;
-    let sideY, sideZ_offset;
-
-    if (isBottomType) {
-        sideY = baseY + sH / 2;
-        sideZ_offset = (mainRows.bottom.w / 2) + (THK / 2);
-    } else {
-        sideY = floorLevel + sH / 2;
-        sideZ_offset = (botW / 2) - (THK / 2);
-    }
-
-    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, sideZ_offset, DEFAULT_RENDER_ORDER));
-    group.add(createBox(sL, sH, THK, woodMatSide, 0, sideY, -sideZ_offset, DEFAULT_RENDER_ORDER));
-
-    // ============================================================
-    // KARA PANELS (End Panels)
-    // ============================================================
-    
-    const kL = mainRows.kara.l;
-    const kH = mainRows.kara.w;
-    const kThk = THK;
-    let karaY, karaX_offset;
-
-    if (isBottomType) {
-        karaY = baseY + kH / 2;
-        karaX_offset = (mainRows.bottom.l / 2) + (kThk / 2);
-    } else {
-        karaY = floorLevel + kH / 2;
-        karaX_offset = (parseFloat(dims.l) / 2) + (kThk / 2);
-    }
-
-    group.add(createBox(kThk, kH, kL, woodMatSide, karaX_offset, karaY, 0, DEFAULT_RENDER_ORDER));
-    group.add(createBox(kThk, kH, kL, woodMatSide, -karaX_offset, karaY, 0, DEFAULT_RENDER_ORDER));
-
-    // ============================================================
-    // SIDE RUNNERS
-    // ============================================================
-    
-    const srLen = supps.sides.dim;
-    const srCount = Math.round(supps.sides.count / 2);
-
-    const drawSideRunners = (sideMultiplier) => {
-        const zPosPanel = sideMultiplier * (sideZ_offset + THK + 0.5);
-
-        if (isBottomType || runnerConfig.sideDir === 'horizontal') {
-            if (isBottomType && srCount > 0) {
-                const topY = baseY + sH - 1.5;
-                group.add(createBox(srLen, 3, 1, woodMatDark, 0, topY, zPosPanel, RUNNER_RENDER_ORDER));
-                if (srCount > 1) {
-                    const remainingSpace = sH - 3;
-                    const step = remainingSpace / srCount;
-                    for (let i = 1; i < srCount; i++) {
-                        const yPos = baseY + (i * step);
-                        group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
-                    }
-                }
-            } else {
-                const stepY = sH / (srCount + 1);
-                for (let i = 1; i <= srCount; i++) {
-                    const yPos = (isBottomType ? baseY : floorLevel) + (i * stepY);
-                    group.add(createBox(srLen, 3, 1, woodMatDark, 0, yPos, zPosPanel, RUNNER_RENDER_ORDER));
-                }
-            }
-        } else {
-            let positions = [];
-            if (runnerConfig.bottomDir === 'width' && runnerPositions.length > 0) {
-                positions = runnerPositions;
-            } else {
-                const totalL = mainRows.sides.l;
-                const step = totalL / (srCount + 1);
-                for (let i = 1; i <= srCount; i++) {
-                    positions.push(-totalL / 2 + i * step);
-                }
-            }
-            // Position vertical runners starting from the floor level
-            const vCenterY = floorLevel + (srLen / 2);
-            positions.forEach(xPos => {
-                group.add(createBox(3, srLen, 1, woodMatDark, xPos, vCenterY, zPosPanel, RUNNER_RENDER_ORDER));
+            evenlySpaced(supportCounts.bottom, baseW).forEach(z => {
+                this.box(number(supps.bottom.dim), bottomSize.w, bottomSize.t, this.materials.support, [0, bottomSize.w / 2, z]);
+                bottomPositions.push(z);
             });
         }
-    };
 
-    if (supps.sides.count > 0) {
-        drawSideRunners(1);
-        drawSideRunners(-1);
-    }
+        const floor = bottomSize.w + baseT;
+        this.box(baseL, baseT, baseW, this.materials.panel, [0, bottomSize.w + baseT / 2, 0]);
+        const sideY = (isBottom ? bottomSize.w : floor) + sideH / 2;
+        const sideOffset = isBottom ? baseW / 2 + sideT / 2 : baseW / 2 - sideT / 2;
+        const karaY = (isBottom ? bottomSize.w : floor) + karaH / 2;
+        const karaOffset = isBottom ? baseL / 2 + karaT / 2 : baseL / 2 - karaT / 2;
+        [1, -1].forEach(sign => this.box(sideL, sideH, sideT, this.materials.side, [0, sideY, sign * sideOffset]));
+        [1, -1].forEach(sign => this.box(karaT, karaH, karaL, this.materials.side, [sign * karaOffset, karaY, 0]));
 
-    // ============================================================
-    // KARA RUNNERS
-    // ============================================================
-    
-    if (isBottomType) {
-        const kVertLen = supps.karaVert.dim;
-        const kVertSize = getSizeDims(supps.karaVert.size);
-        const kVertW = kVertSize.w;
-        const kV_Y = baseY + (kVertLen / 2);
-
-        [1, -1].forEach(dirX => {
-            const xPos = dirX * (karaX_offset + kThk + 1.5);
-            if (runnerPositions.length > 0) {
-                runnerPositions.forEach(zPos => {
-                    group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, zPos, RUNNER_RENDER_ORDER));
-                });
+        // Odd totals are intentionally split ceil/floor across the two matching faces.
+        const [frontSideCount, backSideCount] = distributeAcrossPairs(supportCounts.sides);
+        [[1, frontSideCount], [-1, backSideCount]].forEach(([sign, faceCount]) => {
+            const z = sign * (sideOffset + sideT / 2 + sideSize.t / 2);
+            if (runnerConfig.sideDir === 'horizontal' || isBottom) {
+                evenlySpaced(faceCount, Math.max(0, sideH - sideSize.w)).forEach(offset =>
+                    this.box(number(supps.sides.dim), sideSize.w, sideSize.t, this.materials.support, [0, (isBottom ? bottomSize.w : floor) + sideSize.w / 2 + offset + (sideH - sideSize.w) / 2, z]));
             } else {
-                const kPostZ = (kL / 2) - 1.5;
-                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, kPostZ, RUNNER_RENDER_ORDER));
-                group.add(createBox(kVertW, kVertLen, kVertW, woodMatDark, xPos, kV_Y, -kPostZ, RUNNER_RENDER_ORDER));
+                evenlySpaced(faceCount, sideL).forEach(x =>
+                    this.box(sideSize.w, number(supps.sides.dim), sideSize.t, this.materials.support, [x, floor + number(supps.sides.dim) / 2, z]));
             }
         });
-    } else {
-        const kHorzLen = supps.karaHorz.dim;
-        const kVertLen = supps.karaVert.dim;
-        const suppW = getSizeDims(supps.karaHorz.size).w;
-        const frameThickness = 4;
 
-        const kY_Top = floorLevel + kH - (suppW / 2);
-        const kY_Bot = floorLevel + (suppW / 2);
-        const kY_Mid = floorLevel + (kH / 2);
-        const kZ_Left = (kL / 2) - (suppW / 2);
-        const kZ_Right = -((kL / 2) - (suppW / 2));
+        if (isBottom) {
+            const [leftCount, rightCount] = distributeAcrossPairs(supportCounts.karaVert);
+            [[1, leftCount], [-1, rightCount]].forEach(([sign, faceCount]) => {
+                const x = sign * (karaOffset + karaT / 2 + karaVerticalSize.t / 2);
+                evenlySpaced(faceCount, karaL).forEach(z =>
+                    this.box(karaVerticalSize.t, number(supps.karaVert.dim), karaVerticalSize.w, this.materials.support, [x, bottomSize.w + number(supps.karaVert.dim) / 2, z]));
+            });
+        } else {
+            const [leftHorizontal, rightHorizontal] = distributeAcrossPairs(supportCounts.karaHorz);
+            const [leftVertical, rightVertical] = distributeAcrossPairs(supportCounts.karaVert);
+            [[1, leftHorizontal, leftVertical], [-1, rightHorizontal, rightVertical]].forEach(([sign, horizontalCount, verticalCount]) => {
+                const x = sign * (karaOffset + karaT / 2 + karaHorizontalSize.t / 2);
+                evenlySpaced(horizontalCount, karaH).forEach(offset =>
+                    this.box(karaHorizontalSize.t, karaHorizontalSize.w, number(supps.karaHorz.dim), this.materials.support, [x, floor + karaHorizontalSize.w / 2 + offset + (karaH - karaHorizontalSize.w) / 2, 0]));
+                evenlySpaced(verticalCount, karaL).forEach(z =>
+                    this.box(karaVerticalSize.t, number(supps.karaVert.dim), karaVerticalSize.w, this.materials.support, [x, floor + number(supps.karaVert.dim) / 2, z]));
+            });
+        }
 
-        [1, -1].forEach(dirX => {
-            const xPos = dirX * (karaX_offset + kThk + 1.5);
-            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Top, 0, RUNNER_RENDER_ORDER));
-            group.add(createBox(frameThickness, suppW + 1, kHorzLen, woodMatDark, xPos, kY_Bot, 0, RUNNER_RENDER_ORDER));
-            if (kVertLen > 0) {
-                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Left, RUNNER_RENDER_ORDER));
-                group.add(createBox(frameThickness, kVertLen, suppW + 1, woodMatDark, xPos, kY_Mid, kZ_Right, RUNNER_RENDER_ORDER));
-            }
+        const topY = (isBottom ? bottomSize.w : floor) + sideH + topT / 2;
+        this.box(topL, topT, topW, this.materials.panel, [0, topY, 0]);
+        const topPositions = runnerConfig.bottomDir === 'width'
+            ? evenlySpaced(supportCounts.top, topL)
+            : evenlySpaced(supportCounts.top, topW);
+        topPositions.forEach(position => {
+            const y = topY + topT / 2 + topSize.w / 2;
+            if (runnerConfig.bottomDir === 'width') this.box(topSize.t, topSize.w, number(supps.top.dim), this.materials.support, [position, y, 0]);
+            else this.box(number(supps.top.dim), topSize.w, topSize.t, this.materials.support, [0, y, position]);
         });
+        this.fitCamera();
     }
 
-    // ============================================================
-    // TOP LID
-    // ============================================================
-    
-    const tL = mainRows.top.l;
-    const tW = mainRows.top.w;
-    const topY = (isBottomType ? baseY : floorLevel) + sH + THK / 2;
-    group.add(createBox(tL, THK, tW, woodMat, 0, topY, 0, DEFAULT_RENDER_ORDER));
+    fitCamera() {
+        const bounds = new THREE.Box3().setFromObject(this.group);
+        if (bounds.isEmpty()) return;
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+        const distance = Math.max(size.x, size.y, size.z) * 1.8 || 50;
+        this.defaultTarget.copy(center);
+        this.camera.position.set(center.x + distance, center.y + distance * 0.7, center.z + distance);
+        this.controls.target.copy(center);
+        this.controls.minDistance = Math.max(8, distance * 0.35);
+        this.controls.maxDistance = Math.max(100, distance * 4);
+        this.camera.near = Math.max(0.1, distance / 100);
+        this.camera.far = Math.max(1000, distance * 10);
+        this.camera.updateProjectionMatrix();
+        this.controls.update();
+        this.scheduleRender();
+    }
 
-    // ============================================================
-    // TOP LID RUNNERS
-    // ============================================================
-    
-    if (supps.top.count > 0) {
-        const trH = 3;
-        const trY = topY + (THK / 2) + trH / 2 + 0.5;
+    resetView() { this.fitCamera(); }
 
-        let topRunnerPositions = [];
-        if (runnerPositions.length > 0) {
-            topRunnerPositions = runnerPositions;
-        } else {
-            const count = supps.top.count;
-            if (isBottomType) {
-                const spreadW = tW;
-                const step = spreadW / (count + 1);
-                for (let i = 1; i <= count; i++) {
-                    topRunnerPositions.push(-spreadW / 2 + (i * step));
-                }
-            } else {
-                const spreadL = tL;
-                const step = spreadL / (count + 1);
-                for (let i = 1; i <= count; i++) {
-                    topRunnerPositions.push(-spreadL / 2 + (i * step));
-                }
-            }
-        }
-
-        if (isBottomType) {
-            const trW = 4;
-            const trLen = tL;
-            topRunnerPositions.forEach(zPos => {
-                group.add(createBox(trLen, trH, trW, woodMatDark, 0, trY, zPos, RUNNER_RENDER_ORDER));
-            });
-        } else {
-            const trLen = tW;
-            const topSize = getSizeDims(supps.top.size);
-            const trW = topSize.w + 0.5;
-            topRunnerPositions.forEach(xPos => {
-                group.add(createBox(trW, trH, trLen, woodMatDark, xPos, trY, 0, RUNNER_RENDER_ORDER));
-            });
-        }
+    dispose() {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.resizeObserver.disconnect();
+        this.clearGeometry();
+        this.controls.dispose();
+        Object.values(this.materials).forEach(material => material.dispose());
+        this.renderer.dispose();
     }
 }
 
-// ================================================================================
-// EXPORTS
-// Make ThreeScene available globally for other modules
-// ================================================================================
+let controller = null;
+const getController = () => {
+    if (!controller) controller = new SceneController();
+    return controller;
+};
+window.addEventListener('pagehide', () => { if (controller) controller.dispose(); });
 
-window.AppThreeScene = {
-    ThreeScene
+const ThreeScene = props => {
+    const containerRef = useRef(null);
+    const [unavailable, setUnavailable] = useState(false);
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => {
+            try {
+                const sceneController = getController();
+                // The vendored React runtime does not always populate object refs,
+                // so retain the explicit lookup for its full-root rerender path.
+                sceneController.attach(containerRef.current || document.getElementById('three-scene-container'));
+                sceneController.update(props);
+            } catch (error) {
+                console.warn('3D preview is unavailable', error);
+                setUnavailable(true);
+            }
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [props.dims, props.boxType, props.crateType, props.mainRows, props.supps, props.runnerConfig]);
+    if (unavailable) return React.createElement('p', { className: 'three-scene-unavailable', role: 'alert' }, '3D preview is unavailable on this device. Your calculation is still available below.');
+    return React.createElement('div', { id: 'three-scene-container', ref: containerRef, className: 'three-scene-container' });
 };
 
-} // End guard
+const resetThreeSceneView = () => { if (controller) controller.resetView(); };
+const getSceneDebugSnapshot = () => controller ? controller.debug : null;
+window.AppThreeScene = { ThreeScene, resetThreeSceneView, getSceneDebugSnapshot };
+}

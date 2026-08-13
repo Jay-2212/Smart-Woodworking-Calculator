@@ -85,7 +85,7 @@ const {
 } = window.AppCalculations;
 
 // From js/three-scene.js
-const { ThreeScene } = window.AppThreeScene;
+const { ThreeScene, resetThreeSceneView } = window.AppThreeScene;
 
 // From js/components.js
 const { 
@@ -815,11 +815,17 @@ function App() {
                 style: { height: '400px' }
             },
                 React.createElement('div', {
-                    className: "absolute top-0 left-0 bg-black text-white px-3 py-2 text-xs font-black uppercase rounded-br-lg z-10 flex items-center gap-2"
+                    className: "three-scene-instruction"
                 },
                     React.createElement(AppIcons.Rotate, { size: 14 }),
-                    " Tap & Drag to Rotate"
+                    "Drag to rotate. Use the mouse wheel or two fingers to zoom."
                 ),
+                React.createElement('button', {
+                    type: 'button',
+                    className: 'three-scene-reset',
+                    onClick: resetThreeSceneView,
+                    'aria-label': 'Reset 3D view'
+                }, 'Reset 3D view'),
                 React.createElement(ErrorBoundary, null,
                     React.createElement(ThreeScene, {
                         dims: dims,
@@ -831,8 +837,12 @@ function App() {
                     })
                 ),
                 React.createElement('div', {
-                    className: "absolute bottom-2 right-2 text-[10px] text-slate-400 font-bold bg-white/90 px-2 py-1 rounded border border-slate-200 pointer-events-none"
-                }, "*Visualisation based on Calculated Cuts")
+                    className: "three-scene-notices"
+                },
+                    React.createElement('p', null, 'Preview uses the calculated panel and support sizes.'),
+                    boxType === 'crate' && React.createElement('p', null, 'Crate preview shows the calculated structure only. It does not show crate slats or gaps.'),
+                    extras.length > 0 && React.createElement('p', null, 'Extra supports are included in the quote but are not placed in this 3D preview.')
+                )
             ),
 
             // ============================================================
