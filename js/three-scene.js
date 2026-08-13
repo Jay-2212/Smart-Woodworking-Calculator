@@ -20,6 +20,19 @@ const evenlySpaced = (total, span) => {
     if (total === 1) return [0];
     return Array.from({ length: total }, (_, index) => -span / 2 + (span * index) / (total - 1));
 };
+const interiorSpaced = (total, span) => {
+    if (total < 1) return [];
+    const step = span / (total + 1);
+    return Array.from({ length: total }, (_, index) => -span / 2 + step * (index + 1));
+};
+const getBounds = (dimensions, position) => ({
+    xMin: position.x - dimensions.x / 2,
+    xMax: position.x + dimensions.x / 2,
+    yMin: position.y - dimensions.y / 2,
+    yMax: position.y + dimensions.y / 2,
+    zMin: position.z - dimensions.z / 2,
+    zMax: position.z + dimensions.z / 2
+});
 
 class SceneController {
     constructor() {
@@ -104,15 +117,23 @@ class SceneController {
     }
 
     box(x, y, z, material, position) {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(number(x, 0.01), number(y, 0.01), number(z, 0.01)), material);
+        const dimensions = { x: number(x, 0.01), y: number(y, 0.01), z: number(z, 0.01) };
+        const normalizedPosition = { x: position[0], y: position[1], z: position[2] };
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(dimensions.x, dimensions.y, dimensions.z), material);
         mesh.position.set(...position);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.group.add(mesh);
+        return {
+            ...normalizedPosition,
+            dimensions,
+            bounds: getBounds(dimensions, normalizedPosition)
+        };
     }
 
     update(props) {
         this.clearGeometry();
+        // Coordinate convention: length = X, width = Z, height = Y.
         const { mainRows, supps, runnerConfig, boxType, crateType } = props;
         const top = mainRows.top;
         const bottom = mainRows.bottom;
@@ -140,7 +161,29 @@ class SceneController {
             bottom: count(supps.bottom.count), sides: count(supps.sides.count), top: count(supps.top.count),
             karaHorz: count(supps.karaHorz.count), karaVert: count(supps.karaVert.count)
         };
+        const floor = bottomSize.w + baseT;
+        const sideY = (isBottom ? bottomSize.w : floor) + sideH / 2;
+        const sideOffset = isBottom ? baseW / 2 + sideT / 2 : baseW / 2 - sideT / 2;
+        const karaY = (isBottom ? bottomSize.w : floor) + karaH / 2;
+        const karaOffset = isBottom ? baseL / 2 + karaT / 2 : baseL / 2 - karaT / 2;
+        const [frontSideCount, backSideCount] = distributeAcrossPairs(supportCounts.sides);
+        const sideSupportLength = Math.min(number(supps.sides.dim, sideH), sideH);
+        const sideFaces = [
+            {
+                name: 'positive-z',
+                count: frontSideCount,
+                panelInnerFaceZ: sideOffset - sideT / 2,
+                positions: []
+            },
+            {
+                name: 'negative-z',
+                count: backSideCount,
+                panelInnerFaceZ: -sideOffset + sideT / 2,
+                positions: []
+            }
+        ];
         this.debug = {
+            coordinateConvention: { length: 'x', width: 'z', height: 'y' },
             supportCounts,
             supportCrossSections: {
                 bottom: { width: bottomSize.w, thickness: bottomSize.t },
@@ -148,6 +191,23 @@ class SceneController {
                 top: { width: topSize.w, thickness: topSize.t },
                 karaHorz: { width: karaHorizontalSize.w, thickness: karaHorizontalSize.t },
                 karaVert: { width: karaVerticalSize.w, thickness: karaVerticalSize.t }
+            },
+            supportPlacements: {
+                sides: {
+                    axis: 'y',
+                    totalCount: supportCounts.sides,
+                    faceCounts: [frontSideCount, backSideCount],
+                    length: sideSupportLength,
+                    crossSection: { width: sideSize.w, thickness: sideSize.t },
+                    panel: {
+                        length: sideL,
+                        height: sideH,
+                        thickness: sideT,
+                        yMin: sideY - sideH / 2,
+                        yMax: sideY + sideH / 2
+                    },
+                    faces: sideFaces
+                }
             }
         };
 
@@ -165,26 +225,20 @@ class SceneController {
             });
         }
 
-        const floor = bottomSize.w + baseT;
         this.box(baseL, baseT, baseW, this.materials.panel, [0, bottomSize.w + baseT / 2, 0]);
-        const sideY = (isBottom ? bottomSize.w : floor) + sideH / 2;
-        const sideOffset = isBottom ? baseW / 2 + sideT / 2 : baseW / 2 - sideT / 2;
-        const karaY = (isBottom ? bottomSize.w : floor) + karaH / 2;
-        const karaOffset = isBottom ? baseL / 2 + karaT / 2 : baseL / 2 - karaT / 2;
         [1, -1].forEach(sign => this.box(sideL, sideH, sideT, this.materials.side, [0, sideY, sign * sideOffset]));
         [1, -1].forEach(sign => this.box(karaT, karaH, karaL, this.materials.side, [sign * karaOffset, karaY, 0]));
 
+        // Side supports are vertical on the inner face of each long side panel.
         // Odd totals are intentionally split ceil/floor across the two matching faces.
-        const [frontSideCount, backSideCount] = distributeAcrossPairs(supportCounts.sides);
-        [[1, frontSideCount], [-1, backSideCount]].forEach(([sign, faceCount]) => {
-            const z = sign * (sideOffset + sideT / 2 + sideSize.t / 2);
-            if (runnerConfig.sideDir === 'horizontal' || isBottom) {
-                evenlySpaced(faceCount, Math.max(0, sideH - sideSize.w)).forEach(offset =>
-                    this.box(number(supps.sides.dim), sideSize.w, sideSize.t, this.materials.support, [0, (isBottom ? bottomSize.w : floor) + sideSize.w / 2 + offset + (sideH - sideSize.w) / 2, z]));
-            } else {
-                evenlySpaced(faceCount, sideL).forEach(x =>
-                    this.box(sideSize.w, number(supps.sides.dim), sideSize.t, this.materials.support, [x, floor + number(supps.sides.dim) / 2, z]));
-            }
+        sideFaces.forEach(face => {
+            const z = face.name === 'positive-z'
+                ? face.panelInnerFaceZ - sideSize.t / 2
+                : face.panelInnerFaceZ + sideSize.t / 2;
+            interiorSpaced(face.count, sideL).forEach(x => {
+                const placement = this.box(sideSize.w, sideSupportLength, sideSize.t, this.materials.support, [x, sideY, z]);
+                face.positions.push(placement);
+            });
         });
 
         if (isBottom) {
@@ -239,6 +293,27 @@ class SceneController {
 
     resetView() { this.fitCamera(); }
 
+    getDebugSnapshot() {
+        const vector = value => ({
+            x: Number(value.x.toFixed(6)),
+            y: Number(value.y.toFixed(6)),
+            z: Number(value.z.toFixed(6))
+        });
+        return {
+            ...this.debug,
+            view: {
+                cameraPosition: vector(this.camera.position),
+                target: vector(this.controls.target),
+                distance: Number(this.camera.position.distanceTo(this.controls.target).toFixed(6)),
+                aspect: Number(this.camera.aspect.toFixed(6)),
+                viewport: {
+                    width: this.renderer.domElement.clientWidth,
+                    height: this.renderer.domElement.clientHeight
+                }
+            }
+        };
+    }
+
     dispose() {
         if (this.disposed) return;
         this.disposed = true;
@@ -262,37 +337,31 @@ const ThreeScene = props => {
     const [unavailable, setUnavailable] = useState(false);
 
     // The vendored renderer replaces the full app root for every state change.
-    // Reattach after every render, but leave geometry updates to the input effect.
+    // Reattach synchronously after every render so the persistent canvas is in the
+    // new container before the browser paints the replacement tree.
     useEffect(() => {
-        const frame = requestAnimationFrame(() => {
-            if (unavailable) return;
-            try {
-                getController().attach(containerRef.current || document.getElementById('three-scene-container'));
-            } catch (error) {
-                console.warn('3D preview is unavailable', error);
-                setUnavailable(true);
-            }
-        });
-        return () => cancelAnimationFrame(frame);
+        if (unavailable) return;
+        try {
+            getController().attach(containerRef.current || document.getElementById('three-scene-container'));
+        } catch (error) {
+            console.warn('3D preview is unavailable', error);
+            setUnavailable(true);
+        }
     });
 
     useEffect(() => {
-        const frame = requestAnimationFrame(() => {
-            try {
-                const sceneController = getController();
-                sceneController.update(props);
-            } catch (error) {
-                console.warn('3D preview is unavailable', error);
-                setUnavailable(true);
-            }
-        });
-        return () => cancelAnimationFrame(frame);
+        try {
+            getController().update(props);
+        } catch (error) {
+            console.warn('3D preview is unavailable', error);
+            setUnavailable(true);
+        }
     }, [props.dims, props.boxType, props.crateType, props.mainRows, props.supps, props.runnerConfig]);
     if (unavailable) return React.createElement('p', { className: 'three-scene-unavailable', role: 'alert' }, '3D preview is unavailable on this device. Your calculation is still available below.');
     return React.createElement('div', { id: 'three-scene-container', ref: containerRef, className: 'three-scene-container' });
 };
 
 const resetThreeSceneView = () => { if (controller) controller.resetView(); };
-const getSceneDebugSnapshot = () => controller ? controller.debug : null;
+const getSceneDebugSnapshot = () => controller ? controller.getDebugSnapshot() : null;
 window.AppThreeScene = { ThreeScene, resetThreeSceneView, getSceneDebugSnapshot };
 }

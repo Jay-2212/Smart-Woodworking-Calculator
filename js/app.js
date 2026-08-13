@@ -302,17 +302,9 @@ function App() {
 
             setSupps(prev => {
                 const bSize = getMaxD(prev.bottom.size);
-                let bRunLen;
-                if (runnerConfig.bottomDir === 'width') bRunLen = baseW;
-                else bRunLen = baseL;
-
-                let sRunLen;
-                if (runnerConfig.sideDir === 'horizontal') {
-                    sRunLen = baseL;
-                } else {
-                    const bottomAdd = (runnerConfig.bottomDir === 'width') ? bSize : 0;
-                    sRunLen = h + bottomAdd + 2;
-                }
+                const bRunLen = runnerConfig.bottomDir === 'width' ? baseW : baseL;
+                const bottomAdd = (runnerConfig.bottomDir === 'width') ? bSize : 0;
+                const sRunLen = h + bottomAdd + 2;
 
                 const kRunLen = w;
                 const kSuppWidth = getSizeD(prev.karaHorz.size).w;
@@ -336,7 +328,7 @@ function App() {
             const bRunLen = l + 2;
             const sidePanelL = l + 2;
             const sidePanelH = h + 1;
-            const sideRunLen = l + 4;
+            const sideRunLen = sidePanelH;
             const topL = l + 4;
             const topW = w + 4;
 
@@ -396,7 +388,7 @@ function App() {
      * Handler for runner configuration changes
      */
     const handleConfigChange = (key, val) => {
-        setRunnerConfig(prev => ({ ...prev, [key]: val }));
+        setRunnerConfig(prev => ({ ...prev, [key]: key === 'sideDir' ? 'vertical' : val }));
     };
 
     /**
@@ -759,26 +751,30 @@ function App() {
                 className: "bg-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black"
             },
                 React.createElement('div', {
-                    className: "flex justify-between items-center mb-4 border-b-2 border-slate-100 pb-2"
+                    className: "internal-size-heading flex justify-between items-center mb-4 border-b-2 border-slate-100 pb-2"
                 },
                     React.createElement('h2', {
                         className: "text-lg font-black text-black uppercase tracking-widest flex items-center gap-2"
                     },
                         React.createElement(AppIcons.Box, { className: "text-amber-600" }),
                         " Internal Size"
-                    )
+                    ),
+                    React.createElement('span', {
+                        className: "internal-size-unit",
+                        'aria-hidden': 'true'
+                    }, "Inches")
                 ),
-                React.createElement('div', { className: "grid grid-cols-3 gap-4" },
+                React.createElement('div', { className: "internal-size-fields" },
                     ['l', 'w', 'h'].map(k => {
                         const name = k === 'l' ? 'length' : k === 'w' ? 'width' : 'height';
                         const error = validation.main[k];
                         const inputId = `internal-${k}`;
                         return (
-                        React.createElement('div', { key: k, className: "flex flex-col" },
+                        React.createElement('div', { key: k, className: "internal-size-field" },
                             React.createElement('label', {
                                 for: inputId,
-                                className: "text-xs text-black font-black mb-2 uppercase tracking-wide bg-amber-100 w-full text-center py-1 rounded border border-amber-200"
-                            }, `Internal ${name}, inches`),
+                                className: "internal-size-field__label"
+                            }, name.charAt(0).toUpperCase() + name.slice(1)),
                             React.createElement('input', {
                                 id: inputId,
                                 'aria-label': `Internal ${name}, inches`,
@@ -787,7 +783,7 @@ function App() {
                                 type: "number",
                                 value: dims[k],
                                 onInput: (e) => setDims({ ...dims, [k]: e.target.value }),
-                                className: `bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all ${error ? 'input-invalid' : ''}`
+                                className: `internal-size-field__input bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all ${error ? 'input-invalid' : ''}`
                             }),
                             error && React.createElement('span', {
                                 id: `${inputId}-error`,
@@ -1038,7 +1034,7 @@ function App() {
                         configKey: "sideDir",
                         runnerConfig: runnerConfig,
                         onConfigChange: handleConfigChange,
-                        fixedDir: isBottomType ? 'Horizontal' : null,
+                        fixedDir: 'Vertical',
                         widthDim: runnerDimensions.sideVerticalDim,
                         lengthDim: runnerDimensions.sideHorizontalDim,
                         invalidCount: validation.supports.sides
