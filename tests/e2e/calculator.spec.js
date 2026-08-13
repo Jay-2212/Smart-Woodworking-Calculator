@@ -37,3 +37,94 @@ test('a non-first support size stays visibly selected after a rerender', async (
   await page.getByLabel('Internal width, inches').fill('24');
   await expect(select).toHaveValue('3x2');
 });
+
+test('blank required dimension marks the quote incomplete and the helper focuses it', async ({ page }) => {
+  await page.goto('/');
+  const length = page.getByLabel('Internal length, inches');
+
+  await length.fill('');
+
+  await expect(page.getByTestId('quote-incomplete')).toBeVisible();
+  await expect(length).toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('button', { name: 'Show first missing value' }).click();
+  await expect(length).toBeFocused();
+});
+
+test('changing a main dimension overwrites prior manual panel and runner values', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Top & Bottom length, inches').fill('99');
+  await page.getByLabel('Bottom Supports quantity').fill('9');
+
+  await page.getByLabel('Internal length, inches').fill('48');
+
+  await expect(page.getByLabel('Top & Bottom length, inches')).not.toHaveValue('99');
+  await expect(page.getByLabel('Bottom Supports quantity')).not.toHaveValue('9');
+});
+
+test('blank visible panel dimensions and blank rate keep the quote incomplete', async ({ page }) => {
+  await page.goto('/');
+  const topLength = page.getByLabel('Top & Bottom length, inches');
+  const rate = page.getByLabel('Rate, rupees per CFT');
+
+  await topLength.fill('');
+
+  await expect(topLength).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByTestId('quote-incomplete')).toBeVisible();
+
+  await topLength.fill('44');
+  await rate.fill('');
+
+  await expect(rate).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByTestId('quote-incomplete')).toBeVisible();
+
+  await rate.fill('0');
+
+  await expect(page.getByTestId('quote-incomplete')).toBeHidden();
+  await expect(page.getByTestId('grand-total-cost')).toContainText('0');
+});
+
+test('blank extra-support dimensions are visibly incomplete while zero quantity is allowed', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add extra support' }).click();
+
+  const extraLength = page.getByLabel('Extra support 1 length, inches');
+  await extraLength.fill('');
+
+  await expect(extraLength).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByTestId('quote-incomplete')).toBeVisible();
+
+  await extraLength.fill('12');
+  await page.getByLabel('Extra support 1 quantity').fill('0');
+
+  await expect(page.getByTestId('quote-incomplete')).toBeHidden();
+});
+
+test('phone layouts at 320px and 390px have no horizontal overflow and retain usable panel controls', async ({ page }) => {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/');
+
+    const topLength = page.getByLabel('Top & Bottom length, inches');
+    const topQuantity = page.getByLabel('Top & Bottom quantity');
+    await expect(topLength).toBeVisible();
+    await expect(topQuantity).toBeVisible();
+    await expect(topLength).toBeEditable();
+    await expect(topQuantity).toBeEditable();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    await page.getByLabel('Internal length, inches').fill('');
+    await expect(page.getByTestId('quote-incomplete')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
+test('phone users can zoom and controls expose their current state', async ({ page }) => {
+  await page.goto('/');
+
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute('content');
+  expect(viewport).not.toContain('user-scalable=no');
+  expect(viewport).not.toContain('maximum-scale');
+  await expect(page.getByTestId('quote-result-summary')).toHaveAttribute('aria-live', 'polite');
+  await expect(page.getByRole('button', { name: 'Simple' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Decrease quantity for Bottom Supports' })).toBeVisible();
+});

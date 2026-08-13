@@ -93,18 +93,35 @@ const CUBIC_INCH_TO_CFT_DIVISOR = window.AppConstants.CUBIC_INCH_TO_CFT_DIVISOR;
  * - SupportCard (Quantity input)
  * - Extra supports section (all inputs)
  */
-const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
-    React.createElement('input', {
+const NumberInput = ({
+    id,
+    value,
+    onChange,
+    className = "",
+    step = 0.125,
+    inputLabel,
+    invalid = false,
+    min
+}) => {
+    const inputProps = {
         type: "number",
-        value: value,
-        onChange: (e) => {
+        id,
+        value,
+        onInput: (e) => {
             const val = e.target.value;
             onChange(val === '' ? '' : parseFloat(val));
         },
-        step: step,
-        className: `w-full bg-white border-2 border-slate-900 rounded-lg px-2 py-3 text-center font-mono font-black text-xl text-black focus:ring-4 focus:ring-amber-400 focus:border-amber-700 outline-none transition-all shadow-sm ${className}`
-    })
-);
+        step,
+        'aria-invalid': invalid ? 'true' : 'false',
+        className: `w-full bg-white border-2 border-slate-900 rounded-lg px-2 py-3 text-center font-mono font-black text-xl text-black focus:ring-4 focus:ring-amber-400 focus:border-amber-700 outline-none transition-all shadow-sm ${invalid ? 'input-invalid' : ''} ${className}`
+    };
+
+    if (inputLabel) inputProps['aria-label'] = inputLabel;
+    if (invalid && id) inputProps['aria-describedby'] = `${id}-error`;
+    if (min !== undefined) inputProps.min = min;
+
+    return React.createElement('input', inputProps);
+};
 
 // ================================================================================
 // CALCULATION ROW COMPONENT
@@ -138,10 +155,11 @@ const NumberInput = ({ value, onChange, className = "", step = 0.125 }) => (
  * - js/calculations.js → getEffectiveCrateDims() for crate gap adjustments
  * - js/calculations.js → calculateLineCFT() for CFT calculation
  */
-const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType }) => {
+const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType, invalidFields = {} }) => {
     let effL = data.l || 0;
     let effW = data.w || 0;
     let note = null;
+    const rowId = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     // Apply crate gap adjustments if applicable
     if (isCrate) {
@@ -160,12 +178,19 @@ const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType
 
     // Calculate CFT using effective dimensions
     const cft = calculateLineCFT(effL, effW, data.t || 0, data.qty || 0);
+    const rowIncomplete = Object.values(invalidFields).some(Boolean);
+    const fields = [
+        { key: 'l', label: 'Length, inches', inputLabel: `${label} length, inches`, step: 0.125 },
+        { key: 'w', label: 'Width, inches', inputLabel: `${label} width, inches`, step: 0.125 },
+        { key: 't', label: 'Thickness, inches', inputLabel: `${label} thickness, inches`, step: 0.25 },
+        { key: 'qty', label: 'Quantity', inputLabel: `${label} quantity`, step: 1, min: 0 }
+    ];
 
     return React.createElement('div', {
-        className: `grid grid-cols-12 gap-2 items-center border-b-2 border-slate-300 py-4 last:border-0 ${isCrate && note ? 'bg-amber-100/50' : ''}`
+        className: `calculation-row border-b-2 border-slate-300 py-4 last:border-0 ${isCrate && note ? 'bg-amber-100/50' : ''}`
     },
         // Part Label (with GAP indicator for crates)
-        React.createElement('div', { className: "col-span-3" },
+        React.createElement('div', { className: "calculation-row__part" },
             React.createElement('div', { 
                 className: "text-sm font-black text-black uppercase tracking-tight leading-tight" 
             }, label),
@@ -173,55 +198,48 @@ const CalculationRow = ({ label, data, onChange, isCrate, crateSettings, boxType
                 className: "text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-amber-200 inline-block px-1 rounded mt-1"
             }, "GAP ACTIVE")
         ),
-        
-        // Length Input (with effective wood indicator)
-        React.createElement('div', { className: "col-span-2 relative" },
-            React.createElement(NumberInput, {
-                value: data.l,
-                onChange: (v) => onChange('l', v),
-                className: "text-lg py-2"
-            }),
-            isCrate && note && note.includes("Length") && React.createElement('div', {
-                className: "absolute -bottom-4 left-0 w-full text-[9px] text-center font-bold text-amber-800 bg-amber-100 rounded px-1"
-            }, `Wood: ${effL}`)
-        ),
-        
-        // Width Input (with effective wood indicator)
-        React.createElement('div', { className: "col-span-2 relative" },
-            React.createElement(NumberInput, {
-                value: data.w,
-                onChange: (v) => onChange('w', v),
-                className: "text-lg py-2"
-            }),
-            isCrate && note && (note.includes("Height") || note.includes("Width")) && React.createElement('div', {
-                className: "absolute -bottom-4 left-0 w-full text-[9px] text-center font-bold text-amber-800 bg-amber-100 rounded px-1"
-            }, `Wood: ${effW}`)
-        ),
-        
-        // Thickness Input
-        React.createElement('div', { className: "col-span-2" },
-            React.createElement(NumberInput, {
-                value: data.t,
-                onChange: (v) => onChange('t', v),
-                step: 0.25,
-                className: "text-lg py-2"
-            })
-        ),
-        
-        // Quantity Input
-        React.createElement('div', { className: "col-span-1" },
-            React.createElement(NumberInput, {
-                value: data.qty,
-                onChange: (v) => onChange('qty', v),
-                className: "px-0 text-lg py-2",
-                step: 1
-            })
-        ),
+        fields.map(field => {
+            const inputId = `panel-${rowId}-${field.key}`;
+            const error = invalidFields[field.key];
+            const effectiveWood = field.key === 'l' && isCrate && note && note.includes("Length")
+                ? `Wood: ${effL}`
+                : field.key === 'w' && isCrate && note && (note.includes("Height") || note.includes("Width"))
+                    ? `Wood: ${effW}`
+                    : null;
+
+            return React.createElement('div', {
+                key: field.key,
+                className: "calculation-row__field"
+            },
+                React.createElement('label', {
+                    for: inputId,
+                    className: "calculation-row__field-label text-xs text-black font-black uppercase mb-1 block"
+                }, field.label),
+                React.createElement(NumberInput, {
+                    id: inputId,
+                    value: data[field.key],
+                    onChange: (v) => onChange(field.key, v),
+                    step: field.step,
+                    min: field.min,
+                    inputLabel: field.inputLabel,
+                    invalid: Boolean(error),
+                    className: "text-lg py-2"
+                }),
+                error && React.createElement('span', {
+                    id: `${inputId}-error`,
+                    className: "field-error"
+                }, error),
+                effectiveWood && React.createElement('div', {
+                    className: "calculation-row__wood-note"
+                }, effectiveWood)
+            );
+        }),
         
         // CFT Result
         React.createElement('div', { 
-            className: "col-span-2 text-right font-mono font-black text-amber-800 text-lg" 
-        }, cft.toFixed(2))
+            className: "calculation-row__result text-right font-mono font-black text-amber-800 text-lg",
+            'aria-label': `${label} CFT`
+        }, rowIncomplete ? '—' : cft.toFixed(2))
     );
 };
 
@@ -273,13 +291,20 @@ const SupportCard = ({
     onConfigChange, 
     fixedDir,
     widthDim,
-    lengthDim
+    lengthDim,
+    invalidCount = ''
 }) => {
     // Get dimensions from size code and calculate CFT
     const sDims = getSizeDims(settings.size);
     const feet = getPurchasedFeet(settings.dim);
     const cft = ((feet * sDims.w * sDims.t) / CUBIC_INCH_TO_CFT_DIVISOR) * settings.count;
-    const sizeSelectId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-size`;
+    const cardId = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const sizeSelectId = `${cardId}-size`;
+    const quantityInputId = `${cardId}-quantity`;
+    const firstDirection = configKey === 'bottomDir' ? 'width' : 'vertical';
+    const secondDirection = configKey === 'bottomDir' ? 'length' : 'horizontal';
+    const firstDirectionLabel = configKey === 'bottomDir' ? 'Width-wise' : 'Vertical';
+    const safeCount = Number.isFinite(Number(settings.count)) ? Number(settings.count) : 0;
 
     return React.createElement('div', {
         className: `rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-slate-900 overflow-hidden ${colorClass}`
@@ -294,7 +319,7 @@ const SupportCard = ({
             React.createElement('span', { 
                 className: "font-mono font-black text-xl text-amber-800" 
             }, 
-                cft.toFixed(2),
+                invalidCount ? '—' : cft.toFixed(2),
                 React.createElement('span', { className: "text-xs text-black" }, " CFT")
             )
         ),
@@ -320,8 +345,8 @@ const SupportCard = ({
                     )
                 ),
                 // Length display (read-only)
-                React.createElement('div', null,
-                    React.createElement('label', { 
+                React.createElement('div', { role: 'group', 'aria-label': `${label} length` },
+                    React.createElement('span', {
                         className: "text-xs text-black font-black mb-1 uppercase block tracking-wider" 
                     }, "Length"),
                     React.createElement('div', {
@@ -337,16 +362,19 @@ const SupportCard = ({
             },
                 // First option button (Width-wise or Vertical)
                 React.createElement('button', {
-                    onClick: () => onConfigChange(configKey, configKey === 'bottomDir' ? 'width' : 'vertical'),
+                    type: 'button',
+                    onClick: () => onConfigChange(configKey, firstDirection),
+                    'aria-pressed': runnerConfig[configKey] === firstDirection ? 'true' : 'false',
+                    'aria-label': `${label} direction: ${firstDirectionLabel}`,
                     className: `flex-1 py-2 px-3 text-sm font-black rounded-lg transition-all border-2 ${
-                        runnerConfig[configKey] === (configKey === 'bottomDir' ? 'width' : 'vertical') 
+                        runnerConfig[configKey] === firstDirection
                             ? 'bg-amber-500 border-amber-700 text-white shadow-md' 
-                            : 'bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200 hover:border-slate-400'
+                            : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200 hover:border-slate-400'
                     }`
                 },
                     React.createElement('div', { className: "flex flex-col items-center" },
                         React.createElement('span', { className: "text-[10px] uppercase tracking-wide opacity-80" }, 
-                            configKey === 'bottomDir' ? 'Width-wise' : 'Vertical'
+                            firstDirectionLabel
                         ),
                         React.createElement('span', { className: "text-lg font-black" }, 
                             widthDim ? `${widthDim}"` : (configKey === 'bottomDir' ? 'Width' : 'Vert')
@@ -355,11 +383,14 @@ const SupportCard = ({
                 ),
                 // Second option button (Horizontal)
                 React.createElement('button', {
-                    onClick: () => onConfigChange(configKey, configKey === 'bottomDir' ? 'length' : 'horizontal'),
+                    type: 'button',
+                    onClick: () => onConfigChange(configKey, secondDirection),
+                    'aria-pressed': runnerConfig[configKey] === secondDirection ? 'true' : 'false',
+                    'aria-label': `${label} direction: Horizontal`,
                     className: `flex-1 py-2 px-3 text-sm font-black rounded-lg transition-all border-2 ${
-                        runnerConfig[configKey] === (configKey === 'bottomDir' ? 'length' : 'horizontal') 
+                        runnerConfig[configKey] === secondDirection
                             ? 'bg-amber-500 border-amber-700 text-white shadow-md' 
-                            : 'bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200 hover:border-slate-400'
+                            : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200 hover:border-slate-400'
                     }`
                 },
                     React.createElement('div', { className: "flex flex-col items-center" },
@@ -375,39 +406,52 @@ const SupportCard = ({
             
             // Fixed direction indicator
             fixedDir && React.createElement('div', {
-                className: "text-[10px] text-center font-black uppercase text-slate-500 bg-slate-100 py-1 rounded border border-slate-200"
+                className: "text-[10px] text-center font-black uppercase text-slate-600 bg-slate-100 py-1 rounded border border-slate-200"
             }, `Fixed: ${fixedDir}`),
 
             // Quantity controls and Purchase display
-            React.createElement('div', { className: "flex items-center gap-4" },
+            React.createElement('div', { className: "support-card__quantity-row" },
                 // Quantity control section
-                React.createElement('div', { className: "flex-grow" },
+                React.createElement('div', { className: "support-card__quantity" },
                     React.createElement('label', { 
+                        for: quantityInputId,
                         className: "text-xs text-black font-black mb-1 uppercase block tracking-wider" 
                     }, "Quantity"),
-                    React.createElement('div', { className: "flex items-center gap-2" },
+                    React.createElement('div', { className: "support-card__quantity-controls" },
                         // Minus button
                         React.createElement('button', {
-                            onClick: () => onUpdate('count', Math.max(0, settings.count - 1)),
+                            type: 'button',
+                            onClick: () => onUpdate('count', Math.max(0, safeCount - 1)),
+                            'aria-label': `Decrease quantity for ${label}`,
                             className: "bg-slate-200 w-12 h-12 flex items-center justify-center rounded-lg border-2 border-slate-900 font-bold hover:bg-slate-300 active:bg-slate-400 text-xl"
                         }, "-"),
                         // Number input
                         React.createElement(NumberInput, {
+                            id: quantityInputId,
                             value: settings.count,
                             onChange: (v) => onUpdate('count', v),
                             step: 1,
+                            min: 0,
+                            inputLabel: `${label} quantity`,
+                            invalid: Boolean(invalidCount),
                             className: "py-2 text-2xl font-black bg-white"
                         }),
                         // Plus button
                         React.createElement('button', {
-                            onClick: () => onUpdate('count', settings.count + 1),
+                            type: 'button',
+                            onClick: () => onUpdate('count', safeCount + 1),
+                            'aria-label': `Increase quantity for ${label}`,
                             className: "bg-slate-200 w-12 h-12 flex items-center justify-center rounded-lg border-2 border-slate-900 font-bold hover:bg-slate-300 active:bg-slate-400 text-xl"
                         }, "+")
-                    )
+                    ),
+                    invalidCount && React.createElement('span', {
+                        id: `${quantityInputId}-error`,
+                        className: "field-error"
+                    }, invalidCount)
                 ),
                 // Purchase display (feet to buy)
-                React.createElement('div', { className: "w-24" },
-                    React.createElement('label', { 
+                React.createElement('div', { className: "support-card__purchase", role: 'group', 'aria-label': `${label} purchase length` },
+                    React.createElement('span', {
                         className: "text-xs text-black font-black mb-1 uppercase block text-right tracking-wider" 
                     }, "Purchase"),
                     React.createElement('div', {
@@ -461,63 +505,73 @@ const BoxTypeSelector = ({ type, setType, subType, setSubType, crateSettings, se
     return React.createElement('div', {
         className: "bg-white p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] border-2 border-black mb-6"
     },
-        // Section label
-        React.createElement('label', {
-            className: "text-sm text-black font-black uppercase tracking-wide block mb-3 border-b-2 border-slate-100 pb-2"
-        }, "Select Box Type"),
-        
-        // Box type buttons
-        React.createElement('div', { className: "grid grid-cols-3 gap-3" },
-            ['simple', 'bottom', 'crate'].map(t => 
-                React.createElement('button', {
-                    key: t,
-                    onClick: () => setType(t),
-                    className: `py-4 px-2 rounded-xl text-base font-black uppercase tracking-wider transition-all border-2 ${
-                        type === t
-                            ? 'bg-amber-600 border-black text-white shadow-inner transform scale-105'
-                            : 'bg-white border-slate-300 text-slate-900 hover:border-black hover:bg-slate-100'
-                    }`
-                }, t)
+        React.createElement('fieldset', { className: "box-type-selector__fieldset" },
+            React.createElement('legend', {
+                className: "text-sm text-black font-black uppercase tracking-wide block mb-3 border-b-2 border-slate-100 pb-2"
+            }, "Select Box Type"),
+
+            // Box type buttons
+            React.createElement('div', { className: "grid grid-cols-3 gap-3" },
+                ['simple', 'bottom', 'crate'].map(t =>
+                    React.createElement('button', {
+                        key: t,
+                        type: 'button',
+                        onClick: () => setType(t),
+                        'aria-pressed': type === t ? 'true' : 'false',
+                        className: `py-4 px-2 rounded-xl text-base font-black uppercase tracking-wider transition-all border-2 ${
+                            type === t
+                                ? 'bg-amber-600 border-black text-white shadow-inner transform scale-105'
+                                : 'bg-white border-slate-300 text-slate-900 hover:border-black hover:bg-slate-100'
+                        }`
+                    }, t)
+                )
             )
         ),
 
         // Crate-specific configuration (shown only when crate is selected)
-        type === 'crate' && React.createElement('div', {
-            className: "mt-4 pt-4 border-t-2 border-slate-200 animate-fade-in bg-amber-50 -mx-4 px-4 pb-4 rounded-b-lg"
+        type === 'crate' && React.createElement('fieldset', {
+            className: "box-type-selector__fieldset mt-4 pt-4 border-t-2 border-slate-200 animate-fade-in bg-amber-50 -mx-4 px-4 pb-4 rounded-b-lg"
         },
-            React.createElement('label', {
+            React.createElement('legend', {
                 className: "text-xs text-amber-900 font-black uppercase mb-2 block"
             }, "Crate Configuration"),
             
             // Crate sub-type buttons
             React.createElement('div', { className: "grid grid-cols-2 gap-3 mb-4" },
                 React.createElement('button', {
+                    type: 'button',
                     onClick: () => setSubType('simple'),
+                    'aria-pressed': subType === 'simple' ? 'true' : 'false',
                     className: `py-3 text-sm font-black uppercase rounded-lg border-2 shadow-sm ${
                         subType === 'simple' ? 'bg-blue-600 border-black text-white' : 'bg-white border-slate-400 text-slate-800'
                     }`
                 }, "Simple Crate"),
                 React.createElement('button', {
+                    type: 'button',
                     onClick: () => setSubType('bottom'),
+                    'aria-pressed': subType === 'bottom' ? 'true' : 'false',
                     className: `py-3 text-sm font-black uppercase rounded-lg border-2 shadow-sm ${
                         subType === 'bottom' ? 'bg-blue-600 border-black text-white' : 'bg-white border-slate-400 text-slate-800'
                     }`
                 }, "Bottom Crate")
             ),
 
-            // Plank and Gap settings
+            // Plank and Gap settings deliberately retain their existing crate behavior.
             React.createElement('div', {
                 className: "grid grid-cols-2 gap-4 bg-white p-4 rounded-xl border-2 border-amber-200 shadow-sm"
             },
                 // Plank Width input
                 React.createElement('div', null,
                     React.createElement('label', {
+                        for: 'crate-plank-width',
                         className: "text-[11px] text-amber-900 font-black uppercase block mb-1"
                     }, "Plank Width (Inch)"),
                     React.createElement('div', {
                         className: "flex items-center bg-white border-2 border-amber-300 rounded-lg overflow-hidden"
                     },
                         React.createElement('input', {
+                            id: 'crate-plank-width',
+                            'aria-label': 'Crate plank width, inches',
                             type: "number",
                             value: crateSettings.plank,
                             onChange: (e) => setCrateSettings({ 
@@ -531,12 +585,15 @@ const BoxTypeSelector = ({ type, setType, subType, setSubType, crateSettings, se
                 // Gap Size input
                 React.createElement('div', null,
                     React.createElement('label', {
+                        for: 'crate-gap-size',
                         className: "text-[11px] text-amber-900 font-black uppercase block mb-1"
                     }, "Gap Size (Inch)"),
                     React.createElement('div', {
                         className: "flex items-center bg-white border-2 border-amber-300 rounded-lg overflow-hidden"
                     },
                         React.createElement('input', {
+                            id: 'crate-gap-size',
+                            'aria-label': 'Crate gap size, inches',
                             type: "number",
                             value: crateSettings.gap,
                             onChange: (e) => setCrateSettings({ 

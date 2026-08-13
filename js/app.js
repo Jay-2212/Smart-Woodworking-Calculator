@@ -124,6 +124,33 @@ const getRecommendedRunnerCount = (len) => {
 };
 
 // ================================================================================
+// INPUT VALIDATION HELPERS
+// Keep raw input values in state so an empty field remains visibly incomplete
+// instead of being silently treated as a zero-value quotation.
+// ================================================================================
+
+const isFiniteInput = (value) => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string' && value.trim() === '') return false;
+    return Number.isFinite(Number(value));
+};
+
+const positiveInputError = (value) => {
+    if (!isFiniteInput(value)) return 'Enter a number greater than 0.';
+    return Number(value) > 0 ? '' : 'Enter a value greater than 0.';
+};
+
+const quantityInputError = (value) => {
+    if (!isFiniteInput(value)) return 'Enter a quantity. 0 is allowed.';
+    return Number(value) >= 0 ? '' : 'Quantity cannot be negative.';
+};
+
+const rateInputError = (value) => {
+    if (!isFiniteInput(value)) return 'Enter a rate, or type 0 for no charge.';
+    return Number(value) >= 0 ? '' : 'Rate cannot be negative.';
+};
+
+// ================================================================================
 // MAIN APPLICATION COMPONENT
 // ================================================================================
 
@@ -373,6 +400,15 @@ function App() {
     };
 
     /**
+     * Moves only when the user asks for help, never while they are typing.
+     */
+    const focusFirstInvalid = () => {
+        const first = document.querySelector('[aria-invalid="true"]');
+        first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        first?.focus({ preventScroll: true });
+    };
+
+    /**
      * Handlers for extra supports
      */
     const addExtra = () => setExtras(p => [...p, { 
@@ -446,6 +482,86 @@ function App() {
 
     // Helper flag for bottom type logic
     const isBottomType = (boxType === 'bottom' || (boxType === 'crate' && crateType === 'bottom'));
+
+    // ============================================================================
+    // COMPUTED: Quote readiness
+    // Crate plank/gap settings are intentionally excluded: their protected rules
+    // retain their existing behavior in this hardening pass.
+    // ============================================================================
+    const validation = useMemo(() => {
+        const errors = [];
+        const main = {};
+        const panels = {};
+        const supports = {};
+        const extraSupports = {};
+
+        const addError = (label, message) => {
+            if (message) errors.push({ label, message });
+            return message;
+        };
+
+        const mainLabels = { l: 'Internal length', w: 'Internal width', h: 'Internal height' };
+        Object.keys(mainLabels).forEach(key => {
+            main[key] = addError(mainLabels[key], positiveInputError(dims[key]));
+        });
+
+        const panelLabels = {
+            top: 'Top & Bottom',
+            bottom: 'Bottom',
+            sides: 'Sides',
+            kara: 'Kara (Ends)'
+        };
+        const visiblePanelKeys = isBottomType ? ['bottom', 'top', 'sides', 'kara'] : ['top', 'sides', 'kara'];
+        visiblePanelKeys.forEach(key => {
+            const row = mainRows[key];
+            panels[key] = {
+                l: addError(`${panelLabels[key]} length`, positiveInputError(row.l)),
+                w: addError(`${panelLabels[key]} width`, positiveInputError(row.w)),
+                t: addError(`${panelLabels[key]} thickness`, positiveInputError(row.t)),
+                qty: addError(`${panelLabels[key]} quantity`, quantityInputError(row.qty))
+            };
+        });
+
+        const supportLabels = {
+            bottom: 'Bottom Supports',
+            sides: 'Side Supports',
+            top: 'Top Lid Supports',
+            karaHorz: 'Kara Horizontal',
+            karaVert: isBottomType ? 'Kara Vertical (Ends)' : 'Kara Vertical (Gap)'
+        };
+        const visibleSupportKeys = isBottomType
+            ? ['bottom', 'sides', 'top', 'karaVert']
+            : ['bottom', 'sides', 'top', 'karaHorz', 'karaVert'];
+        visibleSupportKeys.forEach(key => {
+            supports[key] = addError(`${supportLabels[key]} quantity`, quantityInputError(supps[key].count));
+        });
+
+        extras.forEach((extra, index) => {
+            const label = `Extra support ${index + 1}`;
+            extraSupports[extra.id] = {
+                l: addError(`${label} length`, positiveInputError(extra.l)),
+                w: addError(`${label} width`, positiveInputError(extra.w)),
+                t: addError(`${label} thickness`, positiveInputError(extra.t)),
+                qty: addError(`${label} quantity`, quantityInputError(extra.qty))
+            };
+        });
+
+        const rate = addError('Rate', rateInputError(costPerCFT));
+
+        return {
+            main,
+            panels,
+            supports,
+            extraSupports,
+            rate,
+            errors,
+            isComplete: errors.length === 0
+        };
+    }, [dims, mainRows, supps, extras, costPerCFT, isBottomType]);
+
+    const quoteSummary = validation.isComplete
+        ? `Quote ready: ${grandTotalCFT.toFixed(2)} CFT, ₹${Math.round(grandTotalCost).toLocaleString()}.`
+        : 'Quote incomplete. Fill the highlighted values before using this total.';
 
     // ================================================================
     // COMPUTED: Dimension values for direction toggle buttons
@@ -556,34 +672,69 @@ function App() {
             },
                 React.createElement('div', {
                     className: "text-sm font-black text-amber-500 uppercase tracking-[0.2em] mb-2"
-                }, "Total Project Cost"),
+                }, validation.isComplete ? "Total Project Cost" : "Quote needs attention"),
                 React.createElement('div', {
-                    className: "text-6xl font-black text-white leading-none mb-6",
+                    className: `text-6xl font-black text-white leading-none mb-6 ${validation.isComplete ? '' : 'quote-total--incomplete'}`,
                     'data-testid': "grand-total-cost"
                 },
-                    React.createElement('span', {
-                        className: "text-3xl text-amber-600 align-top mr-1"
-                    }, "₹"),
-                    Math.round(grandTotalCost).toLocaleString()
+                    validation.isComplete
+                        ? React.createElement(React.Fragment, null,
+                            React.createElement('span', {
+                                className: "text-3xl text-amber-600 align-top mr-1"
+                            }, "₹"),
+                            Math.round(grandTotalCost).toLocaleString()
+                        )
+                        : "Complete values"
                 ),
+
+                !validation.isComplete && React.createElement('div', {
+                    className: "quote-incomplete",
+                    'data-testid': 'quote-incomplete'
+                },
+                    React.createElement('strong', null, "Quote incomplete."),
+                    React.createElement('span', null, `${validation.errors.length} highlighted value${validation.errors.length === 1 ? '' : 's'} need attention.`),
+                    React.createElement('button', {
+                        type: 'button',
+                        onClick: focusFirstInvalid,
+                        className: "quote-incomplete__button"
+                    }, "Show first missing value")
+                ),
+
+                React.createElement('p', {
+                    className: "quote-result-summary",
+                    'data-testid': 'quote-result-summary',
+                    'aria-live': 'polite'
+                }, quoteSummary),
 
                 // Rate and CFT inputs
                 React.createElement('div', {
-                    className: "flex items-center justify-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700"
+                    className: "quote-rate-summary bg-slate-900 p-4 rounded-xl border border-slate-700"
                 },
                     React.createElement('div', { className: "flex flex-col items-center" },
                         React.createElement('label', {
+                            for: 'rate-per-cft',
                             className: "text-xs font-bold text-slate-400 uppercase mb-1"
                         }, "Rate (₹/CFT)"),
-                        React.createElement('input', {
-                            type: "number",
+                        React.createElement(NumberInput, {
+                            id: 'rate-per-cft',
                             value: costPerCFT,
-                            onChange: (e) => setCostPerCFT(parseFloat(e.target.value) || 0),
-                            className: "bg-white text-slate-900 font-black text-3xl w-32 p-2 rounded-lg text-center outline-none border-4 border-amber-500 focus:ring-4 focus:ring-amber-500/50"
-                        })
+                            onChange: setCostPerCFT,
+                            step: 1,
+                            min: 0,
+                            inputLabel: 'Rate, rupees per CFT',
+                            invalid: Boolean(validation.rate),
+                            className: "bg-white text-slate-900 font-black text-3xl w-32 p-2 rounded-lg text-center border-4 border-amber-500 focus:ring-4 focus:ring-amber-500/50"
+                        }),
+                        validation.rate && React.createElement('span', {
+                            id: 'rate-per-cft-error',
+                            className: "field-error field-error--dark"
+                        }, validation.rate),
+                        !validation.rate && Number(costPerCFT) === 0 && React.createElement('span', {
+                            className: "quote-zero-rate"
+                        }, "₹0 rate selected")
                     ),
                     React.createElement('div', {
-                        className: "h-12 w-0.5 bg-slate-600 mx-2"
+                        className: "quote-rate-summary__divider h-12 w-0.5 bg-slate-600 mx-2"
                     }),
                     React.createElement('div', { className: "flex flex-col items-center" },
                         React.createElement('span', {
@@ -592,7 +743,7 @@ function App() {
                         React.createElement('span', {
                             className: "text-3xl font-black text-amber-400",
                             'data-testid': "grand-total-cft"
-                        }, grandTotalCFT.toFixed(2))
+                        }, validation.isComplete ? grandTotalCFT.toFixed(2) : '—')
                     )
                 )
             ),
@@ -614,22 +765,33 @@ function App() {
                     )
                 ),
                 React.createElement('div', { className: "grid grid-cols-3 gap-4" },
-                    ['l', 'w', 'h'].map(k => 
+                    ['l', 'w', 'h'].map(k => {
+                        const name = k === 'l' ? 'length' : k === 'w' ? 'width' : 'height';
+                        const error = validation.main[k];
+                        const inputId = `internal-${k}`;
+                        return (
                         React.createElement('div', { key: k, className: "flex flex-col" },
                             React.createElement('label', {
-                                for: `internal-${k}`,
+                                for: inputId,
                                 className: "text-xs text-black font-black mb-2 uppercase tracking-wide bg-amber-100 w-full text-center py-1 rounded border border-amber-200"
-                            }, k === 'l' ? 'Length' : k === 'w' ? 'Width' : 'Height'),
+                            }, `Internal ${name}, inches`),
                             React.createElement('input', {
-                                id: `internal-${k}`,
-                                'aria-label': `Internal ${k === 'l' ? 'length' : k === 'w' ? 'width' : 'height'}, inches`,
+                                id: inputId,
+                                'aria-label': `Internal ${name}, inches`,
+                                'aria-invalid': error ? 'true' : 'false',
+                                ...(error ? { 'aria-describedby': `${inputId}-error` } : {}),
                                 type: "number",
                                 value: dims[k],
-                                onChange: (e) => setDims({ ...dims, [k]: e.target.value }),
-                                className: "bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all"
-                            })
+                                onInput: (e) => setDims({ ...dims, [k]: e.target.value }),
+                                className: `bg-white border-4 border-slate-900 rounded-xl p-2 text-4xl font-black text-black text-center focus:ring-4 focus:ring-amber-200 focus:border-amber-600 outline-none transition-all ${error ? 'input-invalid' : ''}`
+                            }),
+                            error && React.createElement('span', {
+                                id: `${inputId}-error`,
+                                className: "field-error"
+                            }, error)
                         )
-                    )
+                    );
+                    })
                 )
             ),
 
@@ -697,7 +859,7 @@ function App() {
 
                 // Column headers
                 React.createElement('div', {
-                    className: "bg-slate-100 border-b-2 border-slate-300 p-2 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-600 uppercase text-center tracking-widest"
+                    className: "calculation-column-headings bg-slate-100 border-b-2 border-slate-300 p-2 grid grid-cols-12 gap-2 text-[10px] font-black text-slate-600 uppercase text-center tracking-widest"
                 },
                     React.createElement('div', { className: "col-span-3 text-left pl-1" }, "Part"),
                     React.createElement('div', { className: "col-span-2" }, "Len"),
@@ -716,7 +878,8 @@ function App() {
                             onChange: (f, v) => { updateMainRow('top', f, v); updateMainRow('bottom', f, v); },
                             isCrate: boxType === 'crate',
                             crateSettings: crateSettings,
-                            boxType: "crateSimple"
+                            boxType: "crateSimple",
+                            invalidFields: validation.panels.top
                         }),
                         React.createElement(CalculationRow, {
                             label: "Sides",
@@ -724,7 +887,8 @@ function App() {
                             onChange: (f, v) => updateMainRow('sides', f, v),
                             isCrate: boxType === 'crate',
                             crateSettings: crateSettings,
-                            boxType: "crateSimple"
+                            boxType: "crateSimple",
+                            invalidFields: validation.panels.sides
                         }),
                         React.createElement(CalculationRow, {
                             label: "Kara (Ends)",
@@ -732,7 +896,8 @@ function App() {
                             onChange: (f, v) => updateMainRow('kara', f, v),
                             isCrate: boxType === 'crate',
                             crateSettings: crateSettings,
-                            boxType: "crateSimple"
+                            boxType: "crateSimple",
+                            invalidFields: validation.panels.kara
                         })
                     ),
 
@@ -743,7 +908,8 @@ function App() {
                             onChange: (f, v) => updateMainRow('bottom', f, v),
                             isCrate: false,
                             crateSettings: crateSettings,
-                            boxType: "crateBottom"
+                            boxType: "crateBottom",
+                            invalidFields: validation.panels.bottom
                         }),
                         React.createElement(CalculationRow, {
                             label: "Top Lid",
@@ -751,7 +917,8 @@ function App() {
                             onChange: (f, v) => updateMainRow('top', f, v),
                             isCrate: boxType === 'crate',
                             crateSettings: crateSettings,
-                            boxType: "crateBottom"
+                            boxType: "crateBottom",
+                            invalidFields: validation.panels.top
                         }),
                         React.createElement(CalculationRow, {
                             label: "Sides",
@@ -759,7 +926,8 @@ function App() {
                             onChange: (f, v) => updateMainRow('sides', f, v),
                             isCrate: boxType === 'crate',
                             crateSettings: crateSettings,
-                            boxType: "crateBottom"
+                            boxType: "crateBottom",
+                            invalidFields: validation.panels.sides
                         }),
                         React.createElement(CalculationRow, {
                             label: "Kara (Ends)",
@@ -767,7 +935,8 @@ function App() {
                             onChange: (f, v) => updateMainRow('kara', f, v),
                             isCrate: boxType === 'crate',
                             crateSettings: crateSettings,
-                            boxType: "crateBottom"
+                            boxType: "crateBottom",
+                            invalidFields: validation.panels.kara
                         })
                     )
                 )
@@ -781,7 +950,7 @@ function App() {
             },
                 // Section header with global runner control
                 React.createElement('div', {
-                    className: "flex items-center justify-between bg-black text-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)]"
+                    className: "runners-section-header flex items-center justify-between bg-black text-white p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)]"
                 },
                     React.createElement('div', null,
                         React.createElement('h3', {
@@ -805,15 +974,19 @@ function App() {
                             className: "flex items-center bg-white rounded-lg p-1"
                         },
                             React.createElement('button', {
+                                type: 'button',
                                 onClick: () => handleGlobalRunnerChange(globalRunners - 1),
-                                className: "w-10 h-10 flex items-center justify-center bg-slate-200 rounded hover:bg-slate-300 text-black font-black text-xl"
+                                'aria-label': 'Decrease global runner override',
+                                className: "w-12 h-12 flex items-center justify-center bg-slate-200 rounded hover:bg-slate-300 text-black font-black text-xl"
                             }, "-"),
                             React.createElement('span', {
                                 className: "w-12 text-center text-2xl font-black text-black"
                             }, globalRunners),
                             React.createElement('button', {
+                                type: 'button',
                                 onClick: () => handleGlobalRunnerChange(globalRunners + 1),
-                                className: "w-10 h-10 flex items-center justify-center bg-amber-500 rounded text-black font-black text-xl hover:bg-amber-600"
+                                'aria-label': 'Increase global runner override',
+                                className: "w-12 h-12 flex items-center justify-center bg-amber-500 rounded text-black font-black text-xl hover:bg-amber-600"
                             }, "+")
                         )
                     )
@@ -835,7 +1008,8 @@ function App() {
                         onConfigChange: handleConfigChange,
                         fixedDir: isBottomType ? 'Horizontal' : null,
                         widthDim: runnerDimensions.bottomWidthDim,
-                        lengthDim: runnerDimensions.bottomLengthDim
+                        lengthDim: runnerDimensions.bottomLengthDim,
+                        invalidCount: validation.supports.bottom
                     }),
 
                     React.createElement(SupportCard, {
@@ -849,7 +1023,8 @@ function App() {
                         onConfigChange: handleConfigChange,
                         fixedDir: isBottomType ? 'Horizontal' : null,
                         widthDim: runnerDimensions.sideVerticalDim,
-                        lengthDim: runnerDimensions.sideHorizontalDim
+                        lengthDim: runnerDimensions.sideHorizontalDim,
+                        invalidCount: validation.supports.sides
                     }),
 
                     React.createElement(SupportCard, {
@@ -857,7 +1032,8 @@ function App() {
                         sizeOptions: ['3x1', '4x1', '3x1.5'],
                         dimValue: supps.top.dim,
                         settings: supps.top,
-                        onUpdate: (f, v) => updateSupp('top', f, v)
+                        onUpdate: (f, v) => updateSupp('top', f, v),
+                        invalidCount: validation.supports.top
                     }),
 
                     !isBottomType && React.createElement(React.Fragment, null,
@@ -866,14 +1042,16 @@ function App() {
                             sizeOptions: ['3x1', '4x1'],
                             dimValue: supps.karaHorz.dim,
                             settings: supps.karaHorz,
-                            onUpdate: (f, v) => updateSupp('karaHorz', f, v)
+                            onUpdate: (f, v) => updateSupp('karaHorz', f, v),
+                            invalidCount: validation.supports.karaHorz
                         }),
                         React.createElement(SupportCard, {
                             label: "Kara Vertical (Gap)",
                             sizeOptions: ['3x1', '4x1'],
                             dimValue: supps.karaVert.dim,
                             settings: supps.karaVert,
-                            onUpdate: (f, v) => updateSupp('karaVert', f, v)
+                            onUpdate: (f, v) => updateSupp('karaVert', f, v),
+                            invalidCount: validation.supports.karaVert
                         })
                     ),
                     
@@ -883,13 +1061,20 @@ function App() {
                         dimValue: supps.karaVert.dim,
                         settings: supps.karaVert,
                         onUpdate: (f, v) => updateSupp('karaVert', f, v),
-                        fixedDir: "Vertical"
+                        fixedDir: "Vertical",
+                        invalidCount: validation.supports.karaVert
                     })
                 ),
 
                 // Extra Supports
-                extras.map((ex) =>
-                    React.createElement('div', {
+                extras.map((ex, index) => {
+                    const number = index + 1;
+                    const label = `Extra support ${number}`;
+                    const inputPrefix = `extra-support-${number}`;
+                    const errors = validation.extraSupports[ex.id] || {};
+                    const incomplete = Object.values(errors).some(Boolean);
+
+                    return React.createElement('div', {
                         key: ex.id,
                         className: "rounded-xl shadow-md border-2 border-blue-600 bg-white overflow-hidden mb-3"
                     },
@@ -898,24 +1083,30 @@ function App() {
                         },
                             React.createElement('span', {
                                 className: "text-sm font-black text-blue-800 uppercase tracking-wide"
-                            }, "Extra Support"),
+                            }, `Extra Support ${number}`),
                             React.createElement('div', { className: "flex items-center gap-3" },
                                 React.createElement('span', {
-                                    className: "font-mono font-black text-xl text-amber-800"
-                                }, calcLineCFT(ex.l, ex.w, ex.t, ex.qty).toFixed(2)),
+                                    className: "font-mono font-black text-xl text-amber-800",
+                                    'aria-label': `${label} CFT`
+                                }, incomplete ? '—' : calcLineCFT(ex.l, ex.w, ex.t, ex.qty).toFixed(2)),
                                 React.createElement('button', {
+                                    type: 'button',
                                     onClick: () => removeExtra(ex.id),
+                                    'aria-label': `Remove ${label}`,
                                     className: "text-white bg-red-600 p-2 rounded-lg border-2 border-red-800 hover:bg-red-700 shadow-sm"
                                 }, React.createElement(AppIcons.Trash, { size: 20 }))
                             )
                         ),
                         React.createElement('div', { className: "p-4 space-y-3" },
-                            React.createElement('div', { className: "grid grid-cols-5 gap-2" },
-                                React.createElement('div', { className: "col-span-3" },
+                            React.createElement('div', { className: "extra-support-fields" },
+                                React.createElement('div', { className: "extra-support-fields__size" },
                                     React.createElement('label', {
+                                        for: `${inputPrefix}-size`,
                                         className: "text-xs text-black font-black uppercase mb-1 block"
                                     }, "Size"),
                                     React.createElement('select', {
+                                        id: `${inputPrefix}-size`,
+                                        'aria-label': `${label} size`,
                                         className: "w-full border-2 border-slate-900 rounded-lg p-2 font-black text-black",
                                         value: ex.size,
                                         onChange: (e) => {
@@ -930,55 +1121,90 @@ function App() {
                                         React.createElement('option', { value: "4x1" }, "4 x 1")
                                     )
                                 ),
-                                React.createElement('div', { className: "col-span-1" },
+                                React.createElement('div', null,
                                     React.createElement('label', {
+                                        for: `${inputPrefix}-width`,
                                         className: "text-xs text-black font-black uppercase mb-1 block"
-                                    }, "W"),
+                                    }, "Width, inches"),
                                     React.createElement(NumberInput, {
+                                        id: `${inputPrefix}-width`,
                                         value: ex.w,
-                                        onChange: (v) => updateExtra(ex.id, 'w', v)
-                                    })
+                                        onChange: (v) => updateExtra(ex.id, 'w', v),
+                                        inputLabel: `${label} width, inches`,
+                                        invalid: Boolean(errors.w)
+                                    }),
+                                    errors.w && React.createElement('span', {
+                                        id: `${inputPrefix}-width-error`,
+                                        className: "field-error"
+                                    }, errors.w)
                                 ),
-                                React.createElement('div', { className: "col-span-1" },
+                                React.createElement('div', null,
                                     React.createElement('label', {
+                                        for: `${inputPrefix}-thickness`,
                                         className: "text-xs text-black font-black uppercase mb-1 block"
-                                    }, "T"),
+                                    }, "Thickness, inches"),
                                     React.createElement(NumberInput, {
+                                        id: `${inputPrefix}-thickness`,
                                         value: ex.t,
                                         onChange: (v) => updateExtra(ex.id, 't', v),
-                                        step: 0.25
-                                    })
+                                        step: 0.25,
+                                        inputLabel: `${label} thickness, inches`,
+                                        invalid: Boolean(errors.t)
+                                    }),
+                                    errors.t && React.createElement('span', {
+                                        id: `${inputPrefix}-thickness-error`,
+                                        className: "field-error"
+                                    }, errors.t)
                                 )
                             ),
                             React.createElement('div', { className: "grid grid-cols-2 gap-3" },
                                 React.createElement('div', null,
                                     React.createElement('label', {
+                                        for: `${inputPrefix}-length`,
                                         className: "text-xs text-black font-black uppercase mb-1 block"
-                                    }, "Length"),
+                                    }, "Length, inches"),
                                     React.createElement(NumberInput, {
+                                        id: `${inputPrefix}-length`,
                                         value: ex.l,
-                                        onChange: (v) => updateExtra(ex.id, 'l', v)
-                                    })
+                                        onChange: (v) => updateExtra(ex.id, 'l', v),
+                                        inputLabel: `${label} length, inches`,
+                                        invalid: Boolean(errors.l)
+                                    }),
+                                    errors.l && React.createElement('span', {
+                                        id: `${inputPrefix}-length-error`,
+                                        className: "field-error"
+                                    }, errors.l)
                                 ),
                                 React.createElement('div', null,
                                     React.createElement('label', {
+                                        for: `${inputPrefix}-quantity`,
                                         className: "text-xs text-black font-black uppercase mb-1 block"
-                                    }, "Qty"),
+                                    }, "Quantity"),
                                     React.createElement(NumberInput, {
+                                        id: `${inputPrefix}-quantity`,
                                         value: ex.qty,
                                         onChange: (v) => updateExtra(ex.id, 'qty', v),
                                         step: 1,
+                                        min: 0,
+                                        inputLabel: `${label} quantity`,
+                                        invalid: Boolean(errors.qty),
                                         className: "bg-blue-50"
-                                    })
+                                    }),
+                                    errors.qty && React.createElement('span', {
+                                        id: `${inputPrefix}-quantity-error`,
+                                        className: "field-error"
+                                    }, errors.qty)
                                 )
                             )
                         )
-                    )
-                ),
+                    );
+                }),
 
                 // Add Extra Support Button
                 React.createElement('button', {
+                    type: 'button',
                     onClick: addExtra,
+                    'aria-label': 'Add extra support',
                     className: "w-full py-5 bg-white border-4 border-dashed border-blue-300 text-blue-600 rounded-xl font-black hover:bg-blue-50 mt-4 flex justify-center items-center gap-2 shadow-sm uppercase tracking-wide text-lg transition-colors"
                 },
                     React.createElement(AppIcons.Plus, { size: 28 }),
